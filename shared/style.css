@@ -85,7 +85,6 @@ header p {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 10px;
 }
 
 .field-row label {
@@ -95,6 +94,35 @@ header p {
   min-width: 100px;
   flex-shrink: 0;
 }
+
+/* ── Control cards ── */
+
+.control-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+  position: relative;
+}
+
+.control-card:has(input:not(:disabled)):hover,
+.control-card:has(select:not(:disabled)):hover,
+.control-card:has(button:not(:disabled)):hover { border-color: var(--border-focus); }
+
+.btn-card {
+  display: inline-flex;
+  padding: 6px 8px;
+  width: auto;
+}
+
+.btn-card .btn-add { border: none; }
+
+/* grid items supply their own spacing from the grid gap — no extra margin */
+.toggle-grid .control-card { margin-bottom: 0; }
 
 /* ── Form controls ── */
 
@@ -522,7 +550,7 @@ input[type=number]::-webkit-outer-spin-button {
 .tier-badge.netherite { color: var(--netherite); border-color: rgba(153,128,176,.35); background: rgba(153,128,176,.07); }
 .tier-badge.free      { color: var(--muted);     border-color: var(--border);         background: none;                  }
 
-/* ── Tier gating (see shared/tiers.js · lockSection() in util.js) ── */
+/* ── Tier gating (see shared/tiers.js · lockSection/lockControl in util.js) ── */
 
 .section-locked {
   opacity: 0.35;
@@ -530,29 +558,37 @@ input[type=number]::-webkit-outer-spin-button {
   user-select: none;
 }
 
-/* Tier-outline lock: every locked control (.btn-add, .toggle-item, .field-row) is
-   wrapped in .btn-lock-wrap that carries the tier border + title tooltip. The span
-   is not disabled so hover fires in Chrome where disabled elements suppress it.
-   lock-outline-* supplies the tier border colour (alpha matches .tier-badge). */
-.btn-lock-wrap {
-  display: inline-flex;
-  border-radius: 3px;
-  border: 1px solid;
-  cursor: not-allowed;
-}
-
-.btn-lock-wrap .btn-add,
-.btn-lock-wrap input,
-.btn-lock-wrap select,
-.btn-lock-wrap textarea,
-.btn-lock-wrap button    { pointer-events: none; }
-
+/* lock-outline-* applied to .control-card shows the tier border. data-lock-tip
+   on the card drives a pure-CSS custom tooltip — no native title attributes. */
 .lock-outline-copper    { border-color: rgba(200,121,65,.5);  color: rgba(200,121,65,.6);  }
 .lock-outline-iron      { border-color: rgba(168,176,184,.5); color: rgba(168,176,184,.6); }
 .lock-outline-gold      { border-color: rgba(212,169,60,.5);  color: rgba(212,169,60,.6);  }
 .lock-outline-diamond   { border-color: rgba(78,204,212,.5);  color: rgba(78,204,212,.6);  }
 .lock-outline-netherite { border-color: rgba(153,128,176,.5); color: rgba(153,128,176,.6); }
 .lock-outline-free      { border-color: rgba(68,68,68,.5);    color: rgba(68,68,68,.6);    }
+
+.control-card[data-lock-tip]::after {
+  content: attr(data-lock-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .1s;
+  z-index: 10;
+}
+
+.control-card[data-lock-tip]:hover::after { opacity: 1; }
 
 /* ── Empty state ── */
 

@@ -67,23 +67,23 @@ function lockSection(el, minTier) {
 }
 
 // ── Control-level tier gate ──────────────────────────────────────────────────────
-// Gates a SINGLE control or wrapper (.field-row, .toggle-item, .btn-add) inside an
-// otherwise-usable block. Disables all controls inside `el`, then wraps `el` in a
-// .btn-lock-wrap span carrying the tier outline border + title tooltip. The span is
-// not disabled so hover events fire and the native title shows in Chrome.
-//   el      — the control or its wrapper
+// Gates a SINGLE control or wrapper inside an otherwise-usable block. Disables all
+// controls, then marks the nearest .control-card ancestor with the tier outline and
+// a data-lock-tip attribute that drives the CSS tooltip. Falls back to section-locked
+// for elements without a .control-card wrapper (e.g. summon.html).
+//   el      — the control or its wrapper (.field-row.control-card, .toggle-item.control-card, .btn-add)
 //   minTier — tier string, e.g. 'gold'
 function lockControl(el, minTier) {
   if (!el) return;
   if (el.matches('input, select, button, textarea')) el.disabled = true;
   el.querySelectorAll('input, select, button, textarea').forEach(i => { i.disabled = true; });
-  if (!el.parentElement.classList.contains('btn-lock-wrap')) {
-    const wrap = document.createElement('span');
-    wrap.className = `btn-lock-wrap lock-outline-${minTier}`;
-    el.parentElement.insertBefore(wrap, el);
-    wrap.appendChild(el);
+  const card = el.classList.contains('control-card') ? el : el.closest('.control-card');
+  if (card) {
+    card.classList.add(`lock-outline-${minTier}`);
+    card.dataset.lockTip = `requires ${minTier}`;
+  } else {
+    el.classList.add('section-locked');
   }
-  el.parentElement.title = `requires ${minTier}`;
 }
 
 // ── Shared save-preset control (used by every generator) ────────────────────────
