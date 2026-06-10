@@ -11,25 +11,30 @@ framework. Open from disk or serve locally; everything is vanilla HTML/CSS/JS.
 ```
 mcgen/
 ├── CLAUDE.md
-├── TIERS.md                  # tier spec — STATUS: NOT IMPLEMENTED (see docs/tiers.md)
+├── TIERS.md                  # tier design spec/reference — engine is BUILT (see docs/tiers.md)
+├── PRESETS_PLAN.md           # build plan for tier-capped presets — DONE (see docs/STATUS.md)
 ├── serve.py                  # local static server (port 3000)
-├── index.html               # hub — generator grid
-├── auth.html                # sign in / sign up
-├── profile.html             # account · tier · presets · history
+├── _cdp_eval.ps1             # headless-Edge CDP driver (verification helper)
+├── _preset_verify.html       # preset/history tier-cap test harness
+├── index.html                # hub — generator grid
+├── auth.html                 # sign in / sign up
+├── profile.html              # account · tier · presets · history · subscription
 ├── shared/
 │   ├── style.css            # design tokens + all shared components (source of truth)
-│   ├── data.js              # MC 1.21.1 registries (ENCHANTS, ATTRIBUTES, EFFECTS, …)
-│   ├── util.js              # escaping, char-count, clipboard helpers
-│   └── auth.js              # localStorage accounts, sessions, tier, presets/history
+│   ├── data.js              # MC 1.21.1 registries (ENCHANTS, ATTRIBUTES, EFFECTS, ENTITIES, …)
+│   ├── util.js              # escaping, char-count, clipboard, tier-lock + preset-saver helpers
+│   ├── auth.js              # localStorage accounts, sessions, tier, presets/history
+│   └── tiers.js             # subscription-tier engine (TIER_FEATURES, tierFeatures, minTierFor)
 ├── generators/
-│   └── give/
-│       └── give.html        # /give — the only generator built so far
+│   ├── give/give.html       # /give — items with data components
+│   └── summon/summon.html   # /summon — entities with legacy NBT
 └── docs/
     ├── mc-1.21.1.md         # command / NBT / component reference for every generator
     ├── components.md        # HTML + CSS UI patterns
     ├── js-architecture.md   # the generator JS contract + shared layer
-    ├── tiers.md             # tier system: spec vs. reality
-    └── auth.md              # auth / profile subsystem
+    ├── tiers.md             # tier engine (built) vs. TIERS.md spec
+    ├── auth.md              # auth / profile subsystem
+    └── STATUS.md            # project status audit (2026-06-10)
 ```
 
 Generators live at `generators/<name>/<name>.html` (two levels deep). New generators
@@ -56,9 +61,10 @@ also work directly from `file://`, but auth/`localStorage` behave best over
 - **`shared/style.css` is the single source of truth for styling.** Never hardcode
   token values or duplicate component CSS into a page or into docs — reference the
   classes and `var(--token)`s. Page-specific tweaks go in a small `<style>` block.
-- **Use the shared layer.** Build on `shared/util.js` helpers and `shared/data.js`
-  registries; do not reimplement them per page. `give.html` predates this and inlines
-  local copies — **don't copy those** (details in `docs/js-architecture.md`).
+- **Use the shared layer.** Build on `shared/util.js` helpers, `shared/data.js`
+  registries, and `shared/tiers.js`; do not reimplement them per page. Both built
+  generators (`give.html`, `summon.html`) already do this — use either as a reference
+  (details in `docs/js-architecture.md`).
 - **1.21.1 Java Edition, data-component format** (post-1.20.5). Never emit old NBT
   item syntax like `{Enchantments:[...]}`. Verify every component/NBT key against
   [minecraft.wiki](https://minecraft.wiki); flag anything unconfirmed with
@@ -153,6 +159,6 @@ Read these on demand — they hold the detail that used to bloat this file:
 - **`docs/components.md`** — the HTML/CSS UI patterns (blocks, field rows, add/remove
   list rows, selects, output block, tabs).
 - **`docs/js-architecture.md`** — the generator JS contract and the canonical
-  `util.js` / `data.js` layer (and what not to copy from `give.html`).
+  `util.js` / `data.js` / `tiers.js` layer both generators build on.
 - **`docs/tiers.md`** — how tiers actually work (cosmetic) vs. the `TIERS.md` spec.
 - **`docs/auth.md`** — the `auth.js` / `auth.html` / `profile.html` account subsystem.

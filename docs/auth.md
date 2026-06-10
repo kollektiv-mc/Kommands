@@ -31,9 +31,9 @@ a head `<script>` so nav renders in the correct state before content paints.
 - Tier: `getUserTier()` / `setUserTier()` — see [tiers.md](tiers.md).
 - Presets: `savePreset(name, command, generator)` · `deletePreset(id)` · `getPresets()`.
 - Collections: `createCollection(name)` · `deleteCollection(id)` · `getCollections()`.
-- History: `addToHistory(command, generator)` · `getHistory()`
-  (capped at `HISTORY_LIMIT = 50`, newest first). Generators call `addToHistory` from
-  `copyCmd()`.
+- History: `addToHistory(command, generator)` · `getHistory()` — newest first, capped
+  per tier (`tierFeatures().commandHistory`); the unlimited tier is bounded by
+  `HISTORY_LIMIT = 200`. Generators call `addToHistory` from `copyCmd()`.
 
 ---
 
