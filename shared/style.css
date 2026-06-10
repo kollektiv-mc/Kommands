@@ -541,6 +541,18 @@ input[type=number]::-webkit-outer-spin-button {
   opacity: 0.8;
 }
 
+/* Locked .btn-add: a tier-coloured outline + native `title` tooltip stands in for
+   the "requires X" lock-tag (applied by lockSection/lockControl and enforceRowCap).
+   Tier alpha follows the .tier-badge convention (literal rgba, no new tokens).
+   opacity:1 / pointer-events:auto keep the button visible and hoverable even when a
+   parent carries .section-locked (opacity .35 / pointer-events:none). */
+.btn-add.btn-locked-copper    { border-color: rgba(200,121,65,.5);  color: rgba(200,121,65,.6);  opacity: 1; pointer-events: auto; cursor: not-allowed; }
+.btn-add.btn-locked-iron      { border-color: rgba(168,176,184,.5); color: rgba(168,176,184,.6); opacity: 1; pointer-events: auto; cursor: not-allowed; }
+.btn-add.btn-locked-gold      { border-color: rgba(212,169,60,.5);  color: rgba(212,169,60,.6);  opacity: 1; pointer-events: auto; cursor: not-allowed; }
+.btn-add.btn-locked-diamond   { border-color: rgba(78,204,212,.5);  color: rgba(78,204,212,.6);  opacity: 1; pointer-events: auto; cursor: not-allowed; }
+.btn-add.btn-locked-netherite { border-color: rgba(153,128,176,.5); color: rgba(153,128,176,.6); opacity: 1; pointer-events: auto; cursor: not-allowed; }
+.btn-add.btn-locked-free      { border-color: rgba(68,68,68,.5);    color: rgba(68,68,68,.6);    opacity: 1; pointer-events: auto; cursor: not-allowed; }
+
 /* ── Empty state ── */
 
 .empty-state {

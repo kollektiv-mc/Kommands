@@ -77,7 +77,7 @@
     <label style="padding-top:6px">lore</label>
     <div style="flex:1">
       <div id="lore-rows"></div>
-      <button class="btn-add" onclick="addLore()">+ add line</button>
+      <button class="btn-add" id="btn-add-lore" onclick="addLore()">+ add line</button>
     </div>
   </div>
 
@@ -101,7 +101,7 @@
     <span></span>
   </div>
   <div id="ench-rows"></div>
-  <button class="btn-add" onclick="addEnch()">+ add enchantment</button>
+  <button class="btn-add" id="btn-add-ench" onclick="addEnch()">+ add enchantment</button>
 </div>
 
 <!-- Attribute Modifiers -->
@@ -115,7 +115,7 @@
     <span></span>
   </div>
   <div id="attr-rows"></div>
-  <button class="btn-add" onclick="addAttr()">+ add modifier</button>
+  <button class="btn-add" id="btn-add-attr" onclick="addAttr()">+ add modifier</button>
 </div>
 
 <!-- Durability -->
@@ -259,7 +259,28 @@ function onEnchChange(e) {
   buildCmd();
 }
 
+// ── Row-cap enforcement on an add button ──
+// Disables + tier-outlines the button once a tier's row cap is hit, restores it
+// below. Mirrors the outline util.js paints on gated buttons; cap/label come from
+// tierFeatures()/minTierFor() — no hardcoded tier strings.
+function enforceRowCap(containerId, rowClass, cap, minTier, btnId) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  const count = document.querySelectorAll(`#${containerId} .${rowClass}`).length;
+  const atCap = cap !== Infinity && count >= cap;
+  btn.disabled = atCap;
+  [...btn.classList].forEach(c => { if (c.startsWith('btn-locked-')) btn.classList.remove(c); });
+  if (atCap && minTier) {
+    btn.classList.add(`btn-locked-${minTier}`);
+    btn.title = `requires ${minTier} — ${cap} max`;
+  } else {
+    btn.removeAttribute('title');
+  }
+}
+
 function addLore() {
+  const g = tierFeatures().give;
+  if (document.querySelectorAll('#lore-rows .lore-row').length >= g.loreLines) return;
   const id = 'lr' + loreId++;
   const d = sel('lore-rows');
   const row = document.createElement('div');
@@ -272,14 +293,20 @@ function addLore() {
   const btn = document.createElement('button');
   btn.className = 'btn-icon';
   btn.textContent = '×';
-  btn.addEventListener('click', () => { row.remove(); buildCmd(); });
+  btn.addEventListener('click', () => {
+    row.remove(); buildCmd();
+    enforceRowCap('lore-rows', 'lore-row', g.loreLines, minTierFor('give', 'loreLines'), 'btn-add-lore');
+  });
   row.appendChild(inp);
   row.appendChild(btn);
   d.appendChild(row);
   buildCmd();
+  enforceRowCap('lore-rows', 'lore-row', g.loreLines, minTierFor('give', 'loreLines'), 'btn-add-lore');
 }
 
 function addEnch() {
+  const g = tierFeatures().give;
+  if (document.querySelectorAll('#ench-rows .ench-row').length >= g.enchantSlots) return;
   const id = 'en' + enchId++;
   const d = sel('ench-rows');
   const row = document.createElement('div');
@@ -293,16 +320,22 @@ function addEnch() {
   const btn = document.createElement('button');
   btn.className = 'btn-icon';
   btn.textContent = '×';
-  btn.addEventListener('click', () => { row.remove(); buildCmd(); });
+  btn.addEventListener('click', () => {
+    row.remove(); buildCmd();
+    enforceRowCap('ench-rows', 'ench-row', g.enchantSlots, minTierFor('give', 'enchantSlots'), 'btn-add-ench');
+  });
 
   row.appendChild(enchSel);
   row.appendChild(levelSel);
   row.appendChild(btn);
   d.appendChild(row);
   buildCmd();
+  enforceRowCap('ench-rows', 'ench-row', g.enchantSlots, minTierFor('give', 'enchantSlots'), 'btn-add-ench');
 }
 
 function addAttr() {
+  const g = tierFeatures().give;
+  if (document.querySelectorAll('#attr-rows .attr-row').length >= g.attributeModifiers) return;
   const id = 'at' + attrId++;
   const d = sel('attr-rows');
   const row = document.createElement('div');
@@ -343,7 +376,10 @@ function addAttr() {
   const btn = document.createElement('button');
   btn.className = 'btn-icon';
   btn.textContent = '×';
-  btn.addEventListener('click', () => { row.remove(); buildCmd(); });
+  btn.addEventListener('click', () => {
+    row.remove(); buildCmd();
+    enforceRowCap('attr-rows', 'attr-row', g.attributeModifiers, minTierFor('give', 'attributeModifiers'), 'btn-add-attr');
+  });
 
   row.appendChild(attrSel);
   row.appendChild(slotSel);
@@ -352,6 +388,7 @@ function addAttr() {
   row.appendChild(btn);
   d.appendChild(row);
   buildCmd();
+  enforceRowCap('attr-rows', 'attr-row', g.attributeModifiers, minTierFor('give', 'attributeModifiers'), 'btn-add-attr');
 }
 
 // ── Tier gating: lock controls/sections the active tier can't use ──
@@ -380,10 +417,23 @@ function applyTierGates() {
   }
 
   // stand-alone blocks
-  if (g.enchantMaxLevel === 0)     lockSection(sel('ench-rows').closest('.block'), minTierForEnchant());
-  if (!(g.attributeModifiers > 0)) lockSection(sel('attr-rows').closest('.block'), minTierFor('give', 'attributeModifiers'));
+  // ench & attr lock the whole block (lock-tag on the block-label) AND outline the
+  // add button directly via lockControl — lockSection no longer touches the button.
+  if (g.enchantMaxLevel === 0) {
+    lockSection(sel('ench-rows').closest('.block'), minTierForEnchant());
+    lockControl(sel('btn-add-ench'), minTierForEnchant());
+  }
+  if (!(g.attributeModifiers > 0)) {
+    lockSection(sel('attr-rows').closest('.block'), minTierFor('give', 'attributeModifiers'));
+    lockControl(sel('btn-add-attr'), minTierFor('give', 'attributeModifiers'));
+  }
   if (!g.damageComponents)         lockSection(sel('damage').closest('.block'),    minTierFor('give', 'damageComponents'));
   if (!g.customData)               lockSection(sel('custom-data').closest('.block'), minTierFor('give', 'customData'));
+
+  // Seed each add button's cap state so the outline/disabled paint is correct on load.
+  enforceRowCap('lore-rows', 'lore-row', g.loreLines,          minTierFor('give', 'loreLines'),          'btn-add-lore');
+  enforceRowCap('ench-rows', 'ench-row', g.enchantSlots,       minTierFor('give', 'enchantSlots'),       'btn-add-ench');
+  enforceRowCap('attr-rows', 'attr-row', g.attributeModifiers, minTierFor('give', 'attributeModifiers'), 'btn-add-attr');
 }
 
 function buildCmd() {

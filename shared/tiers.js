@@ -25,6 +25,7 @@ const TIER_FEATURES = {
       // three-state, NOT a plain number — do not test with `> 0`:
       //   0 = no enchants · null = vanilla max · Infinity = beyond-vanilla
       enchantMaxLevel: 0,
+      enchantSlots: 0,
       attributeModifiers: 0,
       unbreakable: false,
       enchantGlintOverride: false,
@@ -62,7 +63,7 @@ const TIER_FEATURES = {
   },
 
   iron: {
-    give:    { loreLines: 2, enchantMaxLevel: null, unbreakable: true },  // null = vanilla max
+    give:    { loreLines: 2, enchantMaxLevel: null, enchantSlots: 3, unbreakable: true },  // null = vanilla max
     summon:  { enabled: true, customName: true, behaviorFlags: true },
     enchant: { enabled: true },
     // presetsOnly inverts the usual convention: true = restricted (presets only),
@@ -74,7 +75,7 @@ const TIER_FEATURES = {
   },
 
   gold: {
-    give:   { loreLines: 4, rarity: true, attributeModifiers: 1, enchantGlintOverride: true },
+    give:   { loreLines: 4, rarity: true, attributeModifiers: 1, enchantSlots: 5, enchantGlintOverride: true },
     summon: { healthAttributes: true, equipment: true },
     effect: { presetsOnly: false },
     title:  { modesAllowed: ['title', 'subtitle', 'actionbar', 'times', 'clear', 'reset'] },
@@ -86,6 +87,7 @@ const TIER_FEATURES = {
     give: {
       loreLines: 10,
       attributeModifiers: 4,
+      enchantSlots: 10,
       hideTooltip: true,
       damageComponents: true,
       foodComponent: true,
@@ -106,6 +108,7 @@ const TIER_FEATURES = {
     give: {
       loreLines: Infinity,
       enchantMaxLevel: Infinity,   // beyond-vanilla levels
+      enchantSlots: Infinity,
       attributeModifiers: Infinity,
       fireworks: true,
       customModelData: true,

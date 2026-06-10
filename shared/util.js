@@ -53,6 +53,30 @@ function updateCharCount(cmd, el) {
   el.textContent = label;
 }
 
+// Returns the lockable .btn-add inside `el` when the outline treatment applies:
+// either `el` itself is a .btn-add, or it wraps exactly one .btn-add and no other
+// interactive control (input/select/textarea). Such buttons get a tier-coloured
+// outline + native-tooltip title instead of a "requires X" lock-tag span.
+function _btnLockTarget(el) {
+  if (el.classList && el.classList.contains('btn-add')) return el;
+  const btns = el.querySelectorAll('.btn-add');
+  if (btns.length === 1 && el.querySelectorAll('input, select, textarea').length === 0) {
+    return btns[0];
+  }
+  return null;
+}
+
+// Paints the tier-outline lock (class + title tooltip) on a qualifying .btn-add in
+// place of a .lock-tag. Returns true when it handled `el`, false to fall through to
+// the normal lock-tag path.
+function _lockButtonOutline(el, minTier) {
+  const btn = _btnLockTarget(el);
+  if (!btn) return false;
+  btn.classList.add(`btn-locked-${minTier}`);
+  btn.title = `requires ${minTier}`;
+  return true;
+}
+
 // ── Tier gating primitive (see shared/tiers.js + TIERS.md) ──────────────────────
 // Disables every control in `el` and appends a "requires X" tag (in the tier color)
 // to its .block-label. The locked section stays visible — never hide what's gated.
@@ -88,6 +112,8 @@ function lockControl(el, minTier) {
   el.querySelectorAll('input, select, button, textarea').forEach(i => {
     i.disabled = true;
   });
+  // A bare/single .btn-add gets a tier outline + tooltip instead of a lock-tag.
+  if (_lockButtonOutline(el, minTier)) return;
   if (!el.querySelector('.lock-tag')) {
     const tag = document.createElement('span');
     tag.className = 'lock-tag';
