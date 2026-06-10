@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>/give — mcgen 1.21.1</title>
+<link rel="stylesheet" href="../../shared/style.css">
+<script src="../../shared/data.js"></script>
+<script src="../../shared/util.js"></script>
+<script src="../../shared/auth.js"></script>
+<script src="../../shared/tiers.js"></script>
+<script>initAuthNav();</script>
+<style>
+  /* wider columns for categorised enchant select */
+  .ench-header { grid-template-columns: 3fr 90px 28px; }
+  .ench-row    { grid-template-columns: 3fr 90px 28px; }
+</style>
+</head>
+<body>
+
+<div class="navbar">
+  <a class="nav-brand" href="../../index.html">mcgen</a>
+  <div class="nav-links">
+    <a class="nav-link active" href="../../index.html">generators</a>
+    <a class="nav-link" href="../../auth.html"    data-auth-show="out">sign in</a>
+    <a class="nav-link" href="../../profile.html" data-auth-show="in">profile</a>
+  </div>
+</div>
+
+<header>
+  <h1>/give — Minecraft Java 1.21.1</h1>
+  <p>data component format · post-1.20.5 syntax</p>
+</header>
+
+<!-- Target & Item -->
+<div class="block">
+  <div class="block-label">target &amp; item</div>
+  <div class="field-row">
+    <label>target</label>
+    <div class="two-col" style="flex:1">
+      <select id="target" onchange="onTargetChange()">
+        <option>@s</option>
+        <option>@p</option>
+        <option>@a</option>
+        <option>@r</option>
+        <option value="__custom">custom…</option>
+      </select>
+      <input type="text" id="custom-target" placeholder="PlayerName" style="display:none" oninput="buildCmd()">
+    </div>
+  </div>
+  <div class="field-row">
+    <label>item id</label>
+    <input type="text" id="item-id" value="diamond_sword" oninput="buildCmd()" style="flex:1">
+    <input type="number" id="count" value="1" min="1" max="6400" oninput="buildCmd()" style="max-width:72px;flex:none">
+  </div>
+</div>
+
+<!-- Display -->
+<div class="block">
+  <div class="block-label">display</div>
+  <div class="field-row">
+    <label>name</label>
+    <input type="text" id="custom-name" placeholder="leave blank to skip" oninput="buildCmd()">
+  </div>
+  <div class="field-row">
+    <label>rarity</label>
+    <select id="rarity" onchange="buildCmd()" style="max-width:180px">
+      <option value="">— none —</option>
+      <option>common</option>
+      <option>uncommon</option>
+      <option>rare</option>
+      <option>epic</option>
+    </select>
+  </div>
+
+  <div class="field-row" style="align-items:flex-start;margin-bottom:4px">
+    <label style="padding-top:6px">lore</label>
+    <div style="flex:1">
+      <div id="lore-rows"></div>
+      <button class="btn-add" onclick="addLore()">+ add line</button>
+    </div>
+  </div>
+
+  <div class="field-row" style="align-items:flex-start;margin-top:10px">
+    <label>flags</label>
+    <div class="toggle-grid" style="flex:1">
+      <label class="toggle-item"><input type="checkbox" id="unbreakable" onchange="buildCmd()"><span>unbreakable</span></label>
+      <label class="toggle-item"><input type="checkbox" id="glow" onchange="buildCmd()"><span>enchantment glow</span></label>
+      <label class="toggle-item"><input type="checkbox" id="hide-tooltip" onchange="buildCmd()"><span>hide tooltip</span></label>
+      <label class="toggle-item"><input type="checkbox" id="hide-add-tooltip" onchange="buildCmd()"><span>hide add. tooltip</span></label>
+    </div>
+  </div>
+</div>
+
+<!-- Enchantments -->
+<div class="block">
+  <div class="block-label">enchantments</div>
+  <div class="ench-header row-header">
+    <span>enchantment</span>
+    <span>level</span>
+    <span></span>
+  </div>
+  <div id="ench-rows"></div>
+  <button class="btn-add" onclick="addEnch()">+ add enchantment</button>
+</div>
+
+<!-- Attribute Modifiers -->
+<div class="block">
+  <div class="block-label">attribute modifiers</div>
+  <div class="attr-header row-header">
+    <span>attribute</span>
+    <span>slot</span>
+    <span>operation</span>
+    <span>amount</span>
+    <span></span>
+  </div>
+  <div id="attr-rows"></div>
+  <button class="btn-add" onclick="addAttr()">+ add modifier</button>
+</div>
+
+<!-- Durability -->
+<div class="block">
+  <div class="block-label">durability</div>
+  <div class="field-row">
+    <label>damage</label>
+    <input type="number" id="damage" placeholder="0" min="0" oninput="buildCmd()" style="max-width:120px">
+    <label style="min-width:auto">max damage</label>
+    <input type="number" id="max-damage" placeholder="—" min="1" oninput="buildCmd()" style="max-width:120px">
+  </div>
+  <div class="field-row">
+    <label>repair cost</label>
+    <input type="number" id="repair-cost" placeholder="0" min="0" oninput="buildCmd()" style="max-width:120px">
+  </div>
+</div>
+
+<!-- Custom Data -->
+<div class="block">
+  <div class="block-label">custom data</div>
+  <div class="field-row">
+    <label>snbt</label>
+    <input type="text" id="custom-data" placeholder='{my_tag:1,quest_id:"abc"}' oninput="buildCmd()">
+  </div>
+  <div class="hint">written verbatim into custom_data={…} · must be valid snbt</div>
+</div>
+
+<!-- Save preset (gated by the savedPresets cap only — see initPresetSaver) -->
+<div class="block" id="preset-saver">
+  <div class="block-label">save preset</div>
+  <div class="field-row" id="preset-row">
+    <input type="text" id="preset-name" placeholder="preset name…" maxlength="40">
+    <button class="btn-add" id="preset-save-btn">save preset</button>
+    <span class="hint" id="preset-status"></span>
+  </div>
+</div>
+
+<!-- Output -->
+<div class="output-block">
+  <div class="output-label">command output</div>
+  <div class="output-cmd" id="output">/give @s diamond_sword 1</div>
+  <div class="output-footer">
+    <span class="char-count" id="char-count">22 chars · runs in chat</span>
+    <button class="btn-copy" id="copy-btn" onclick="copyCmd()">copy</button>
+  </div>
+</div>
+
+<div class="footer">
+  <span>mcgen · mc 1.21.1</span>
+  <span><a href="https://minecraft.wiki" target="_blank" rel="noopener">minecraft.wiki</a></span>
+</div>
+
+<script>
+// ── Enchantment groups, derived entirely from the shared registry (data.js) ──
+// Each ENCHANTS entry carries `category` (group label) and `order` (global display
+// position); sort by order, then bucket by category in first-seen order. This
+// reproduces the curated dropdown (group order + options + default = sharpness)
+// with no local list to keep in sync.
+const ENCHANT_CATS = (() => {
+  const cats = [], byLabel = {};
+  [...ENCHANTS].sort((a, b) => a.order - b.order).forEach(e => {
+    if (!byLabel[e.category]) { byLabel[e.category] = { label: e.category, enchants: [] }; cats.push(byLabel[e.category]); }
+    byLabel[e.category].enchants.push(e.id);
+  });
+  return cats;
+})();
+
+// id → max level, derived from the shared registry
+const ENCHANT_MAX = Object.fromEntries(ENCHANTS.map(e => [e.id, e.maxLevel]));
+
+// attributes, slots and operations come from shared/data.js
+// (ATTRIBUTES, SLOTS, OPERATIONS)
+
+let loreId = 0, enchId = 0, attrId = 0;
+
+function sel(id) { return document.getElementById(id); }
+
+// ── Custom tier walks (the two gates minTierFor() can't resolve) ──
+// targetSelector is a top-level feature key (not under `give`); enchantMaxLevel is
+// three-state (null/Infinity, never a >0 number). Walk TIER_ORDER instead so labels
+// still derive from tiers.js — no hardcoded tier strings.
+function minTierForTarget() {
+  return TIER_ORDER.find(t => resolveTier(t).targetSelector === true) || null;
+}
+function minTierForEnchant() {
+  return TIER_ORDER.find(t => resolveTier(t).give.enchantMaxLevel !== 0) || null;
+}
+
+function onTargetChange() {
+  const v = sel('target').value;
+  sel('custom-target').style.display = v === '__custom' ? 'block' : 'none';
+  buildCmd();
+}
+
+// ── Build enchant select with optgroups ──
+function buildEnchSelect() {
+  const s = document.createElement('select');
+  s.addEventListener('change', onEnchChange);
+  ENCHANT_CATS.forEach(cat => {
+    const grp = document.createElement('optgroup');
+    grp.label = cat.label;
+    cat.enchants.forEach(id => {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = id;
+      grp.appendChild(opt);
+    });
+    s.appendChild(grp);
+  });
+  return s;
+}
+
+// ── Build level select based on selected enchantment ──
+function buildLevelSelect(enchId, currentLevel) {
+  const s = document.createElement('select');
+  s.addEventListener('change', buildCmd);
+  const max = ENCHANT_MAX[enchId] || 5;
+  for (let i = 1; i <= max; i++) {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = i;
+    if (i === (currentLevel || 1)) opt.selected = true;
+    s.appendChild(opt);
+  }
+  // 255 (beyond-vanilla creative override) only when the tier allows it
+  if (tierFeatures().give.enchantMaxLevel === Infinity) {
+    const maxOpt = document.createElement('option');
+    maxOpt.value = 255;
+    maxOpt.textContent = 255;
+    s.appendChild(maxOpt);
+  }
+  return s;
+}
+
+function onEnchChange(e) {
+  const row = e.target.closest('.ench-row');
+  const levelSel = row.querySelector('select:nth-of-type(2)');
+  const newLevelSel = buildLevelSelect(e.target.value, 1);
+  newLevelSel.addEventListener('change', buildCmd);
+  levelSel.replaceWith(newLevelSel);
+  buildCmd();
+}
+
+function addLore() {
+  const id = 'lr' + loreId++;
+  const d = sel('lore-rows');
+  const row = document.createElement('div');
+  row.className = 'lore-row';
+  row.id = id;
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.placeholder = 'lore text…';
+  inp.addEventListener('input', buildCmd);
+  const btn = document.createElement('button');
+  btn.className = 'btn-icon';
+  btn.textContent = '×';
+  btn.addEventListener('click', () => { row.remove(); buildCmd(); });
+  row.appendChild(inp);
+  row.appendChild(btn);
+  d.appendChild(row);
+  buildCmd();
+}
+
+function addEnch() {
+  const id = 'en' + enchId++;
+  const d = sel('ench-rows');
+  const row = document.createElement('div');
+  row.className = 'ench-row';
+  row.id = id;
+
+  const enchSel = buildEnchSelect();
+  const firstEnchId = ENCHANT_CATS[0].enchants[0];
+  const levelSel = buildLevelSelect(firstEnchId, 1);
+
+  const btn = document.createElement('button');
+  btn.className = 'btn-icon';
+  btn.textContent = '×';
+  btn.addEventListener('click', () => { row.remove(); buildCmd(); });
+
+  row.appendChild(enchSel);
+  row.appendChild(levelSel);
+  row.appendChild(btn);
+  d.appendChild(row);
+  buildCmd();
+}
+
+function addAttr() {
+  const id = 'at' + attrId++;
+  const d = sel('attr-rows');
+  const row = document.createElement('div');
+  row.className = 'attr-row';
+  row.id = id;
+
+  const attrSel = document.createElement('select');
+  ATTRIBUTES.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a.id;
+    opt.textContent = a.id.replace('generic.','').replace('player.','').replace('zombie.','');
+    attrSel.appendChild(opt);
+  });
+  attrSel.addEventListener('change', buildCmd);
+
+  const slotSel = document.createElement('select');
+  SLOTS.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s; opt.textContent = s;
+    slotSel.appendChild(opt);
+  });
+  slotSel.addEventListener('change', buildCmd);
+
+  const opSel = document.createElement('select');
+  OPERATIONS.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o.id; opt.textContent = o.label;
+    opSel.appendChild(opt);
+  });
+  opSel.addEventListener('change', buildCmd);
+
+  const amtInp = document.createElement('input');
+  amtInp.type = 'number';
+  amtInp.value = 1;
+  amtInp.step = 0.1;
+  amtInp.addEventListener('input', buildCmd);
+
+  const btn = document.createElement('button');
+  btn.className = 'btn-icon';
+  btn.textContent = '×';
+  btn.addEventListener('click', () => { row.remove(); buildCmd(); });
+
+  row.appendChild(attrSel);
+  row.appendChild(slotSel);
+  row.appendChild(opSel);
+  row.appendChild(amtInp);
+  row.appendChild(btn);
+  d.appendChild(row);
+  buildCmd();
+}
+
+// ── Tier gating: lock controls/sections the active tier can't use ──
+// Runs once at init. Composite blocks (target & item, display) gate per-control;
+// stand-alone blocks gate whole. buildCmd() is the authoritative gate at run time
+// (it re-reads tierFeatures() every call), so a mid-session downgrade strips output
+// even though these locks only paint once.
+function applyTierGates() {
+  const g = tierFeatures().give;
+
+  // target & item — target is a top-level custom gate; count is a numeric cap
+  if (!tierFeatures().targetSelector)
+    lockControl(sel('target').closest('.field-row'), minTierForTarget());
+  sel('count').max = g.countMax;
+
+  // display (composite — each control gates independently)
+  if (!g.customName)      lockControl(sel('custom-name').closest('.field-row'), minTierFor('give', 'customName'));
+  if (!g.rarity)          lockControl(sel('rarity').closest('.field-row'),      minTierFor('give', 'rarity'));
+  if (!(g.loreLines > 0)) lockControl(sel('lore-rows').closest('.field-row'),   minTierFor('give', 'loreLines'));
+  if (!g.unbreakable)          lockControl(sel('unbreakable').closest('.toggle-item'), minTierFor('give', 'unbreakable'));
+  if (!g.enchantGlintOverride) lockControl(sel('glow').closest('.toggle-item'),        minTierFor('give', 'enchantGlintOverride'));
+  if (!g.hideTooltip) {   // both tooltip controls gate together under hideTooltip
+    const t = minTierFor('give', 'hideTooltip');
+    lockControl(sel('hide-tooltip').closest('.toggle-item'), t);
+    lockControl(sel('hide-add-tooltip').closest('.toggle-item'), t);
+  }
+
+  // stand-alone blocks
+  if (g.enchantMaxLevel === 0)     lockSection(sel('ench-rows').closest('.block'), minTierForEnchant());
+  if (!(g.attributeModifiers > 0)) lockSection(sel('attr-rows').closest('.block'), minTierFor('give', 'attributeModifiers'));
+  if (!g.damageComponents)         lockSection(sel('damage').closest('.block'),    minTierFor('give', 'damageComponents'));
+  if (!g.customData)               lockSection(sel('custom-data').closest('.block'), minTierFor('give', 'customData'));
+}
+
+function buildCmd() {
+  const g = tierFeatures().give;
+
+  let target = sel('target').value;
+  if (target === '__custom') target = sel('custom-target').value.trim() || '@s';
+  if (!tierFeatures().targetSelector) target = '@s';
+
+  const item  = (sel('item-id').value.trim() || 'air').toLowerCase();
+  const count = Math.min(Math.max(1, parseInt(sel('count').value) || 1), g.countMax);
+
+  const comps = [];
+
+  const name = sel('custom-name').value.trim();
+  if (g.customName && name) comps.push(`custom_name='[{"text":"${escapeJson(name)}","italic":false}]'`);
+
+  const rarity = sel('rarity').value;
+  if (g.rarity && rarity) comps.push(`rarity=${rarity}`);
+
+  const loreLines = [...document.querySelectorAll('#lore-rows .lore-row input')]
+    .map(i => i.value.trim()).filter(Boolean).slice(0, g.loreLines);
+  if (loreLines.length) {
+    const arr = loreLines.map(l => `'{"text":"${escapeJson(l)}","italic":false}'`).join(',');
+    comps.push(`lore=[${arr}]`);
+  }
+
+  if (g.unbreakable && sel('unbreakable').checked)              comps.push('unbreakable={}');
+  if (g.enchantGlintOverride && sel('glow').checked)           comps.push('enchantment_glint_override=true');
+  if (g.hideTooltip && sel('hide-tooltip').checked)            comps.push('hide_tooltip={}');
+  if (g.hideTooltip && sel('hide-add-tooltip').checked)        comps.push('hide_additional_tooltip={}');
+
+  if (g.enchantMaxLevel !== 0) {
+    const enchRows = [...document.querySelectorAll('#ench-rows .ench-row')];
+    if (enchRows.length) {
+      const levels = enchRows.map(r => {
+        const sels = r.querySelectorAll('select');
+        let lvl = parseInt(sels[1].value) || 1;
+        // null = clamp to vanilla max · Infinity = leave beyond-vanilla level as-is
+        if (g.enchantMaxLevel !== Infinity) lvl = Math.min(lvl, ENCHANT_MAX[sels[0].value] || 5);
+        return `${sels[0].value}:${lvl}`;
+      }).join(',');
+      comps.push(`enchantments={levels:{${levels}}}`);
+    }
+  }
+
+  const attrRows = [...document.querySelectorAll('#attr-rows .attr-row')].slice(0, g.attributeModifiers);
+  if (attrRows.length) {
+    const mods = attrRows.map((r, i) => {
+      const sels = r.querySelectorAll('select');
+      const amt  = parseFloat(r.querySelector('input')?.value) || 0;
+      return `{type:"${sels[0].value}",slot:"${sels[1].value}",id:"custom:mod_${i}",amount:${amt},operation:"${sels[2].value}"}`;
+    }).join(',');
+    comps.push(`attribute_modifiers=[${mods}]`);
+  }
+
+  if (g.damageComponents) {
+    const dmg    = sel('damage').value.trim();
+    const maxDmg = sel('max-damage').value.trim();
+    const repCost= sel('repair-cost').value.trim();
+    if (dmg    !== '') comps.push(`damage=${parseInt(dmg)}`);
+    if (maxDmg !== '') comps.push(`max_damage=${parseInt(maxDmg)}`);
+    if (repCost!== '') comps.push(`repair_cost=${parseInt(repCost)}`);
+  }
+
+  if (g.customData) {
+    const cd = sel('custom-data').value.trim();
+    if (cd) comps.push(`custom_data=${cd}`);
+  }
+
+  const compStr = comps.length ? `[${comps.join(',')}]` : '';
+  const cmd = `/give ${target} ${item}${compStr} ${count}`;
+  sel('output').textContent = cmd;
+
+  updateCharCount(cmd, sel('char-count'));
+}
+
+function copyCmd() {
+  const txt = sel('output').textContent;
+  copyToClipboard(txt, sel('copy-btn')).then(() => addToHistory(txt, 'give'));
+}
+
+applyTierGates();
+initPresetSaver('give');
+buildCmd();
+
+// Re-run nav state when restored from browser back/forward cache.
+window.addEventListener('pageshow', function(e) {
+  if (e.persisted) {
+    document.documentElement.classList.remove('authed', 'unauthed');
+    initAuthNav();
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>/summon — mcgen 1.21.1</title>
+<link rel="stylesheet" href="../../shared/style.css">
+<script src="../../shared/data.js"></script>
+<script src="../../shared/util.js"></script>
+<script src="../../shared/auth.js"></script>
+<script src="../../shared/tiers.js"></script>
+<script>initAuthNav();</script>
+<style>
+  /* summon-specific layout only — style.css remains the source of truth */
+  .pos-fields  { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; flex: 1; }
+  .w-narrow    { max-width: 130px; }
+  .eqench-cols { grid-template-columns: 1fr 2.4fr 70px 28px; }   /* slot · enchant · level · × */
+</style>
+</head>
+<body>
+
+<div class="navbar">
+  <a class="nav-brand" href="../../index.html">mcgen</a>
+  <div class="nav-links">
+    <a class="nav-link active" href="../../index.html">generators</a>
+    <a class="nav-link" href="../../auth.html"    data-auth-show="out">sign in</a>
+    <a class="nav-link" href="../../profile.html" data-auth-show="in">profile</a>
+  </div>
+</div>
+
+<header>
+  <h1>/summon — Minecraft Java 1.21.1</h1>
+  <p>legacy entity nbt · post-1.20.5 item/effect format</p>
+</header>
+
+<!-- Entity & Position -->
+<div class="block">
+  <div class="block-label">entity &amp; position</div>
+  <div class="field-row">
+    <label>entity</label>
+    <input type="text" id="entity-id" value="zombie" list="entity-list" placeholder="entity id" oninput="buildCmd()">
+    <datalist id="entity-list"></datalist>
+  </div>
+  <div class="field-row">
+    <label>position</label>
+    <div class="pos-fields">
+      <input type="text" id="pos-x" value="~" oninput="buildCmd()">
+      <input type="text" id="pos-y" value="~" oninput="buildCmd()">
+      <input type="text" id="pos-z" value="~" oninput="buildCmd()">
+    </div>
+  </div>
+  <div class="hint">use <code>~</code> relative or <code>^</code> local coords · default ~ ~ ~</div>
+</div>
+
+<!-- Tier-gated input blocks. Entity & position above stay OUTSIDE <main> so the
+     below-iron teaser remains interactive; the whole-page lock targets <main>. -->
+<main>
+
+<!-- Name & Display -->
+<div class="block">
+  <div class="block-label">name &amp; display</div>
+  <div class="field-row">
+    <label>custom name</label>
+    <input type="text" id="custom-name" placeholder="leave blank to skip" oninput="buildCmd()">
+  </div>
+  <div class="field-row">
+    <label>health</label>
+    <input type="number" id="health" class="w-narrow" placeholder="default" min="1" step="0.5" oninput="buildCmd()">
+  </div>
+  <div class="field-row">
+    <label>flags</label>
+    <div class="toggle-grid">
+      <label class="toggle-item"><input type="checkbox" id="name-visible" onchange="buildCmd()"><span>name always visible</span></label>
+      <label class="toggle-item"><input type="checkbox" id="no-ai" onchange="buildCmd()"><span>no AI</span></label>
+      <label class="toggle-item"><input type="checkbox" id="invulnerable" onchange="buildCmd()"><span>invulnerable</span></label>
+      <label class="toggle-item"><input type="checkbox" id="silent" onchange="buildCmd()"><span>silent</span></label>
+      <label class="toggle-item"><input type="checkbox" id="no-gravity" onchange="buildCmd()"><span>no gravity</span></label>
+      <label class="toggle-item"><input type="checkbox" id="glowing" onchange="buildCmd()"><span>glowing</span></label>
+      <label class="toggle-item"><input type="checkbox" id="persistent" onchange="buildCmd()"><span>never despawn</span></label>
+      <label class="toggle-item"><input type="checkbox" id="baby" onchange="buildCmd()"><span>baby</span></label>
+    </div>
+  </div>
+</div>
+
+<!-- Scoreboard Tags -->
+<div class="block">
+  <div class="block-label">scoreboard tags</div>
+  <div id="tag-rows"></div>
+  <button class="btn-add" onclick="addTag()">+ add tag</button>
+</div>
+
+<!-- Attributes -->
+<div class="block">
+  <div class="block-label">attributes</div>
+  <div class="ench-row row-header">
+    <span>attribute</span>
+    <span>base value</span>
+    <span></span>
+  </div>
+  <div id="attr-rows"></div>
+  <button class="btn-add" onclick="addAttr()">+ add attribute</button>
+  <div class="hint">sets the base value (1.21.1: <code>attributes:[{id:"generic.…",base:N}]</code>)</div>
+</div>
+
+<!-- Effects -->
+<div class="block">
+  <div class="block-label">effects</div>
+  <div class="attr-row row-header">
+    <span>effect</span>
+    <span>amplifier</span>
+    <span>duration (s)</span>
+    <span></span>
+    <span></span>
+  </div>
+  <div id="effect-rows"></div>
+  <button class="btn-add" onclick="addEffect()">+ add effect</button>
+  <div class="hint">amplifier 0 = level I · duration in seconds (×20 ticks)</div>
+</div>
+
+<!-- Equipment -->
+<div class="block">
+  <div class="block-label">equipment</div>
+  <div class="field-row">
+    <label>main hand</label>
+    <input type="text" id="eq-mainhand" placeholder="e.g. diamond_sword" oninput="buildCmd()">
+  </div>
+  <div class="field-row">
+    <label>off hand</label>
+    <input type="text" id="eq-offhand" placeholder="e.g. shield" oninput="buildCmd()">
+  </div>
+  <div class="field-row">
+    <label>head</label>
+    <input type="text" id="eq-head" placeholder="e.g. diamond_helmet" oninput="buildCmd()">
+  </div>
+  <div class="field-row">
+    <label>chest</label>
+    <input type="text" id="eq-chest" placeholder="e.g. diamond_chestplate" oninput="buildCmd()">
+  </div>
+  <div class="field-row">
+    <label>legs</label>
+    <input type="text" id="eq-legs" placeholder="e.g. diamond_leggings" oninput="buildCmd()">
+  </div>
+  <div class="field-row">
+    <label>feet</label>
+    <input type="text" id="eq-feet" placeholder="e.g. diamond_boots" oninput="buildCmd()">
+  </div>
+</div>
+
+<!-- Equipment Enchantments -->
+<div class="block">
+  <div class="block-label">equipment enchantments</div>
+  <div class="ench-row eqench-cols row-header">
+    <span>slot</span>
+    <span>enchantment</span>
+    <span>level</span>
+    <span></span>
+  </div>
+  <div id="eqench-rows"></div>
+  <button class="btn-add" onclick="addEqench()">+ add enchantment</button>
+  <div class="hint">applied only if that slot has an item above</div>
+</div>
+
+</main>
+
+<!-- Save preset — OUTSIDE <main> on purpose: gated by the savedPresets cap only, never
+     by summon's whole-page lock, so a sub-iron user can still save the base command. -->
+<div class="block" id="preset-saver">
+  <div class="block-label">save preset</div>
+  <div class="field-row" id="preset-row">
+    <input type="text" id="preset-name" placeholder="preset name…" maxlength="40">
+    <button class="btn-add" id="preset-save-btn">save preset</button>
+    <span class="hint" id="preset-status"></span>
+  </div>
+</div>
+
+<!-- Output -->
+<div class="output-block">
+  <div class="output-label">command output</div>
+  <div class="output-cmd" id="output"></div>
+  <div class="output-footer">
+    <span class="char-count" id="char-count"></span>
+    <button class="btn-copy" id="copy-btn" onclick="copyCmd()">copy</button>
+  </div>
+</div>
+
+<div class="footer">
+  <span>mcgen · mc 1.21.1</span>
+  <span><a href="https://minecraft.wiki" target="_blank" rel="noopener">minecraft.wiki</a></span>
+</div>
+
+<script>
+'use strict';
+
+// ── Enchantment groups, derived from the shared registry (data.js) — same source
+//    of truth give.html uses (sort by order, bucket by category in first-seen order).
+const ENCHANT_CATS = (() => {
+  const cats = [], byLabel = {};
+  [...ENCHANTS].sort((a, b) => a.order - b.order).forEach(e => {
+    if (!byLabel[e.category]) { byLabel[e.category] = { label: e.category, enchants: [] }; cats.push(byLabel[e.category]); }
+    byLabel[e.category].enchants.push(e.id);
+  });
+  return cats;
+})();
+const ENCHANT_MAX = Object.fromEntries(ENCHANTS.map(e => [e.id, e.maxLevel]));
+
+const EQUIP_SLOTS = ['mainhand', 'offhand', 'head', 'chest', 'legs', 'feet'];
+
+let tagId = 0, sattrId = 0, effId = 0, eqenchId = 0;
+
+function sel(id) { return document.getElementById(id); }
+function ns(id)  { return id.includes(':') ? id : 'minecraft:' + id; }
+
+// ── Populate the entity datalist from the shared ENTITIES registry ──
+function initRegistries() {
+  const dl = sel('entity-list');
+  ENTITIES.forEach(e => {
+    const o = document.createElement('option');
+    o.value = e.id;
+    o.label = e.name;
+    dl.appendChild(o);
+  });
+}
+
+// ── Grouped enchant <select>, identical pattern to give.html ──
+function buildEnchSelect() {
+  const s = document.createElement('select');
+  s.addEventListener('change', onEqenchEnchChange);
+  ENCHANT_CATS.forEach(cat => {
+    const grp = document.createElement('optgroup');
+    grp.label = cat.label;
+    cat.enchants.forEach(id => {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = id;
+      grp.appendChild(opt);
+    });
+    s.appendChild(grp);
+  });
+  return s;
+}
+
+function buildLevelSelect(enchId, currentLevel) {
+  const s = document.createElement('select');
+  s.addEventListener('change', buildCmd);
+  const max = ENCHANT_MAX[enchId] || 5;
+  for (let i = 1; i <= max; i++) {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = i;
+    if (i === (currentLevel || 1)) opt.selected = true;
+    s.appendChild(opt);
+  }
+  const maxOpt = document.createElement('option');
+  maxOpt.value = 255;
+  maxOpt.textContent = 255;
+  s.appendChild(maxOpt);
+  return s;
+}
+
+function onEqenchEnchChange(e) {
+  const row = e.target.closest('.eqench-cols');
+  const sels = row.querySelectorAll('select');   // [slot, enchant, level]
+  sels[2].replaceWith(buildLevelSelect(e.target.value, 1));
+  buildCmd();
+}
+
+// ── Add / remove rows ──
+function addTag() {
+  const row = document.createElement('div');
+  row.className = 'lore-row';
+  row.id = 'tg' + tagId++;
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.placeholder = 'scoreboard tag…';
+  inp.addEventListener('input', buildCmd);
+  const btn = document.createElement('button');
+  btn.className = 'btn-icon';
+  btn.textContent = '×';
+  btn.addEventListener('click', () => { row.remove(); buildCmd(); });
+  row.append(inp, btn);
+  sel('tag-rows').appendChild(row);
+  buildCmd();
+}
+
+function addAttr() {
+  const row = document.createElement('div');
+  row.className = 'ench-row';
+  row.id = 'sa' + sattrId++;
+
+  const attrSel = document.createElement('select');
+  ATTRIBUTES.forEach(a => {
+    const o = document.createElement('option');
+    o.value = a.id;
+    o.textContent = a.displayName;
+    attrSel.appendChild(o);
+  });
+  attrSel.addEventListener('change', buildCmd);
+
+  const base = document.createElement('input');
+  base.type = 'number';
+  base.value = '1';
+  base.step = '0.1';
+  base.addEventListener('input', buildCmd);
+
+  const btn = document.createElement('button');
+  btn.className = 'btn-icon';
+  btn.textContent = '×';
+  btn.addEventListener('click', () => { row.remove(); buildCmd(); });
+
+  row.append(attrSel, base, btn);
+  sel('attr-rows').appendChild(row);
+  buildCmd();
+}
+
+function addEffect() {
+  const row = document.createElement('div');
+  row.className = 'attr-row';
+  row.id = 'ef' + effId++;
+
+  const effSel = document.createElement('select');
+  EFFECTS.forEach(e => {
+    const o = document.createElement('option');
+    o.value = e.id;
+    o.textContent = e.name;
+    effSel.appendChild(o);
+  });
+  effSel.addEventListener('change', buildCmd);
+
+  const amp = document.createElement('input');
+  amp.type = 'number';
+  amp.value = '0';
+  amp.min = '0';
+  amp.addEventListener('input', buildCmd);
+
+  const dur = document.createElement('input');
+  dur.type = 'number';
+  dur.value = '30';
+  dur.min = '0';
+  dur.addEventListener('input', buildCmd);
+
+  const hideWrap = document.createElement('label');
+  hideWrap.className = 'toggle-item';
+  const hide = document.createElement('input');
+  hide.type = 'checkbox';
+  hide.addEventListener('change', buildCmd);
+  const span = document.createElement('span');
+  span.textContent = 'hide';
+  hideWrap.append(hide, span);
+
+  const btn = document.createElement('button');
+  btn.className = 'btn-icon';
+  btn.textContent = '×';
+  btn.addEventListener('click', () => { row.remove(); buildCmd(); });
+
+  row.append(effSel, amp, dur, hideWrap, btn);
+  sel('effect-rows').appendChild(row);
+  buildCmd();
+}
+
+function addEqench() {
+  const row = document.createElement('div');
+  row.className = 'ench-row eqench-cols';
+  row.id = 'eqe' + eqenchId++;
+
+  const slotSel = document.createElement('select');
+  EQUIP_SLOTS.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s;
+    o.textContent = s;
+    slotSel.appendChild(o);
+  });
+  slotSel.addEventListener('change', buildCmd);
+
+  const enchSel = buildEnchSelect();
+  const levelSel = buildLevelSelect(ENCHANT_CATS[0].enchants[0], 1);
+
+  const btn = document.createElement('button');
+  btn.className = 'btn-icon';
+  btn.textContent = '×';
+  btn.addEventListener('click', () => { row.remove(); buildCmd(); });
+
+  row.append(slotSel, enchSel, levelSel, btn);
+  sel('eqench-rows').appendChild(row);
+  buildCmd();
+}
+
+// ── Tier gating ──
+// summon.enabled is the door (iron). Below it the whole <main> locks and finer gates
+// are skipped (entity & position sit OUTSIDE <main>, so the base teaser stays live).
+// At iron+ the page opens and the per-feature gates apply. buildCmd() re-reads
+// tierFeatures() every call, so it is the authoritative gate at run time — a
+// mid-session downgrade strips premium NBT even though these locks only paint once.
+function applyTierGates() {
+  const s = tierFeatures().summon;
+
+  if (!s.enabled) {                       // below the door → lock the whole generator
+    lockSection(document.querySelector('main'), minTierFor('summon', 'enabled'));
+    return;                               // skip finer gates (no double-tagging)
+  }
+
+  // name & display (composite): health & baby gate above the door
+  if (!s.healthAttributes) lockControl(sel('health').closest('.field-row'), minTierFor('summon', 'healthAttributes'));
+  if (!s.mobSpecific)      lockControl(sel('baby').closest('.toggle-item'),  minTierFor('summon', 'mobSpecific'));
+
+  // stand-alone blocks
+  if (!s.tags)             lockSection(sel('tag-rows').closest('.block'),    minTierFor('summon', 'tags'));
+  if (!s.healthAttributes) lockSection(sel('attr-rows').closest('.block'),   minTierFor('summon', 'healthAttributes'));
+  if (!s.activeEffects)    lockSection(sel('effect-rows').closest('.block'), minTierFor('summon', 'activeEffects'));
+  if (!s.equipment) {
+    const t = minTierFor('summon', 'equipment');
+    lockSection(sel('eq-mainhand').closest('.block'), t);
+    lockSection(sel('eqench-rows').closest('.block'), t);
+  }
+}
+
+// ── Build the command ──
+function buildCmd() {
+  const s = tierFeatures().summon;
+
+  // entity & position are the base command args (interactive at every tier)
+  const entity = (sel('entity-id').value.trim() || 'pig').toLowerCase();
+  const x = sel('pos-x').value.trim() || '~';
+  const y = sel('pos-y').value.trim() || '~';
+  const z = sel('pos-z').value.trim() || '~';
+
+  const nbt = [];
+
+  const name = sel('custom-name').value.trim();
+  if (s.customName && name) nbt.push(`CustomName:'{"text":"${escapeJson(name)}"}'`);
+  if (s.behaviorFlags && sel('name-visible').checked) nbt.push('CustomNameVisible:1b');
+
+  if (s.behaviorFlags) {
+    if (sel('no-ai').checked)        nbt.push('NoAI:1b');
+    if (sel('invulnerable').checked) nbt.push('Invulnerable:1b');
+    if (sel('silent').checked)       nbt.push('Silent:1b');
+    if (sel('no-gravity').checked)   nbt.push('NoGravity:1b');
+    if (sel('glowing').checked)      nbt.push('Glowing:1b');
+    if (sel('persistent').checked)   nbt.push('PersistenceRequired:1b');
+  }
+  if (s.mobSpecific && sel('baby').checked) nbt.push('IsBaby:1b');
+
+  if (s.healthAttributes) {
+    const health = sel('health').value.trim();
+    if (health !== '') nbt.push(`Health:${parseFloat(health)}f`);
+  }
+
+  if (s.tags) {
+    const tags = [...document.querySelectorAll('#tag-rows .lore-row input')]
+      .map(i => i.value.trim()).filter(Boolean);
+    if (tags.length) {
+      nbt.push(`Tags:[${tags.map(t => `"${escapeJson(t)}"`).join(',')}]`);
+    }
+  }
+
+  if (s.healthAttributes) {
+    const attrs = [...document.querySelectorAll('#attr-rows .ench-row')].map(r => {
+      const id = r.querySelector('select').value;
+      const base = parseFloat(r.querySelector('input').value);
+      return `{id:"${id}",base:${isNaN(base) ? 0 : base}}`;
+    });
+    if (attrs.length) nbt.push(`attributes:[${attrs.join(',')}]`);
+  }
+
+  if (s.activeEffects) {
+    const effs = [...document.querySelectorAll('#effect-rows .attr-row')].map(r => {
+      const id = r.querySelector('select').value;
+      const nums = r.querySelectorAll('input[type="number"]');
+      const amp = parseInt(nums[0].value) || 0;
+      const secs = parseInt(nums[1].value);
+      const dur = isNaN(secs) ? 0 : secs * 20;
+      const hide = r.querySelector('input[type="checkbox"]').checked;
+      return `{id:"${id}",amplifier:${amp}b,duration:${dur}${hide ? ',show_particles:0b' : ''}}`;
+    });
+    if (effs.length) nbt.push(`active_effects:[${effs.join(',')}]`);
+  }
+
+  if (s.equipment) {
+    // equipment items per slot
+    const items = {};
+    EQUIP_SLOTS.forEach(slot => {
+      const v = sel('eq-' + slot).value.trim().toLowerCase();
+      if (v) items[slot] = v;
+    });
+    // enchantments grouped by slot
+    const slotEnch = {};
+    [...document.querySelectorAll('#eqench-rows .eqench-cols')].forEach(r => {
+      const sels = r.querySelectorAll('select');   // [slot, enchant, level]
+      const slot = sels[0].value;
+      (slotEnch[slot] = slotEnch[slot] || []).push(`${sels[1].value}:${sels[2].value}`);
+    });
+    const stack = (slot) => {
+      const id = items[slot];
+      if (!id) return null;
+      const ench = slotEnch[slot];
+      const comp = ench ? `,components:{"minecraft:enchantments":{levels:{${ench.join(',')}}}}` : '';
+      return `{id:"${ns(id)}",count:1${comp}}`;
+    };
+    const hand = [stack('mainhand'), stack('offhand')];
+    if (hand.some(Boolean)) nbt.push(`HandItems:[${hand.map(v => v || '{}').join(',')}]`);
+    const armor = [stack('feet'), stack('legs'), stack('chest'), stack('head')];
+    if (armor.some(Boolean)) nbt.push(`ArmorItems:[${armor.map(v => v || '{}').join(',')}]`);
+  }
+
+  const nbtStr = nbt.length ? ` {${nbt.join(',')}}` : '';
+  const cmd = `/summon ${entity} ${x} ${y} ${z}${nbtStr}`;
+  sel('output').textContent = cmd;
+
+  updateCharCount(cmd, sel('char-count'));
+}
+
+function copyCmd() {
+  const txt = sel('output').textContent;
+  copyToClipboard(txt, sel('copy-btn')).then(() => addToHistory(txt, 'summon'));
+}
+
+initRegistries();
+applyTierGates();
+initPresetSaver('summon');
+buildCmd();
+
+// Re-run nav state when restored from browser back/forward cache.
+window.addEventListener('pageshow', function(e) {
+  if (e.persisted) {
+    document.documentElement.classList.remove('authed', 'unauthed');
+    initAuthNav();
+  }
+});
+</script>
+</body>
+</html>

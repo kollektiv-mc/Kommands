@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mcgen — minecraft command generators</title>
+<link rel="stylesheet" href="./shared/style.css">
+<script src="./shared/auth.js"></script>
+<script>initAuthNav();</script>
+<style>
+  .page-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #333;
+    margin-bottom: 40px;
+  }
+
+  .gen-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  a.gen-card {
+    display: block;
+    text-decoration: none;
+  }
+
+  .gen-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 16px;
+    transition: border-color .15s, background .15s;
+  }
+
+  a.gen-card:hover {
+    border-color: #333;
+    background: #1a1a1a;
+  }
+
+  .gen-card.unavailable {
+    opacity: .2;
+    pointer-events: none;
+  }
+
+  .gen-cmd {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .gen-desc {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: #444;
+    line-height: 1.6;
+  }
+
+  .gen-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-top: 10px;
+    color: #2e2e2e;
+  }
+
+  a.gen-card .gen-badge { color: #444; }
+</style>
+</head>
+<body>
+
+<div class="navbar">
+  <a class="nav-brand" href="./index.html">mcgen</a>
+  <div class="nav-links">
+    <a class="nav-link active" href="./index.html">generators</a>
+    <a class="nav-link" href="./auth.html"    data-auth-show="out">sign in</a>
+    <a class="nav-link" href="./profile.html" data-auth-show="in">profile</a>
+  </div>
+</div>
+
+<p class="page-sub">minecraft java 1.21.1 · command generators · vanilla only</p>
+
+<div class="block">
+  <div class="block-label">items &amp; inventory</div>
+  <div class="gen-grid">
+    <a class="gen-card" href="./generators/give/give.html">
+      <div class="gen-cmd">/give</div>
+      <div class="gen-desc">Items with full data component support — enchantments, attributes, lore, name, custom data</div>
+      <div class="gen-badge">available</div>
+    </a>
+    <div class="gen-card unavailable">
+      <div class="gen-cmd">/enchant</div>
+      <div class="gen-desc">Apply enchantments to the item in a player's hand with level control</div>
+      <div class="gen-badge">soon</div>
+    </div>
+  </div>
+</div>
+
+<div class="block">
+  <div class="block-label">entities &amp; players</div>
+  <div class="gen-grid">
+    <a class="gen-card" href="./generators/summon/summon.html">
+      <div class="gen-cmd">/summon</div>
+      <div class="gen-desc">Spawn entities with custom name, equipment, attributes, effects, and NBT flags</div>
+      <div class="gen-badge">available</div>
+    </a>
+    <div class="gen-card unavailable">
+      <div class="gen-cmd">/effect</div>
+      <div class="gen-desc">Give or clear potion effects with amplifier, duration, and particle control</div>
+      <div class="gen-badge">soon</div>
+    </div>
+  </div>
+</div>
+
+<div class="block">
+  <div class="block-label">ui &amp; display</div>
+  <div class="gen-grid">
+    <div class="gen-card unavailable">
+      <div class="gen-cmd">/title</div>
+      <div class="gen-desc">Title, subtitle, and actionbar text with JSON component builder and fade timings</div>
+      <div class="gen-badge">soon</div>
+    </div>
+    <div class="gen-card unavailable">
+      <div class="gen-cmd">/tellraw</div>
+      <div class="gen-desc">JSON chat messages with click events, hover events, and multi-segment text</div>
+      <div class="gen-badge">soon</div>
+    </div>
+    <div class="gen-card unavailable">
+      <div class="gen-cmd">/particle</div>
+      <div class="gen-desc">Particle effects at coordinates with spread, speed, count, and force mode</div>
+      <div class="gen-badge">soon</div>
+    </div>
+  </div>
+</div>
+
+<div class="block">
+  <div class="block-label">scores &amp; data</div>
+  <div class="gen-grid">
+    <div class="gen-card unavailable">
+      <div class="gen-cmd">/scoreboard</div>
+      <div class="gen-desc">Objectives, player scores, and display slot management</div>
+      <div class="gen-badge">soon</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>mcgen · mc 1.21.1</span>
+  <span><a href="https://minecraft.wiki" target="_blank" rel="noopener">minecraft.wiki</a></span>
+</div>
+
+<script>
+// Re-run nav state when restored from browser back/forward cache.
+window.addEventListener('pageshow', function(e) {
+  if (e.persisted) {
+    document.documentElement.classList.remove('authed', 'unauthed');
+    initAuthNav();
+  }
+});
+</script>
+</body>
+</html>
