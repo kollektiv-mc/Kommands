@@ -269,13 +269,10 @@ function enforceRowCap(containerId, rowClass, cap, minTier, btnId) {
   const count = document.querySelectorAll(`#${containerId} .${rowClass}`).length;
   const atCap = cap !== Infinity && count >= cap;
   btn.disabled = atCap;
-  [...btn.classList].forEach(c => { if (c.startsWith('btn-locked-')) btn.classList.remove(c); });
   if (atCap && minTier) {
-    btn.classList.add(`btn-locked-${minTier}`);
-    // Disabled buttons suppress title in Chrome; wrap in a span to carry the tooltip.
     if (!btn.parentElement.classList.contains('btn-lock-wrap')) {
       const wrap = document.createElement('span');
-      wrap.className = 'btn-lock-wrap';
+      wrap.className = `btn-lock-wrap lock-outline-${minTier}`;
       btn.parentElement.insertBefore(wrap, btn);
       wrap.appendChild(btn);
     }
@@ -429,9 +426,8 @@ function applyTierGates() {
     lockControl(sel('hide-add-tooltip').closest('.toggle-item'), t);
   }
 
-  // stand-alone blocks
-  // ench & attr lock the whole block (lock-tag on the block-label) AND outline the
-  // add button directly via lockControl — lockSection no longer touches the button.
+  // stand-alone blocks — dims the block; add buttons are outside the block so
+  // lockSection's disable sweep doesn't reach them; enforceRowCap seeds handle their outline.
   if (g.enchantMaxLevel === 0)
     lockSection(sel('ench-rows').closest('.block'), minTierForEnchant());
   if (!(g.attributeModifiers > 0))

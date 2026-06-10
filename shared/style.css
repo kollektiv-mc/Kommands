@@ -530,29 +530,29 @@ input[type=number]::-webkit-outer-spin-button {
   user-select: none;
 }
 
-/* sits inline after the .block-label text; color set inline to the tier var */
-.lock-tag {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 400;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  margin-left: 12px;
-  opacity: 0.8;
+/* Tier-outline lock: every locked control (.btn-add, .toggle-item, .field-row) is
+   wrapped in .btn-lock-wrap that carries the tier border + title tooltip. The span
+   is not disabled so hover fires in Chrome where disabled elements suppress it.
+   lock-outline-* supplies the tier border colour (alpha matches .tier-badge). */
+.btn-lock-wrap {
+  display: inline-flex;
+  border-radius: 3px;
+  border: 1px solid;
+  cursor: not-allowed;
 }
 
-/* Locked .btn-add: a tier-coloured outline stands in for the "requires X" lock-tag.
-   The button is wrapped in a .btn-lock-wrap span that owns the title tooltip —
-   disabled buttons suppress hover/title in Chrome, so the span handles it instead.
-   Tier alpha follows the .tier-badge convention (literal rgba, no new tokens). */
-.btn-add.btn-locked-copper    { border-color: rgba(200,121,65,.5);  color: rgba(200,121,65,.6);  opacity: 1; pointer-events: auto; cursor: not-allowed; }
-.btn-add.btn-locked-iron      { border-color: rgba(168,176,184,.5); color: rgba(168,176,184,.6); opacity: 1; pointer-events: auto; cursor: not-allowed; }
-.btn-add.btn-locked-gold      { border-color: rgba(212,169,60,.5);  color: rgba(212,169,60,.6);  opacity: 1; pointer-events: auto; cursor: not-allowed; }
-.btn-add.btn-locked-diamond   { border-color: rgba(78,204,212,.5);  color: rgba(78,204,212,.6);  opacity: 1; pointer-events: auto; cursor: not-allowed; }
-.btn-add.btn-locked-netherite { border-color: rgba(153,128,176,.5); color: rgba(153,128,176,.6); opacity: 1; pointer-events: auto; cursor: not-allowed; }
-.btn-add.btn-locked-free      { border-color: rgba(68,68,68,.5);    color: rgba(68,68,68,.6);    opacity: 1; pointer-events: auto; cursor: not-allowed; }
-.btn-lock-wrap                { display: inline-flex; cursor: not-allowed; }
-.btn-lock-wrap .btn-add       { pointer-events: none; }
+.btn-lock-wrap .btn-add,
+.btn-lock-wrap input,
+.btn-lock-wrap select,
+.btn-lock-wrap textarea,
+.btn-lock-wrap button    { pointer-events: none; }
+
+.lock-outline-copper    { border-color: rgba(200,121,65,.5);  color: rgba(200,121,65,.6);  }
+.lock-outline-iron      { border-color: rgba(168,176,184,.5); color: rgba(168,176,184,.6); }
+.lock-outline-gold      { border-color: rgba(212,169,60,.5);  color: rgba(212,169,60,.6);  }
+.lock-outline-diamond   { border-color: rgba(78,204,212,.5);  color: rgba(78,204,212,.6);  }
+.lock-outline-netherite { border-color: rgba(153,128,176,.5); color: rgba(153,128,176,.6); }
+.lock-outline-free      { border-color: rgba(68,68,68,.5);    color: rgba(68,68,68,.6);    }
 
 /* ── Empty state ── */
 

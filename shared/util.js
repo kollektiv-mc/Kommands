@@ -53,89 +53,37 @@ function updateCharCount(cmd, el) {
   el.textContent = label;
 }
 
-// Returns the lockable .btn-add inside `el` when the outline treatment applies:
-// either `el` itself is a .btn-add, or it wraps exactly one .btn-add and no other
-// interactive control (input/select/textarea). Such buttons get a tier-coloured
-// outline + native-tooltip title instead of a "requires X" lock-tag span.
-function _btnLockTarget(el) {
-  if (el.classList && el.classList.contains('btn-add')) return el;
-  const btns = el.querySelectorAll('.btn-add');
-  if (btns.length === 1 && el.querySelectorAll('input, select, textarea').length === 0) {
-    return btns[0];
-  }
-  return null;
-}
-
-// Paints the tier-outline lock (class + title tooltip) on a qualifying .btn-add in
-// place of a .lock-tag. Returns true when it handled `el`, false to fall through to
-// the normal lock-tag path.
-function _lockButtonOutline(el, minTier) {
-  const btn = _btnLockTarget(el);
-  if (!btn) return false;
-  btn.classList.add(`btn-locked-${minTier}`);
-  // Disabled buttons suppress title in Chrome; wrap in a span to carry the tooltip.
-  if (!btn.parentElement.classList.contains('btn-lock-wrap')) {
-    const wrap = document.createElement('span');
-    wrap.className = 'btn-lock-wrap';
-    btn.parentElement.insertBefore(wrap, btn);
-    wrap.appendChild(btn);
-  }
-  btn.parentElement.title = `requires ${minTier}`;
-  return true;
-}
-
 // ── Tier gating primitive (see shared/tiers.js + TIERS.md) ──────────────────────
-// Disables every control in `el` and appends a "requires X" tag (in the tier color)
-// to its .block-label. The locked section stays visible — never hide what's gated.
-//   el      — a DOM element (typically a .block div)
+// Dims the whole block (section-locked: opacity .35, pointer-events:none) and
+// disables all controls inside. Used only for stand-alone blocks entirely behind a
+// tier wall. Add buttons outside the block are handled by lockControl/enforceRowCap.
+//   el      — a .block div
 //   minTier — tier string, e.g. 'gold'
 function lockSection(el, minTier) {
   el.classList.add('section-locked');
   el.querySelectorAll('input, select, button, textarea').forEach(i => {
     i.disabled = true;
   });
-
-  const label = el.querySelector('.block-label');
-  if (label && !label.querySelector('.lock-tag')) {
-    const tag = document.createElement('span');
-    tag.className = 'lock-tag';
-    tag.style.color = `var(--${minTier})`;
-    tag.textContent = `requires ${minTier}`;
-    label.appendChild(tag);
-  }
 }
 
-// ── Control-level tier gate (companion to lockSection) ──────────────────────────
-// Gates a SINGLE control (or small group) INSIDE an otherwise-usable composite block
-// — e.g. one .field-row or one .toggle-item — where the sibling controls stay live.
-// Unlike lockSection it never touches a .block-label: it dims `el` itself, disables
-// the controls within, and appends the inline "requires X" tag to `el`. Reuses the
-// same .section-locked / .lock-tag styles.
-//   el      — the control's wrapper (a .field-row or .toggle-item)
+// ── Control-level tier gate ──────────────────────────────────────────────────────
+// Gates a SINGLE control or wrapper (.field-row, .toggle-item, .btn-add) inside an
+// otherwise-usable block. Disables all controls inside `el`, then wraps `el` in a
+// .btn-lock-wrap span carrying the tier outline border + title tooltip. The span is
+// not disabled so hover events fire and the native title shows in Chrome.
+//   el      — the control or its wrapper
 //   minTier — tier string, e.g. 'gold'
 function lockControl(el, minTier) {
   if (!el) return;
-  // A bare .btn-add carries its own disabled + visual state from the outline
-  // treatment. Adding .section-locked to the button itself would dim it (parent
-  // opacity) and block its tooltip (pointer-events:none), so skip straight to the
-  // outline — never wrap a button in section-locked.
-  if (el.classList.contains('btn-add')) {
-    _lockButtonOutline(el, minTier);
-    return;
+  if (el.matches('input, select, button, textarea')) el.disabled = true;
+  el.querySelectorAll('input, select, button, textarea').forEach(i => { i.disabled = true; });
+  if (!el.parentElement.classList.contains('btn-lock-wrap')) {
+    const wrap = document.createElement('span');
+    wrap.className = `btn-lock-wrap lock-outline-${minTier}`;
+    el.parentElement.insertBefore(wrap, el);
+    wrap.appendChild(el);
   }
-  el.classList.add('section-locked');
-  el.querySelectorAll('input, select, button, textarea').forEach(i => {
-    i.disabled = true;
-  });
-  // A wrapper holding a sole .btn-add gets a tier outline + tooltip instead of a lock-tag.
-  if (_lockButtonOutline(el, minTier)) return;
-  if (!el.querySelector('.lock-tag')) {
-    const tag = document.createElement('span');
-    tag.className = 'lock-tag';
-    tag.style.color = `var(--${minTier})`;
-    tag.textContent = `requires ${minTier}`;
-    el.appendChild(tag);
-  }
+  el.parentElement.title = `requires ${minTier}`;
 }
 
 // ── Shared save-preset control (used by every generator) ────────────────────────
