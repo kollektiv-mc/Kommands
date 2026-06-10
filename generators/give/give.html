@@ -101,8 +101,8 @@
     <span></span>
   </div>
   <div id="ench-rows"></div>
-  <button class="btn-add" id="btn-add-ench" onclick="addEnch()">+ add enchantment</button>
 </div>
+<button class="btn-add" id="btn-add-ench" onclick="addEnch()">+ add enchantment</button>
 
 <!-- Attribute Modifiers -->
 <div class="block">
@@ -115,8 +115,8 @@
     <span></span>
   </div>
   <div id="attr-rows"></div>
-  <button class="btn-add" id="btn-add-attr" onclick="addAttr()">+ add modifier</button>
 </div>
+<button class="btn-add" id="btn-add-attr" onclick="addAttr()">+ add modifier</button>
 
 <!-- Durability -->
 <div class="block">
@@ -272,8 +272,20 @@ function enforceRowCap(containerId, rowClass, cap, minTier, btnId) {
   [...btn.classList].forEach(c => { if (c.startsWith('btn-locked-')) btn.classList.remove(c); });
   if (atCap && minTier) {
     btn.classList.add(`btn-locked-${minTier}`);
-    btn.title = `requires ${minTier} — ${cap} max`;
+    // Disabled buttons suppress title in Chrome; wrap in a span to carry the tooltip.
+    if (!btn.parentElement.classList.contains('btn-lock-wrap')) {
+      const wrap = document.createElement('span');
+      wrap.className = 'btn-lock-wrap';
+      btn.parentElement.insertBefore(wrap, btn);
+      wrap.appendChild(btn);
+    }
+    btn.parentElement.title = `requires ${minTier} — ${cap} max`;
   } else {
+    if (btn.parentElement.classList.contains('btn-lock-wrap')) {
+      const wrap = btn.parentElement;
+      wrap.parentElement.insertBefore(btn, wrap);
+      wrap.remove();
+    }
     btn.removeAttribute('title');
   }
 }
@@ -407,7 +419,8 @@ function applyTierGates() {
   // display (composite — each control gates independently)
   if (!g.customName)      lockControl(sel('custom-name').closest('.field-row'), minTierFor('give', 'customName'));
   if (!g.rarity)          lockControl(sel('rarity').closest('.field-row'),      minTierFor('give', 'rarity'));
-  if (!(g.loreLines > 0)) lockControl(sel('lore-rows').closest('.field-row'),   minTierFor('give', 'loreLines'));
+  if (!(g.loreLines > 0))
+    lockControl(sel('btn-add-lore'), minTierFor('give', 'loreLines'));
   if (!g.unbreakable)          lockControl(sel('unbreakable').closest('.toggle-item'), minTierFor('give', 'unbreakable'));
   if (!g.enchantGlintOverride) lockControl(sel('glow').closest('.toggle-item'),        minTierFor('give', 'enchantGlintOverride'));
   if (!g.hideTooltip) {   // both tooltip controls gate together under hideTooltip
@@ -419,14 +432,10 @@ function applyTierGates() {
   // stand-alone blocks
   // ench & attr lock the whole block (lock-tag on the block-label) AND outline the
   // add button directly via lockControl — lockSection no longer touches the button.
-  if (g.enchantMaxLevel === 0) {
+  if (g.enchantMaxLevel === 0)
     lockSection(sel('ench-rows').closest('.block'), minTierForEnchant());
-    lockControl(sel('btn-add-ench'), minTierForEnchant());
-  }
-  if (!(g.attributeModifiers > 0)) {
+  if (!(g.attributeModifiers > 0))
     lockSection(sel('attr-rows').closest('.block'), minTierFor('give', 'attributeModifiers'));
-    lockControl(sel('btn-add-attr'), minTierFor('give', 'attributeModifiers'));
-  }
   if (!g.damageComponents)         lockSection(sel('damage').closest('.block'),    minTierFor('give', 'damageComponents'));
   if (!g.customData)               lockSection(sel('custom-data').closest('.block'), minTierFor('give', 'customData'));
 

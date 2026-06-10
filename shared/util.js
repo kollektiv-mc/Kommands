@@ -73,7 +73,14 @@ function _lockButtonOutline(el, minTier) {
   const btn = _btnLockTarget(el);
   if (!btn) return false;
   btn.classList.add(`btn-locked-${minTier}`);
-  btn.title = `requires ${minTier}`;
+  // Disabled buttons suppress title in Chrome; wrap in a span to carry the tooltip.
+  if (!btn.parentElement.classList.contains('btn-lock-wrap')) {
+    const wrap = document.createElement('span');
+    wrap.className = 'btn-lock-wrap';
+    btn.parentElement.insertBefore(wrap, btn);
+    wrap.appendChild(btn);
+  }
+  btn.parentElement.title = `requires ${minTier}`;
   return true;
 }
 
@@ -108,11 +115,19 @@ function lockSection(el, minTier) {
 //   minTier — tier string, e.g. 'gold'
 function lockControl(el, minTier) {
   if (!el) return;
+  // A bare .btn-add carries its own disabled + visual state from the outline
+  // treatment. Adding .section-locked to the button itself would dim it (parent
+  // opacity) and block its tooltip (pointer-events:none), so skip straight to the
+  // outline — never wrap a button in section-locked.
+  if (el.classList.contains('btn-add')) {
+    _lockButtonOutline(el, minTier);
+    return;
+  }
   el.classList.add('section-locked');
   el.querySelectorAll('input, select, button, textarea').forEach(i => {
     i.disabled = true;
   });
-  // A bare/single .btn-add gets a tier outline + tooltip instead of a lock-tag.
+  // A wrapper holding a sole .btn-add gets a tier outline + tooltip instead of a lock-tag.
   if (_lockButtonOutline(el, minTier)) return;
   if (!el.querySelector('.lock-tag')) {
     const tag = document.createElement('span');
