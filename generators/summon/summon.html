@@ -250,10 +250,15 @@ function buildLevelSelect(enchId, currentLevel) {
     if (i === (currentLevel || 1)) opt.selected = true;
     s.appendChild(opt);
   }
-  const maxOpt = document.createElement('option');
-  maxOpt.value = 255;
-  maxOpt.textContent = 255;
-  s.appendChild(maxOpt);
+  // 255 (beyond-vanilla creative override) only when the tier grants it — mirrors
+  // give.html. Summon has no enchantMaxLevel of its own, so reuse give's flag, which
+  // resolves to Infinity only at netherite (no hardcoded tier string).
+  if (tierFeatures().give.enchantMaxLevel === Infinity) {
+    const maxOpt = document.createElement('option');
+    maxOpt.value = 255;
+    maxOpt.textContent = 255;
+    s.appendChild(maxOpt);
+  }
   return s;
 }
 
@@ -481,12 +486,18 @@ function buildCmd() {
       const v = sel('eq-' + slot).value.trim().toLowerCase();
       if (v) items[slot] = v;
     });
-    // enchantments grouped by slot
+    // enchantments grouped by slot. Levels clamp to vanilla max unless the tier grants
+    // beyond-vanilla enchant levels — same rule give.html uses (Infinity only at
+    // netherite). buildCmd is the authoritative gate, so a mid-session downgrade
+    // re-clamps even a row left at 255.
+    const beyondMax = tierFeatures().give.enchantMaxLevel === Infinity;
     const slotEnch = {};
     [...document.querySelectorAll('#eqench-rows .eqench-cols')].forEach(r => {
       const sels = r.querySelectorAll('select');   // [slot, enchant, level]
       const slot = sels[0].value;
-      (slotEnch[slot] = slotEnch[slot] || []).push(`${sels[1].value}:${sels[2].value}`);
+      let lvl = parseInt(sels[2].value) || 1;
+      if (!beyondMax) lvl = Math.min(lvl, ENCHANT_MAX[sels[1].value] || 5);
+      (slotEnch[slot] = slotEnch[slot] || []).push(`${sels[1].value}:${lvl}`);
     });
     const stack = (slot) => {
       const id = items[slot];
