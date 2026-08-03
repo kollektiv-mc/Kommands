@@ -1,0 +1,42 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+dist-ssr/
+build/
+*.tsbuildinfo
+
+# test / coverage
+coverage/
+.vitest/
+
+# caches
+.cache/
+.temp/
+.vite/
+.eslintcache
+
+# env — never commit; also denied to Claude in .claude/settings.json
+.env
+.env.*
+!.env.example
+secrets/
+
+# editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.swp
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# NOTE: src/data/generated/ is intentionally NOT ignored.
+# Generated command skeletons and registries are committed so that version
+# bumps produce reviewable diffs and builds work offline.
+# See docs/architecture.md § Derivation.
