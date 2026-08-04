@@ -26,10 +26,10 @@ Package manager: **pnpm**.
 | `pnpm test` | `vitest run` |
 | `pnpm test:watch` | `vitest` |
 | `pnpm gen:commands` | Derive command skeletons + registries from mcmeta |
-| `pnpm gen:tokens` | Regenerate `src/styles/tokens.css` from the Konnekt token source |
+| `pnpm gen:tokens` | Regenerate `src/styles/tokens.css` from `tokens.source.json` |
 | `pnpm gen` | Both generators |
 
-Run `/health-check` before calling any task done. It runs lint, typecheck, and
+Run `/suite-kit:health` before calling any task done. It runs lint, typecheck, and
 tests, and greps for the two things this codebase forbids (below).
 
 ## Conventions
@@ -39,7 +39,7 @@ Formatting is Prettier-enforced; do not hand-format. Non-default settings:
 **100-column** print width, **2-space** indentation.
 
 Three rules are not enforceable by the formatter and are checked by
-`/health-check`:
+`/suite-kit:health`:
 
 1. **No hardcoded game values.** Item IDs, entity IDs, enchantments, effects,
    particles, attributes, selectors, colour codes — none may appear as literals

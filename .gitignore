@@ -40,3 +40,7 @@ pnpm-debug.log*
 # Generated command skeletons and registries are committed so that version
 # bumps produce reviewable diffs and builds work offline.
 # See docs/architecture.md § Derivation.
+
+# Agent tooling: shared config is committed so every clone and cloud agent
+# inherits the same setup. Personal state is not.
+.claude/settings.local.json

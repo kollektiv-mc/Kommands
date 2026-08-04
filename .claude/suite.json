@@ -1,0 +1,72 @@
+{
+  "product": "Kommands",
+  "kind": "vite-web",
+  "tracking": "github-issues",
+  "roadmap": "docs/roadmap.md",
+  "tokens": {
+    "role": "consumer",
+    "source": "kollektiv",
+    "sourceFile": "tokens.source.json",
+    "generate": "pnpm gen:tokens",
+    "enforce": "strict",
+    "paths": ["src/components/**", "src/routes/**"]
+  },
+  "minecraft": {
+    "targetVersion": "1.21.1",
+    "dataSource": "misode/mcmeta, pinned by version-summary tag (1.21.1-summary), never by branch",
+    "traitMatrix": "docs/minecraft-versions.md"
+  },
+  "health": {
+    "commands": [
+      { "name": "lint", "run": "pnpm lint" },
+      { "name": "typecheck", "run": "pnpm typecheck" },
+      { "name": "test", "run": "pnpm test" },
+      { "name": "format", "run": "pnpm format:check" }
+    ],
+    "invariants": [
+      {
+        "name": "no hardcoded game values",
+        "grep": "minecraft:[a-z_]+",
+        "paths": ["src"],
+        "exclude": ["src/data/**"],
+        "expect": "no matches",
+        "diagnosis": "A game value was inlined instead of read from the version registry. Minecraft identifiers are versioned data — an item that exists in 1.21.1 may not exist in another version, and a literal silently ships the wrong value. Legitimate exception: the bare 'minecraft:' namespace prefix being constructed by a serializer. Judge by whether a specific entity, item, or enchantment is named — 'minecraft:' alone is fine, 'minecraft:diamond_sword' is not.",
+        "reference": "docs/minecraft-versions.md"
+      },
+      {
+        "name": "no version-number comparisons",
+        "grep": "version\\s*[=!]==?\\s*['\"]1\\.[0-9]",
+        "paths": ["src"],
+        "exclude": [],
+        "expect": "no matches",
+        "diagnosis": "Serializers must branch on version traits, never on version numbers. A version-literal comparison breaks silently the moment a version is added: the 1.21.2 attribute rename and the 1.21.5 enchantments flattening did not land together, so no ordering of version numbers describes them. Branch on the trait flag instead.",
+        "reference": "docs/minecraft-versions.md"
+      },
+      {
+        "name": "no literal hex or px in components",
+        "grep": "#[0-9a-fA-F]{3,8}\\b|\\[[0-9.]+px\\]",
+        "paths": ["src/components", "src/routes"],
+        "exclude": [],
+        "expect": "no matches",
+        "diagnosis": "Runtime theming works by overriding custom properties on the root element. An inlined value silently opts that element out of theming, and the breakage only appears in a non-default theme — not the one being looked at while the code is written. Every value has a named token, including the awkward ones (9px, 0.5px, 10px radius). If a value seems missing, add a token; do not inline or approximate.",
+        "reference": "docs/design-tokens.md"
+      }
+    ],
+    "generated": [
+      {
+        "regenerate": "pnpm gen:commands",
+        "expectCleanDiff": ["src/data/generated"],
+        "requiresNetwork": true,
+        "diagnosis": "A non-empty diff means either src/data/generated was hand-edited, or a generator change was committed without its regenerated output. Both are bugs: the hand edit is destroyed on the next run and the underlying issue survives. Fix the generator, regenerate, and commit both together. Regeneration is deterministic — same mcmeta tag in, same bytes out — so a diff without a generator or version change means something else is wrong. Requires network: it fetches the pinned mcmeta tag. If offline, report this entry as skipped, not failed.",
+        "reference": ".claude/rules/generated-data.md"
+      },
+      {
+        "regenerate": "pnpm gen:tokens",
+        "expectCleanDiff": ["src/styles/tokens.css"],
+        "requiresNetwork": false,
+        "diagnosis": "A non-empty diff means either src/styles/tokens.css was hand-edited, or tokens.source.json was refreshed without regenerating. Both are bugs, for the same reason as gen:commands. Unlike that generator, this one reads a committed local file — tokens.source.json — so it works offline and has no legitimate skip.",
+        "reference": "docs/design-tokens.md"
+      }
+    ]
+  }
+}

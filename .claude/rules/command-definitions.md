@@ -44,7 +44,7 @@ if (traits.enchantmentsShape === 'levels-wrapper') { … } // right
 ```
 
 A version comparison breaks silently the moment an adjacent version is added — the
-attribute rename at 1.21.2 is exactly this failure. `/health-check` greps for it.
+attribute rename at 1.21.2 is exactly this failure. `/suite-kit:health` greps for it.
 
 ## Version definitions declare every trait explicitly
 

@@ -86,7 +86,7 @@ change from silently regressing this version.
 ### 7. Verify and commit
 
 ```sh
-/health-check
+/suite-kit:health
 ```
 
 Commit the generated data with the version definition, in one commit. The diff is
@@ -102,7 +102,7 @@ the record of what changed between Minecraft versions.
 - [ ] Registry diff reviewed, **removals** specifically examined
 - [ ] No version-number comparison introduced anywhere in `src/`
 - [ ] Fixtures added for every differing trait
-- [ ] `/health-check` passes
+- [ ] `/suite-kit:health` passes
 
 ---
 

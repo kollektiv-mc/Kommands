@@ -118,7 +118,7 @@ state — the generated command is the product; the preview is an aid.
 - [ ] Expensive work debounced; volume capped
 - [ ] Geometries and materials disposed on unmount
 - [ ] Failure degrades to an empty canvas with a message
-- [ ] `/health-check` passes
+- [ ] `/suite-kit:health` passes
 
 ---
 

@@ -23,7 +23,7 @@ Use `var(--token)` or a semantic Tailwind utility.
 <div style={{ color: '#4ade80' }} />                                // wrong
 ```
 
-`/health-check` greps these paths for `#[0-9a-f]{3,8}` and `\[[0-9.]+px\]` and fails
+`/suite-kit:health` greps these paths for `#[0-9a-f]{3,8}` and `\[[0-9.]+px\]` and fails
 on a hit.
 
 ## Every value has a token — including the awkward ones
