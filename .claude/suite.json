@@ -54,11 +54,18 @@
     ],
     "generated": [
       {
-        "regenerate": "pnpm gen",
-        "expectCleanDiff": ["src/data/generated", "src/styles/tokens.css"],
+        "regenerate": "pnpm gen:commands",
+        "expectCleanDiff": ["src/data/generated"],
         "requiresNetwork": true,
-        "diagnosis": "A non-empty diff means either a generated file was hand-edited, or a generator change was committed without its regenerated output. Both are bugs: the hand edit is destroyed on the next run and the underlying issue survives. Fix the generator, regenerate, and commit both together. Regeneration is deterministic — same mcmeta tag in, same bytes out — so a diff without a generator or version change means something else is wrong.",
+        "diagnosis": "A non-empty diff means either src/data/generated was hand-edited, or a generator change was committed without its regenerated output. Both are bugs: the hand edit is destroyed on the next run and the underlying issue survives. Fix the generator, regenerate, and commit both together. Regeneration is deterministic — same mcmeta tag in, same bytes out — so a diff without a generator or version change means something else is wrong. Requires network: it fetches the pinned mcmeta tag. If offline, report this entry as skipped, not failed.",
         "reference": ".claude/rules/generated-data.md"
+      },
+      {
+        "regenerate": "pnpm gen:tokens",
+        "expectCleanDiff": ["src/styles/tokens.css"],
+        "requiresNetwork": false,
+        "diagnosis": "A non-empty diff means either src/styles/tokens.css was hand-edited, or tokens.source.json was refreshed without regenerating. Both are bugs, for the same reason as gen:commands. Unlike that generator, this one reads a committed local file — tokens.source.json — so it works offline and has no legitimate skip.",
+        "reference": "docs/design-tokens.md"
       }
     ]
   }
