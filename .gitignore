@@ -42,6 +42,5 @@ pnpm-debug.log*
 # See docs/architecture.md § Derivation.
 
 # Agent tooling: shared config is committed so every clone and cloud agent
-# inherits the same setup. Personal and runtime state is not.
+# inherits the same setup. Personal state is not.
 .claude/settings.local.json
-.claude/.omc/
