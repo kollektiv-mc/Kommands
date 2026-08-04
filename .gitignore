@@ -36,7 +36,15 @@ secrets/
 npm-debug.log*
 pnpm-debug.log*
 
-# NOTE: src/data/generated/ is intentionally NOT ignored.
+# Claude Code — commit the shared config (settings.json, suite.json); keep only
+# personal permission overrides and OMC session state local.
+.claude/settings.local.json
+.claude/.omc/
+
+# NOTE: src/data/generated/ is intentionally NOT ignored, and neither are
+# tokens.source.json or src/styles/tokens.css.
 # Generated command skeletons and registries are committed so that version
-# bumps produce reviewable diffs and builds work offline.
+# bumps produce reviewable diffs and builds work offline. The token source is
+# vendored from kollektiv for the same reason: a build must work from a
+# standalone clone, without a kollektiv checkout beside it.
 # See docs/architecture.md § Derivation.

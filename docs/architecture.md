@@ -198,14 +198,18 @@ Design detail in [`adding-a-preview.md`](adding-a-preview.md).
 
 ## Design tokens
 
-The visual language is derived from the Konnekt project: a dense, dark-first UI
+The visual language is shared with the Konnekt project: a dense, dark-first UI
 whose signature is **hairline `0.5px` borders and no shadows at all**, with status
 colours stored as RGB channel triplets so alpha can be composed in one token.
 
-`pnpm gen:tokens` emits `src/styles/tokens.css`; Tailwind's `@theme inline` exposes
-those custom properties as semantic utilities. Components reference tokens only —
-never a literal hex or px value. Full token set and pipeline in
-[`design-tokens.md`](design-tokens.md).
+The values come from `kollektiv/design/tokens.json`, vendored here as
+`tokens.source.json`. `pnpm gen:tokens` emits `src/styles/tokens.css` from it, and
+Tailwind exposes those custom properties as semantic utilities. Konnekt generates
+its own output from the same source, so neither product copies the other.
+Components reference tokens only — never a literal hex or px value.
+
+The generator is not written yet; `tokens.source.json` is in place and
+[`design-tokens.md`](design-tokens.md) specifies the contract to implement.
 
 ---
 

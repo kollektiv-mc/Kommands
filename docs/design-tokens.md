@@ -1,24 +1,65 @@
 # Design tokens
 
-The visual language is derived from the Konnekt project. Its character: **dense,
-dark-first, hairline-bordered, shadowless.** Depth comes from `0.5px` borders over
-translucent surfaces, never from drop shadows.
+The visual language is shared with Konnekt, the suite's desktop dashboard. Its
+character: **dense, dark-first, hairline-bordered, shadowless.** Depth comes from
+`0.5px` borders over translucent surfaces, never from drop shadows.
+
+Both products read the same source. This file describes what that source contains
+and how this repo turns it into CSS — it does not restate the values as prose, which
+is how the two copies drifted apart in the first place.
 
 ---
 
 ## Pipeline
 
 ```
-token source  ──►  pnpm gen:tokens  ──►  src/styles/tokens.css  ──►  @theme inline
-                                          (generated, committed)      Tailwind utilities
+kollektiv/design/tokens.json  ──►  sync-tokens.sh  ──►  tokens.source.json
+                                                        (vendored, committed)
+                                                              │
+                                                     pnpm gen:tokens
+                                                              ▼
+                                                     src/styles/tokens.css
+                                                     (generated, committed)
 ```
 
+> **Not built yet.** `pnpm gen:tokens` and `src/styles/tokens.css` do not exist —
+> this repo is pre-scaffold. The contract below is what to implement when the app
+> is scaffolded; Konnekt's `frontend/scripts/gen-tokens.mjs` is a working
+> implementation of the same contract against the same source.
+
 `src/styles/tokens.css` is **generated and committed**, with a DO-NOT-EDIT header.
-Tailwind v4's `@theme inline` maps each custom property to a semantic utility, so
-`--color-canvas: var(--bg-base)` yields `bg-canvas`.
+`tokens.source.json` is committed too: a build must work from a standalone clone,
+without a `kollektiv` checkout beside it.
 
 Runtime theming works by overriding custom properties on `document.documentElement`,
-so theme, accent, and skin changes need no rebuild and no re-render.
+so theme and accent changes need no rebuild and no re-render.
+
+### What `gen:tokens` must do
+
+1. Read `tokens.source.json` from the repo root.
+2. Refuse a `version` it does not understand, rather than guessing at a shape.
+3. Emit `src/styles/tokens.css` with a DO-NOT-EDIT header naming the source and the
+   regeneration command.
+
+Three details are easy to get wrong, and Konnekt got each of them wrong once:
+
+- **Colours belong in `@theme inline`; scalars do not.** Under `inline`, Tailwind
+  substitutes the literal into each utility and never emits the custom property —
+  so `rounded-panel` compiles correctly while `var(--radius-panel)` resolves to
+  nothing in hand-written CSS. Colours need `inline` so a utility resolves straight
+  to the themed property that runtime theming overrides. Everything else belongs in
+  a plain `@theme` block.
+- **Border widths need `@utility`.** Tailwind v4 has no `--border-width-*`
+  namespace, so `border-hairline` has to be declared:
+  ```css
+  @utility border-hairline {
+    border-width: var(--border-hairline);
+  }
+  ```
+- **Do not emit the space scale.** Tailwind's default `--spacing: 0.25rem` already
+  yields `p-0.5` = 2px through `p-6` = 24px, identical to the shared scale.
+  Re-declaring it adds a second thing to keep in step for no gain. Font weights are
+  likewise covered by `font-normal` / `font-medium` / `font-semibold` / `font-black`.
 
 ---
 
@@ -33,33 +74,42 @@ and fails on a hit.
 Every value the design needs has a named token — including the awkward ones
 (`9px`, `0.5px`, `10px` radius) that would otherwise be inlined. **If a value seems
 to be missing, add a token; do not inline it.** That is the whole reason the scale
-below names non-standard steps.
+names non-standard steps.
 
 ---
 
-## Colour
+## What the source defines
 
-Semantic, not literal. Names describe role, never appearance — `--bg-elevated`, not
-`--grey-800`.
+The authoritative list is `tokens.source.json`, and
+`kollektiv/design/tokens.schema.json` is its contract. Read those rather than a
+table here. In outline:
 
-Theme is switched by `[data-theme]` on the root element.
-
-| Token | Dark | Light |
+| Group | Contains | Reaches components as |
 |---|---|---|
-| `--bg-base` | `#05060a` | `#f5f6fa` |
-| `--bg-elevated` | `rgba(18,20,30,0.82)` | `rgba(236,238,245,0.82)` |
-| `--bg-surface` | `rgba(255,255,255,0.025)` | `rgba(0,0,0,0.03)` |
-| `--hover-surface` | `rgba(255,255,255,0.05)` | `rgba(0,0,0,0.05)` |
-| `--border-subtle` | `rgba(255,255,255,0.06)` | `rgba(0,0,0,0.09)` |
-| `--border-hover` | `rgba(255,255,255,0.12)` | `rgba(0,0,0,0.18)` |
-| `--text-primary` | `#ffffff` | `#0b0d12` |
-| `--text-secondary` | `rgba(255,255,255,0.6)` | `rgba(0,0,0,0.65)` |
-| `--text-muted` | `rgba(255,255,255,0.4)` | `rgba(0,0,0,0.45)` |
-| `--text-faint` | `rgba(255,255,255,0.25)` | `rgba(0,0,0,0.3)` |
+| `color.surface` | `bg-base`, `bg-elevated`, `bg-surface`, `hover-surface` | `bg-canvas`, `bg-elevated`, `bg-surface`, `bg-hover` |
+| `color.border` | `border-subtle`, `border-hover` | `border-border-subtle`, `border-border-hover` |
+| `color.text` | `text-primary`, `text-secondary`, `text-muted`, `text-faint` | `text-text-primary`, … |
+| `color.status` | `accent`, `success`, `warning`, `danger`, `sun` | `text-accent`, `bg-success`, … |
+| `type.size` | `3xs` 9px, `2xs` 10px, `1xs` 11px, `xs` 12px, `sm` 14px, `lg` 18px, `xl` 20px | `text-2xs`, … |
+| `type.family` | `sans`, `title`, `mono`, `display` | `font-sans`, `font-title`, … |
+| `radius` | `sm`, `md`, `lg`, `panel`, `xl`, `pill` | `rounded-panel`, … |
+| `border` | `hairline` 0.5px, `thick` 1.5px | `border-hairline`, `border-thick` |
+| `motion` | `duration.fast`, `duration.panel`, `easing.standard` | `var(--duration-fast)`, `ease-standard` |
+| `space` | the 4px grid | Tailwind's built-in `p-*` / `gap-*` |
+
+Colour names describe **role, never appearance** — `--bg-elevated`, not
+`--grey-800`. An appearance-named token becomes a lie the moment a theme changes it.
+
+Theme is switched by `[data-theme]` on the root element. Light mode darkens success,
+warning and danger for contrast against a light canvas; accent is user-configurable.
+
+This is a dense UI — **12px is the body size, not 16px**. Weights are `400` body,
+`500` medium, `600` semibold, `900` display. Monospace is used heavily for generated
+command text and any Minecraft identifier.
 
 ### Status colours are RGB channel triplets
 
-Stored as space-separated channels so alpha composes from a single token:
+The generator emits each status role twice, so alpha composes from a single token:
 
 ```css
 --accent-rgb: 74 222 128;
@@ -69,115 +119,28 @@ Stored as space-separated channels so alpha composes from a single token:
 box-shadow: 0 0 20px 4px rgb(var(--accent-rgb) / 0.2);
 ```
 
-| Role | Dark default | Light override |
-|---|---|---|
-| `--accent-rgb` | `74 222 128` (`#4ade80`) | *(same)* |
-| `--success-rgb` | `34 197 94` (`#22c55e`) | `22 163 74` |
-| `--warning-rgb` | `245 158 11` (`#f59e0b`) | `217 119 6` |
-| `--danger-rgb` | `248 113 113` (`#f87171`) | `239 68 68` |
-| `--sun-rgb` | `255 216 77` (`#ffd84d`) | *(same)* |
+---
 
-Light mode darkens success, warning, and danger for contrast against a light
-canvas. Accent is user-configurable.
+## There are no shadow tokens
+
+Deliberately. The suite uses zero drop shadows. Elevation is communicated by
+translucent surfaces plus hairline borders. The only permitted `box-shadow` is an
+accent-tinted glow inside a keyframe animation, as above.
+
+If a design seems to need a drop shadow, it needs a different surface or border.
 
 ---
 
-## Type
-
-| Token | Value |
-|---|---|
-| `--font-sans` | `Ranade`, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif |
-| `--font-title` | `Excon`, var(--font-sans) |
-| `--font-mono` | ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace |
-| `--font-display` | `Satoshi` (weight 900 only) |
-
-This is a dense UI — 12px is the body size, not 16px.
-
-| Token | Value | Use |
-|---|---|---|
-| `--text-3xs` | `9px` | Uppercase metadata labels only |
-| `--text-2xs` | `10px` | Compact labels, badges |
-| `--text-xs-` | `11px` | Secondary values |
-| `--text-xs` | `12px` | **Body default** |
-| `--text-sm` | `14px` | Section headings |
-| `--text-lg` | `18px` | Page headings |
-| `--text-xl` | `20px` | Display |
-
-Weights: `400` body, `500` medium, `600` semibold, `900` display. Monospace is used
-heavily for generated command text and any Minecraft identifier.
-
----
-
-## Space
-
-4px grid. Tight by default.
-
-| Token | Value |
-|---|---|
-| `--space-0-5` | `2px` |
-| `--space-1` | `4px` |
-| `--space-1-5` | `6px` |
-| `--space-2` | `8px` |
-| `--space-3` | `12px` |
-| `--space-4` | `16px` |
-| `--space-5` | `20px` |
-| `--space-6` | `24px` |
-
-`8px` gaps and `px-2` / `px-3` padding dominate; anything above `24px` is rare and
-usually wrong at this density.
-
----
-
-## Border, radius, shadow
-
-| Token | Value | Use |
-|---|---|---|
-| `--border-hairline` | `0.5px` | **The signature.** Panels, rows, dividers |
-| `--border-thick` | `1.5px` | Emphasis, resize handles |
-| `--radius-sm` | `3px` | Inline code, small chips |
-| `--radius-md` | `6px` | Inputs, buttons |
-| `--radius-lg` | `8px` | Grouped controls |
-| `--radius-panel` | `10px` | **Panels and tiles** |
-| `--radius-xl` | `12px` | Modals |
-| `--radius-pill` | `9999px` | Toggles, pills, segmented controls |
-
-**There are no shadow tokens, deliberately.** Konnekt uses zero drop shadows across
-its entire component set. Elevation is communicated by translucent surfaces plus
-hairline borders. The only permitted `box-shadow` is an accent-tinted glow inside a
-keyframe animation:
-
-```css
-box-shadow: 0 0 20px 4px rgb(var(--accent-rgb) / 0.2);
-```
-
-If a design seems to need a drop shadow, it needs a different surface or border
-instead.
-
----
-
-## Motion
-
-| Token | Value |
-|---|---|
-| `--duration-fast` | `150ms` |
-| `--duration-panel` | `280ms` |
-| `--ease-standard` | `cubic-bezier(0.4, 0, 0.2, 1)` |
-
-Do not invent per-component durations. All motion is wrapped in
-`@media (prefers-reduced-motion: reduce)` and disabled there.
-
----
-
-## Component patterns inherited from Konnekt
+## Component patterns shared with Konnekt
 
 | Pattern | Shape |
 |---|---|
-| Panel / tile | `--radius-panel` + `--border-hairline` over `--bg-surface` |
+| Panel / tile | `rounded-panel` + `border-hairline` over `bg-surface` |
 | Segmented control | Pill container, sliding accent indicator at `--radius-lg` minus 1px |
 | Toggle | `20×36px` pill, `16px` knob, accent when on, `--border-hover` when off |
 | Row divider | `border-bottom: var(--border-hairline) solid var(--border-subtle)` |
 | Scrollbar | `4px`, `--border-hover` thumb, transparent track |
-| Value text | Monospace, `--text-xs`, `--text-secondary` |
+| Value text | Monospace, `text-xs`, `text-text-secondary` |
 
 The sliding-indicator radius is `--radius-lg` minus 1px so it sits concentrically
 inside the container border. Concentric radii matter at hairline weights —
@@ -187,9 +150,13 @@ mismatched values rasterise unevenly and read as a rendering bug.
 
 ## Adding a token
 
-1. Add it to the token source and run `pnpm gen:tokens`.
-2. If components should reach it as a utility, map it in `@theme inline`.
-3. Name it by **role**, not appearance.
-4. Commit the regenerated `tokens.css` alongside the source change.
+1. Add it to `kollektiv/design/tokens.json`. Name it by role.
+2. Run `./scripts/sync-tokens.sh` from the kollektiv root — this refreshes
+   `tokens.source.json` here *and* in Konnekt.
+3. Run `pnpm gen:tokens` and commit the regenerated `src/styles/tokens.css`
+   alongside the updated `tokens.source.json`.
+4. Regenerate in Konnekt too, so both products move together.
 
-Never edit `src/styles/tokens.css` directly — it is overwritten.
+Never edit `src/styles/tokens.css` — it is overwritten. Never edit
+`tokens.source.json` either: the next sync overwrites it, and the value never
+reaches Konnekt.

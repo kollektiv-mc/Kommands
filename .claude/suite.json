@@ -1,0 +1,80 @@
+{
+  "product": "Kommands",
+  "kind": "vite-web",
+  "linear": {
+    "team": "KMD"
+  },
+  "roadmap": "docs/roadmap.md",
+  "tokens": {
+    "role": "consumer",
+    "source": "kollektiv",
+    "sourceFile": "tokens.source.json",
+    "generate": "pnpm gen:tokens",
+    "enforce": "strict",
+    "paths": ["src/components/**", "src/routes/**"]
+  },
+  "minecraft": {
+    "targetVersion": "1.21.1",
+    "dataSource": "mcmeta, pinned per version",
+    "traitMatrix": "docs/minecraft-versions.md"
+  },
+  "health": {
+    "commands": [
+      { "name": "lint", "run": "pnpm lint" },
+      { "name": "typecheck", "run": "pnpm typecheck" },
+      { "name": "test", "run": "pnpm test" },
+      { "name": "format", "run": "pnpm format:check" }
+    ],
+    "invariants": [
+      {
+        "name": "no hardcoded game values",
+        "grep": "minecraft:[a-z_]+",
+        "paths": ["src"],
+        "exclude": ["src/data/**"],
+        "expect": "no matches",
+        "diagnosis": "A game value was inlined instead of read from the version registry. Judge by whether a specific entity, item or enchantment is named — a bare 'minecraft:' namespace prefix being constructed by a serializer is fine.",
+        "reference": "docs/minecraft-versions.md"
+      },
+      {
+        "name": "no version-number comparisons",
+        "grep": "version\\s*[=!]==?\\s*['\"]1\\.[0-9]",
+        "paths": ["src"],
+        "expect": "no matches",
+        "diagnosis": "Serializers branch on version traits, never on version numbers. This is the failure the 1.21.2 attribute rename triggers.",
+        "reference": "docs/minecraft-versions.md"
+      },
+      {
+        "name": "no literal hex",
+        "grep": "#[0-9a-fA-F]{3,8}\\b",
+        "paths": ["src/components", "src/routes"],
+        "expect": "no matches",
+        "diagnosis": "An inlined colour silently opts that element out of runtime theming, and the breakage only shows in a theme nobody was looking at. The fix is to add a token upstream, never to inline or approximate.",
+        "reference": "docs/design-tokens.md"
+      },
+      {
+        "name": "no literal px",
+        "grep": "\\[[0-9.]+px\\]",
+        "paths": ["src/components", "src/routes"],
+        "expect": "no matches",
+        "diagnosis": "The scale deliberately names the awkward steps (9px, 0.5px, 10px radius) precisely because those are the ones that get inlined.",
+        "reference": "docs/design-tokens.md"
+      }
+    ],
+    "generated": [
+      {
+        "regenerate": "pnpm gen:commands",
+        "expectCleanDiff": ["src/data/generated"],
+        "requiresNetwork": true,
+        "diagnosis": "A non-empty diff means src/data/generated was hand-edited, or a generator change was committed without its output. If offline, report this as skipped rather than failed — it fetches mcmeta.",
+        "reference": ".claude/rules/generated-data.md"
+      },
+      {
+        "regenerate": "pnpm gen:tokens",
+        "expectCleanDiff": ["src/styles/tokens.css"],
+        "requiresNetwork": false,
+        "diagnosis": "A non-empty diff means src/styles/tokens.css was hand-edited, or tokens.source.json was refreshed without regenerating. The generator reads a committed local file, so this one works offline.",
+        "reference": "docs/design-tokens.md"
+      }
+    ]
+  }
+}
