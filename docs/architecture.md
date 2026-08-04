@@ -165,7 +165,7 @@ trait and give every existing version an explicit value — still additive.
 | Selectors, colour codes, WorldEdit patterns and masks | `src/data/authored/` | Static |
 | Design tokens | Generated → `src/styles/tokens.css` | Global CSS |
 
-Nothing in this table is a literal inside a component. `/health-check` enforces it.
+Nothing in this table is a literal inside a component. `/suite-kit:health` enforces it.
 
 Registry files are large — 640 KB for 1.21.1 registries, 230 KB for blocks — so they
 are loaded on demand rather than bundled into the entry chunk.
@@ -198,14 +198,17 @@ Design detail in [`adding-a-preview.md`](adding-a-preview.md).
 
 ## Design tokens
 
-The visual language is derived from the Konnekt project: a dense, dark-first UI
-whose signature is **hairline `0.5px` borders and no shadows at all**, with status
-colours stored as RGB channel triplets so alpha can be composed in one token.
+The visual language is the suite's shared one, defined in
+`kollektiv/design/tokens.json` and consumed by both products: a dense, dark-first
+UI whose signature is **hairline `0.5px` borders and no shadows at all**, with
+status colours stored as RGB channel triplets so alpha can be composed in one
+token.
 
-`pnpm gen:tokens` emits `src/styles/tokens.css`; Tailwind's `@theme inline` exposes
-those custom properties as semantic utilities. Components reference tokens only —
-never a literal hex or px value. Full token set and pipeline in
-[`design-tokens.md`](design-tokens.md).
+`pnpm gen:tokens` emits `src/styles/tokens.css` from the vendored
+`tokens.source.json`; Tailwind's `@theme inline` exposes those custom properties as
+semantic utilities. Components reference tokens only — never a literal hex or px
+value. Pipeline and conventions in [`design-tokens.md`](design-tokens.md); the
+values themselves live in `kollektiv/design/tokens.json`.
 
 ---
 

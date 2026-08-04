@@ -21,7 +21,7 @@ this phase is to **prove the schema against real commands**, not to ship breadth
 - Shallow argument types: `integer`, `bool`, `string`, `entity_selector`
 - **`/give`** — including the `item_stack` deep editor with enchantments,
   `custom_name`, and `lore` in their 1.21.1 forms
-- `/health-check` wired and passing
+- `/suite-kit:health` wired and passing
 
 Exit criterion: `/give` produces every canonical output in
 [`minecraft-versions.md`](minecraft-versions.md) exactly.
@@ -88,6 +88,6 @@ The design is holding if:
 - No component contains a literal hex or px value
 - No game value appears outside `src/data/`
 
-`/health-check` verifies the last three mechanically. The first two are judgement
+`/suite-kit:health` verifies the last three mechanically. The first two are judgement
 calls — if either starts requiring code changes, surface it rather than absorbing
 the cost.

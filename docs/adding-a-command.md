@@ -44,7 +44,7 @@ human-facing strings.
 in `<command>.test.ts`. Copy the style of the canonical examples in
 [`minecraft-versions.md`](minecraft-versions.md).
 
-**6. Run `/health-check`.**
+**6. Run `/suite-kit:health`.**
 
 Do not edit the generated skeleton. If it is wrong, the deriver is wrong — fix
 `scripts/derive-commands.ts` and regenerate.
@@ -92,7 +92,7 @@ dialects. A new type is only warranted for genuinely new input semantics.
 
 **5. Register the definition** in the authored index.
 
-**6. Add tests and run `/health-check`.**
+**6. Add tests and run `/suite-kit:health`.**
 
 ---
 
@@ -134,4 +134,4 @@ Requirements:
 - [ ] Serializers branch on traits, not version numbers
 - [ ] Generated files untouched
 - [ ] Output fixtures added for every supported version
-- [ ] `/health-check` passes
+- [ ] `/suite-kit:health` passes

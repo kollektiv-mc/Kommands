@@ -135,7 +135,7 @@ version and never merged.
    if (traits.enchantmentsShape === 'levels-wrapper') { … }
    ```
 
-   `/health-check` greps for version-literal comparisons in `src/`.
+   `/suite-kit:health` greps for version-literal comparisons in `src/`.
 
 2. **Never hardcode a game value.** Read it from the version's registry.
 
