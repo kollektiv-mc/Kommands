@@ -58,7 +58,8 @@ Other conventions:
 - Serializers branch on **version traits**, never on version numbers. A
   `version === '1.21.1'` comparison anywhere in `src/` is a bug.
 - Tests live beside their subject as `*.test.ts` / `*.test.tsx`.
-- Task tracking is **GitHub Issues**. Do not add a `TODO.md`.
+- Task tracking is **Linear**, team `KMD`. Do not add a `TODO.md`, and do not open
+  GitHub Issues — see `docs/suite.md`.
 
 ## Docs
 
@@ -74,6 +75,7 @@ Each fact lives in exactly one file. This file links; it does not restate.
 | `docs/adding-a-preview.md` | Adding a 3D preview module |
 | `docs/design-tokens.md` | The token pipeline and the full token set |
 | `docs/roadmap.md` | Now / Next / Later |
+| `docs/suite.md` | The suite this repo belongs to — shared agent tooling and tracking |
 
 `docs/minecraft-versions.md` is the file that prevents syntax bugs. Read it
 before writing or changing any serializer.

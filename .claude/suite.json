@@ -1,0 +1,69 @@
+{
+  "product": "Kommands",
+  "kind": "vite-web",
+  "linear": {
+    "team": "KMD"
+  },
+  "roadmap": "docs/roadmap.md",
+  "tokens": {
+    "role": "consumer",
+    "source": "Konnekt",
+    "enforce": "strict",
+    "paths": ["src/components/**", "src/routes/**"]
+  },
+  "minecraft": {
+    "targetVersion": "1.21.1",
+    "dataSource": "misode/mcmeta",
+    "traitMatrix": "docs/minecraft-versions.md"
+  },
+  "health": {
+    "commands": [
+      { "name": "lint", "run": "pnpm lint" },
+      { "name": "typecheck", "run": "pnpm typecheck" },
+      { "name": "tests", "run": "pnpm test" },
+      { "name": "format", "run": "pnpm format:check" }
+    ],
+    "invariants": [
+      {
+        "name": "no hardcoded game values",
+        "grep": "minecraft:[a-z_]+",
+        "paths": ["src"],
+        "exclude": ["src/data/**"],
+        "expect": "no-matches",
+        "diagnosis": "A game value was inlined instead of read from the version registry. A bare 'minecraft:' namespace prefix under construction is a legitimate exception; a named item or entity is not.",
+        "reference": "docs/minecraft-versions.md"
+      },
+      {
+        "name": "no version-number comparisons",
+        "grep": "version\\s*[=!]==?\\s*['\"]1\\.[0-9]",
+        "paths": ["src"],
+        "expect": "no-matches",
+        "diagnosis": "Serializers must branch on traits, never on version numbers.",
+        "reference": "docs/minecraft-versions.md"
+      },
+      {
+        "name": "no literal hex",
+        "grep": "#[0-9a-fA-F]{3,8}\\b",
+        "paths": ["src/components", "src/routes"],
+        "expect": "no-matches",
+        "diagnosis": "Add a token; never inline or approximate with a nearby one.",
+        "reference": "docs/design-tokens.md"
+      },
+      {
+        "name": "no literal px",
+        "grep": "\\[[0-9.]+px\\]",
+        "paths": ["src/components", "src/routes"],
+        "expect": "no-matches",
+        "diagnosis": "Add a token; never inline or approximate with a nearby one.",
+        "reference": "docs/design-tokens.md"
+      }
+    ],
+    "generated": {
+      "regenerate": "pnpm gen",
+      "expectCleanDiff": ["src/data/generated", "src/styles/tokens.css"],
+      "requiresNetwork": true,
+      "diagnosis": "Either a generated file was hand-edited, or a generator change was committed without its regenerated output.",
+      "reference": ".claude/rules/generated-data.md"
+    }
+  }
+}
