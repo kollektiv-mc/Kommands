@@ -36,6 +36,9 @@ secrets/
 npm-debug.log*
 pnpm-debug.log*
 
+# agent tooling — shared config is committed, personal overrides are not
+.claude/settings.local.json
+
 # NOTE: src/data/generated/ is intentionally NOT ignored.
 # Generated command skeletons and registries are committed so that version
 # bumps produce reviewable diffs and builds work offline.

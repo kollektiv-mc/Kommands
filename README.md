@@ -53,6 +53,7 @@ pnpm dev
 | [Adding a preview](docs/adding-a-preview.md) | |
 | [Design tokens](docs/design-tokens.md) | |
 | [Roadmap](docs/roadmap.md) | |
+| [Suite](docs/suite.md) | The umbrella this repo belongs to, and the tooling it shares |
 
 ## Credits
 
