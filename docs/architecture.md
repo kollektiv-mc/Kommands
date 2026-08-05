@@ -202,13 +202,18 @@ The visual language is the suite's shared one, defined in
 `kollektiv/design/tokens.json` and consumed by both products: a dense, dark-first
 UI whose signature is **hairline `0.5px` borders and no shadows at all**, with
 status colours stored as RGB channel triplets so alpha can be composed in one
-token.
+token. Konnekt generates its own output from the same source, so neither product
+copies the other.
 
 `pnpm gen:tokens` emits `src/styles/tokens.css` from the vendored
 `tokens.source.json`; Tailwind's `@theme inline` exposes those custom properties as
 semantic utilities. Components reference tokens only — never a literal hex or px
 value. Pipeline and conventions in [`design-tokens.md`](design-tokens.md); the
 values themselves live in `kollektiv/design/tokens.json`.
+
+The generator is not written yet — this repo is pre-scaffold. `tokens.source.json`
+is in place and [`design-tokens.md`](design-tokens.md) specifies the contract to
+implement.
 
 ---
 

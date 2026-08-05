@@ -36,12 +36,12 @@ secrets/
 npm-debug.log*
 pnpm-debug.log*
 
-# agent tooling — shared config is committed, personal overrides are not
-.claude/settings.local.json
-
-# NOTE: src/data/generated/ is intentionally NOT ignored.
+# NOTE: src/data/generated/ is intentionally NOT ignored, and neither are
+# tokens.source.json or src/styles/tokens.css.
 # Generated command skeletons and registries are committed so that version
-# bumps produce reviewable diffs and builds work offline.
+# bumps produce reviewable diffs and builds work offline. The token source is
+# vendored from kollektiv for the same reason: a build must work from a
+# standalone clone, without a kollektiv checkout beside it.
 # See docs/architecture.md § Derivation.
 
 # Agent tooling: shared config is committed so every clone and cloud agent

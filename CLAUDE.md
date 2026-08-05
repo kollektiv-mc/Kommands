@@ -38,7 +38,7 @@ Formatting is Prettier-enforced; do not hand-format. Non-default settings:
 **no semicolons**, **single quotes**, **trailing commas everywhere**,
 **100-column** print width, **2-space** indentation.
 
-Three rules are not enforceable by the formatter and are checked by
+Four rules are not enforceable by the formatter and are checked by
 `/suite-kit:health`:
 
 1. **No hardcoded game values.** Item IDs, entity IDs, enchantments, effects,
@@ -47,9 +47,14 @@ Three rules are not enforceable by the formatter and are checked by
 2. **No literal hex or px in components.** `src/components/**` and `src/routes/**`
    use `var(--token)` or the Tailwind semantic utilities only. Every value the
    design needs already has a named token; if one seems missing, add it to the
-   token source rather than inlining. See `docs/design-tokens.md`.
-3. **Never hand-edit `src/data/generated/**`.** It is derived from mcmeta and
-   overwritten by `pnpm gen:commands`. Change the generator instead.
+   shared token source rather than inlining. See `docs/design-tokens.md`.
+3. **Never hand-edit `src/data/generated/**` or `src/styles/tokens.css`.** The
+   first is derived from mcmeta by `pnpm gen:commands`, the second from
+   `tokens.source.json` by `pnpm gen:tokens`. Change the input, not the output.
+4. **Never hand-edit `tokens.source.json`.** It is vendored from
+   `kollektiv/design/tokens.json` and overwritten by that repo's
+   `scripts/sync-tokens.sh`. A token added here alone is lost on the next sync
+   and never reaches Konnekt, which reads the same source.
 
 Other conventions:
 
