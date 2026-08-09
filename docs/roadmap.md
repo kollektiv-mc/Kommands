@@ -12,8 +12,10 @@ Getting a single command generating correct 1.21.1 output end to end. The goal o
 this phase is to **prove the schema against real commands**, not to ship breadth.
 
 - Scaffold the app: Vite, React, TypeScript strict, router, Tailwind v4, Vitest
-- `pnpm gen:tokens` → `src/styles/tokens.css`, with the full named scale so no
-  component ever needs a literal hex or px value
+- `pnpm gen:tokens` → `src/styles/tokens.css` from the vendored
+  `tokens.source.json`, with the full named scale so no component ever needs a
+  literal hex or px value. Konnekt's `frontend/scripts/gen-tokens.mjs` already
+  implements this contract against the same source
 - `pnpm gen:commands` → derive all 83 vanilla skeletons for 1.21.1 from mcmeta,
   committed
 - Version trait model, plus the 1.21.1 definition

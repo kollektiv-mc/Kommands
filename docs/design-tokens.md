@@ -27,6 +27,12 @@ tokens.source.json  ──►  pnpm gen:tokens  ──►  src/styles/tokens.css
    (vendored, committed)                        (generated, committed)      Tailwind utilities
 ```
 
+> **Not built yet.** `pnpm gen:tokens` and `src/styles/tokens.css` do not exist —
+> this repo is pre-scaffold. `tokens.source.json` is in place; the contract below is
+> what to implement when the app is scaffolded, and Konnekt's
+> `frontend/scripts/gen-tokens.mjs` is a working implementation of the same contract
+> against the same source.
+
 `tokens.source.json` and `src/styles/tokens.css` are both committed — a build must
 work from a standalone clone, without a `kollektiv` checkout beside it.
 `src/styles/tokens.css` carries a DO-NOT-EDIT header. Tailwind v4's `@theme inline`
@@ -34,7 +40,34 @@ maps each custom property to a semantic utility, so `--color-canvas: var(--bg-ba
 yields `bg-canvas`.
 
 Runtime theming works by overriding custom properties on `document.documentElement`,
-so theme, accent, and skin changes need no rebuild and no re-render.
+so theme and accent changes need no rebuild and no re-render.
+
+### What `gen:tokens` must do
+
+1. Read `tokens.source.json` from the repo root.
+2. Refuse a `version` it does not understand, rather than guessing at a shape.
+3. Emit `src/styles/tokens.css` with a DO-NOT-EDIT header naming the source and the
+   regeneration command.
+
+Three details are easy to get wrong, and Konnekt got each of them wrong once:
+
+- **Colours belong in `@theme inline`; scalars do not.** Under `inline`, Tailwind
+  substitutes the literal into each utility and never emits the custom property —
+  so `rounded-panel` compiles correctly while `var(--radius-panel)` resolves to
+  nothing in hand-written CSS. Colours need `inline` so a utility resolves straight
+  to the themed property that runtime theming overrides. Everything else belongs in
+  a plain `@theme` block.
+- **Border widths need `@utility`.** Tailwind v4 has no `--border-width-*`
+  namespace, so `border-hairline` has to be declared:
+  ```css
+  @utility border-hairline {
+    border-width: var(--border-hairline);
+  }
+  ```
+- **Do not emit the space scale.** Tailwind's default `--spacing: 0.25rem` already
+  yields `p-0.5` = 2px through `p-6` = 24px, identical to the shared scale.
+  Re-declaring it adds a second thing to keep in step for no gain. Font weights are
+  likewise covered by `font-normal` / `font-medium` / `font-semibold` / `font-black`.
 
 ---
 
@@ -89,12 +122,12 @@ a drop shadow, it needs a different surface or border instead.
 
 | Pattern | Shape |
 |---|---|
-| Panel / tile | `--radius-panel` + `--border-hairline` over `--bg-surface` |
+| Panel / tile | `rounded-panel` + `border-hairline` over `bg-surface` |
 | Segmented control | Pill container, sliding accent indicator at `--radius-lg` minus 1px |
 | Toggle | `20×36px` pill, `16px` knob, accent when on, `--border-hover` when off |
 | Row divider | `border-bottom: var(--border-hairline) solid var(--border-subtle)` |
 | Scrollbar | `4px`, `--border-hover` thumb, transparent track |
-| Value text | Monospace, `--text-xs`, `--text-secondary` |
+| Value text | Monospace, `text-xs`, `text-text-secondary` |
 
 The sliding-indicator radius is `--radius-lg` minus 1px so it sits concentrically
 inside the container border. Concentric radii matter at hairline weights —
@@ -115,6 +148,7 @@ not define the set, so a value added here alone never reaches Konnekt.
 3. Run `pnpm gen:tokens` here, and commit the regenerated `src/styles/tokens.css`
    alongside the updated `tokens.source.json`.
 4. If components should reach it as a utility, map it in `@theme inline`.
+5. Regenerate in Konnekt too, so both products move together.
 
 Never edit `src/styles/tokens.css` directly — it is overwritten. Editing
 `tokens.source.json` directly is the same mistake one step earlier: the next
