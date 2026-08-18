@@ -1,0 +1,7 @@
+# Normalize line endings to LF in the repo, matching Konnekt and kollektiv.
+#
+# tokens.source.json is vendored by kollektiv's scripts/sync-tokens.sh, which
+# byte-compares it against design/tokens.json to detect drift. Without a policy
+# here, a Windows checkout leaves this repo's copy as CRLF while the others are
+# LF, and the comparison reports drift that does not exist.
+* text=auto eol=lf
