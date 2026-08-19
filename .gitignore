@@ -14,6 +14,10 @@ coverage/
 
 # caches
 .cache/
+# ^ includes .cache/mcmeta/<tag>/, where the deriver keeps the fetched summaries.
+# The tag is pinned and immutable, so the cache never goes stale — it exists so a
+# warm run needs no network and an mcmeta outage cannot redden CI on an unrelated
+# change. CI restores it with actions/cache keyed on the tag.
 .temp/
 .vite/
 .eslintcache

@@ -46,8 +46,9 @@ knows which version it is targeting beyond the traits it is handed.
 
 Vanilla command _skeletons_ are derived from the Brigadier command tree that
 Minecraft itself exports, republished per version by
-[misode/mcmeta](https://github.com/misode/mcmeta). For 1.21.1 that tree holds 83
-commands across 1763 nodes, using 51 distinct argument parsers.
+[misode/mcmeta](https://github.com/misode/mcmeta). For 1.21.1 that tree holds 83 root
+children across 1763 nodes, using 51 distinct argument parsers. Five of those children
+are aliases, so it describes 78 commands.
 
 **Brigadier describes shape, never semantics.** `/give` reduces to:
 
@@ -81,20 +82,33 @@ rather than two subsystems behind an interface.
 1. Fetch `<version>-summary/{commands,registries,blocks}/data.json` from mcmeta,
    pinned by tag.
 2. Walk the tree, emitting schema nodes.
-3. Resolve `redirect` into `Repeat`; resolve the childless `run` literal into a
-   `Ref` back to the command root.
-4. Map each `parser` + `properties` pair to an argument-type key and options.
-5. Write `src/data/generated/<version>/`, stamped `provenance: 'derived'`.
+3. Resolve `redirect`, which carries two unrelated meanings told apart by shape: a
+   depth-1 childless literal pointing at another root command is an **alias**, while a
+   node pointing back at its own command root is **recursion** and closes a `Repeat`.
+   Resolving both to `Repeat` would make `/tell` repeat itself.
+4. Resolve a childless, non-executable literal into a `Ref` back to the command root.
+5. Map each `parser` + `properties` pair to an argument-type key and options, via the
+   table in `src/data/authored/parsers.ts`. A parser absent from that table is a hard
+   error — the deriver cannot know whether degrading an argument it does not
+   understand is safe.
+6. Flatten nested single-child sequences, so a chain arrives as one `Sequence` rather
+   than one per link.
+7. Write `src/data/generated/<version>/`, stamped `provenance: 'derived'`.
 
 **Failure policy:** an unmapped _shallow_ parser (a plain scalar such as an integer
 or boolean) is a hard error — those must be generically representable. An unmapped
 _deep_ parser binds a `raw_text` fallback editor and records the gap, so a command
 degrades to a text field rather than breaking the build.
 
-All 83 commands are emitted, though only `/give`, `/tellraw`, and `/execute` have
+All of them are emitted, though only `/give`, `/tellraw`, and `/execute` have
 authored editors and routes today. Emitting the full tree costs nothing extra — it
 is one walk — and it means adding a command later is a routing and editor decision
 rather than a data problem.
+
+The count is **78 commands and 5 aliases**, not 83. Eighty-three is the number of
+Brigadier root children, and five of those — `tell`, `w`, `tm`, `tp`, `xp` — are
+childless literals that `redirect` at another root command. `/tell` _is_ `/msg`, so it
+becomes an entry in that definition's `aliases` rather than a definition of its own.
 
 ### Generated output is committed
 
@@ -106,16 +120,26 @@ rather than a data problem.
   the build.
 - No build-order dependency between data generation and typechecking.
 
-The cost is repository size and the risk of hand-edits. The latter is mitigated by
-a DO-NOT-EDIT header on every generated file and a rule in
-`.claude/rules/generated-data.md`.
+The cost is repository size and the risk of hand-edits. The latter is mitigated by a
+DO-NOT-EDIT header on every generated file and a rule in
+`.claude/rules/generated-data.md`. JSON has no comments, so that header is a
+`$generated` object at the top of each file, carrying the warning, the pinned mcmeta
+tag, and the command that regenerates it. The loader checks it, so a file edited into
+a different shape fails at load rather than three layers further on.
+
+Files are pretty-printed with sorted keys. Compact JSON would be a third of the size
+and one line long, which would give up the reviewable diff that is the whole reason
+for committing them.
 
 ### The mcmeta quirk
 
-mcmeta's summary format serialises redirect-to-root as a **childless literal**. The
-`execute` tree's `run` node therefore appears empty rather than pointing anywhere.
-The deriver special-cases it. Any future node that redirects to the tree root will
-hit the same representation.
+mcmeta's summary format serialises redirect-to-root as a **childless literal**, so a
+`run` node appears empty rather than pointing anywhere. The deriver special-cases it.
+
+There are **two** such nodes at 1.21.1, not one: `execute/run` and `return/run`. The
+deriver therefore matches on shape — a literal with no children, not executable, no
+redirect — rather than on the name `run` or on the command being `/execute`. Matching
+on either would have derived `/return` as a dead end.
 
 ---
 
@@ -223,7 +247,7 @@ values themselves live in `kollektiv/design/tokens.json`.
 | Schema as node tree     | Flat argument list                | `/execute` recurses and embeds commands                                            |
 | One schema + `dialect`  | WorldEdit as sibling subsystem    | `//generate` needs no structure vanilla lacks, and shares all argument editors     |
 | Derive skeletons only   | Derive everything                 | Brigadier has no semantics for `item_stack` or `component` — the parts that matter |
-| Emit all 83 commands    | Emit only the three in scope      | Same cost; makes future additions a routing decision                               |
+| Emit every command      | Emit only the three in scope      | Same cost; makes future additions a routing decision                               |
 | Commit generated data   | Gitignore and generate on install | Reviewable version diffs, offline builds, no network in CI                         |
 | Traits, not eras        | Era enum                          | Changes do not land together — attributes moved at 1.21.2, enchantments at 1.21.5  |
 | Preview receives values | Preview parses command text       | Keeps previews independent of serializer and version traits                        |

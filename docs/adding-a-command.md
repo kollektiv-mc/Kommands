@@ -15,8 +15,10 @@ Schema reference: [`command-schema.md`](command-schema.md).
 | WorldEdit or any non-vanilla command           | **B — author a definition**                                |
 | Vanilla command needing a temporary override   | **B**, with `dialect: 'vanilla'`, `provenance: 'authored'` |
 
-All 83 vanilla commands are already derived into
-`src/data/generated/<version>/commands.json`. Path A is usually just wiring.
+All 78 vanilla commands are already derived into
+`src/data/generated/<version>/commands.json`, with the five alias invocations
+(`/tell`, `/w`, `/tm`, `/tp`, `/xp`) carried on the `aliases` of the command they
+alias. Path A is usually just wiring.
 
 ---
 

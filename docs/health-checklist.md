@@ -202,17 +202,6 @@ belongs here.
 The not-yet-closed follow-ups. Keep this section short and current; everything above
 it should be stable between runs.
 
-**P1 — `gen:commands` is not covered by the health manifest**
-
-- `health.generated` in [`.claude/suite.json`](../.claude/suite.json) declared a
-  `pnpm gen:commands` clean-diff check over `src/data/generated`. The entry was
-  removed when the app was scaffolded, because a stub generator that writes nothing,
-  diffed against a directory that does not exist, reports **pass** — a check claiming
-  success while verifying nothing, which is the precise failure
-  `.claude/suite-check.py` exists to prevent. `scripts/derive-commands.ts` exits
-  non-zero instead. Restoring the entry, with its `diagnosis` and
-  `requiresNetwork: true` intact, is part of #4's definition of done.
-
 **P2 — The version-comparison guard cannot see a named constant**
 
 - Two layers cover version-number branching: the `no version-number comparisons`
@@ -224,20 +213,6 @@ it should be stable between runs.
   run. Worth revisiting once serializer code exists and the shape of the risk is
   concrete rather than hypothetical. Originally
   [#16](https://github.com/kollektiv-mc/Kommands/issues/16).
-
-**P2 — No bundle budget**
-
-- Konnekt gates its entry chunk at 550 KB gzip in CI. Kommands has no equivalent, and
-  the Performant pillar above names one it cannot currently verify. Worth setting
-  once the registries and a preview module are in and the real shape of the bundle is
-  known — a budget guessed at now would be either slack or wrong.
-
-**P2 — `pnpm gen:diff` is referenced but unspecified**
-
-- [`adding-a-version.md`](adding-a-version.md) names it as the step that catches
-  registry regressions, but it is specified nowhere and appears in no command table.
-  [#14](https://github.com/kollektiv-mc/Kommands/issues/14) leans toward scoping it
-  into #4, which is the natural fit: same script, same pinned data.
 
 ---
 

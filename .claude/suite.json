@@ -33,6 +33,10 @@
       {
         "name": "format",
         "run": "pnpm format:check"
+      },
+      {
+        "name": "bundle budget",
+        "run": "pnpm build && pnpm check-bundle"
       }
     ],
     "invariants": [
@@ -65,6 +69,13 @@
       }
     ],
     "generated": [
+      {
+        "regenerate": "pnpm gen:commands",
+        "expectCleanDiff": ["src/data/generated"],
+        "requiresNetwork": true,
+        "diagnosis": "A non-empty diff means either src/data/generated was hand-edited, or a generator change was committed without its regenerated output. Both are bugs: the hand edit is destroyed on the next run and the underlying issue survives. Fix the generator, regenerate, and commit both together. Regeneration is deterministic \u2014 same mcmeta tag in, same bytes out \u2014 so a diff without a generator or version change means something else is wrong. requiresNetwork is declared for the cold case only: the deriver caches each pinned tag under .cache/mcmeta, so a warm run never reaches the network and CI restores that cache keyed on the tag.",
+        "reference": ".claude/rules/generated-data.md"
+      },
       {
         "regenerate": "pnpm gen:tokens",
         "expectCleanDiff": ["src/styles/tokens.css"],
