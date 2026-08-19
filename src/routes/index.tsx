@@ -1,7 +1,6 @@
-import { createRoute } from '@tanstack/react-router'
+import { createRoute, Link } from '@tanstack/react-router'
 import { rootRoute } from './root'
-import { CommandWorkbench } from '../components/CommandWorkbench'
-import { loadCommands, loadRegistries } from '../data/loadGenerated'
+import { loadCommands } from '../data/loadGenerated'
 import { v1_21_1 } from '../data/versions/1.21.1'
 
 // The component is inline, matching root.tsx: a route file that exported both a
@@ -9,33 +8,36 @@ import { v1_21_1 } from '../data/versions/1.21.1'
 export const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  // The skeleton is fetched by the route rather than imported by the component, so
-  // commands.json stays out of the entry chunk. TanStack Router awaits this before
-  // rendering, so the component never sees a half-loaded definition.
+  // Only the skeletons. The registries are three times the size and nothing on this
+  // page reads them, so they load when a command does.
   loader: async () => {
-    const [commands, registries] = await Promise.all([
-      loadCommands(v1_21_1),
-      loadRegistries(v1_21_1),
-    ])
-    return { give: commands['vanilla:give'], registries }
+    const commands = await loadCommands(v1_21_1)
+    return { commands: Object.values(commands).sort((a, b) => (a.label < b.label ? -1 : 1)) }
   },
   component: () => {
-    const { give, registries } = indexRoute.useLoaderData()
+    const { commands } = indexRoute.useLoaderData()
     return (
       <div className="flex max-w-2xl flex-col gap-3">
         <section className="border-hairline border-border-subtle bg-surface rounded-panel p-3">
           <h1 className="font-title mb-1 text-sm">Command generator</h1>
           <p className="text-text-secondary text-1xs leading-relaxed">
-            Commands are declarative definitions rendered by a generic renderer, so adding one is a
-            data change. Below is /give as derived from the Brigadier tree — nobody wrote this form.
-            Its item field is the raw_text fallback until the data-component editor lands.
+            {`All ${commands.length} vanilla commands, derived from the Brigadier tree — nobody wrote these forms. Each is a definition rendered by one generic renderer, so reaching the UI is a routing decision rather than a page.`}
           </p>
         </section>
-        {give ? (
-          <CommandWorkbench definition={give} version={v1_21_1} registries={registries} />
-        ) : (
-          <p className="text-warning text-2xs">/give is missing from the generated data.</p>
-        )}
+
+        <ul className="flex flex-wrap gap-2">
+          {commands.map((definition) => (
+            <li key={definition.id}>
+              <Link
+                to="/c/$commandId"
+                params={{ commandId: definition.id }}
+                className="border-hairline border-border-subtle bg-elevated text-text-secondary text-1xs hover:border-border-hover hover:text-text-primary block rounded-md px-2 py-1 font-mono"
+              >
+                {definition.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
       </div>
     )
   },

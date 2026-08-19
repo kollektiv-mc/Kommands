@@ -99,11 +99,16 @@ no sockets to time out; it emits text. Its failure mode is **a command that look
 right and silently does nothing in game** — so correctness of emitted syntax is what
 belongs here.
 
-- [ ] Every canonical fixture in [`minecraft-versions.md`](minecraft-versions.md)
-      § Canonical 1.21.1 output generates **byte-exact**. Partly: the shallow spine
-      of `/give` is asserted, and the `text_component` trait branch is asserted in
-      both forms. The three data-component fixtures wait on #7's editor. These are regression
-      fixtures: a serializer change that breaks one is wrong, not the fixture.
+- [x] Every canonical fixture in [`minecraft-versions.md`](minecraft-versions.md)
+      § Canonical 1.21.1 output generates **byte-exact**. All four `/give` fixtures are
+      asserted in `src/schema/argument-types/item-stack.test.ts`, against the _derived_
+      skeleton rather than a transcription of it, so a deriver change that reshapes
+      `/give` fails there too. `/tellraw`'s is asserted in `serialize.test.ts` — its
+      editor is #8's, but its argument type is not — and separately from the
+      `custom_name` form, because a component written as an argument is bare and the
+      same component written into a data-component field is a quoted string. Only
+      `/execute`'s remains, with #9. These are regression fixtures: a serializer change
+      that breaks one is wrong, not the fixture.
       Verify: `pnpm test` — each must be an assertion, not a comment.
 - [x] Every fixture has been checked against a **primary source** —
       [minecraft.wiki](https://minecraft.wiki) or the pinned mcmeta data — not against
@@ -141,17 +146,24 @@ belongs here.
       `Repeat`. Otherwise rendering does not terminate.
 - [ ] Tests exist and pass for the paths where a silent wrong answer is possible:
       each serializer, the trait branches, the deriver's parser mapping, and the
-      WorldEdit expression evaluator's golden fixtures. Partly: trait branches and
-      the parser table are covered; the deriver and the evaluator do not exist yet.
+      WorldEdit expression evaluator's golden fixtures. Partly: all three trait
+      branches now have a branch site and a test, the parser table and the SNBT writer
+      are covered, and the deriver is asserted through its committed artefact. The
+      evaluator does not exist yet.
 
 ## 3. Scalable / future-proof
 
-- [ ] Adding a vanilla command touches **only** data, presentation metadata, and a
+- [x] Adding a vanilla command touches **only** data, presentation metadata, and a
       route — never the renderer, never a new page component. This is the design's
       load-bearing claim; if it starts requiring code changes, surface it rather than
-      absorbing the cost.
+      absorbing the cost. There is now one dynamic route for all 78, so a command
+      needs no route entry of its own: `src/data/authored/ui/<command>.ts` and a test
+      are the whole diff. `/give` itself is not the evidence — it brought the
+      `item_stack` argument type with it, which
+      [`architecture.md`](architecture.md) buckets as authored editor code by design.
+      The next command is the test of this claim.
       Verify: `git diff` for the last command added — expect
-      `src/data/authored/ui/`, a route entry, and a test. Nothing else.
+      `src/data/authored/ui/` and a test. Nothing else.
 - [ ] Adding a Minecraft version touches only version data and generated files.
       Adding 1.21.5 flips three trait flags; 1.21.2 flips none. Neither touches
       serializer control flow.
@@ -213,6 +225,25 @@ it should be stable between runs.
   run. Worth revisiting once serializer code exists and the shape of the risk is
   concrete rather than hypothetical. Originally
   [#16](https://github.com/kollektiv-mc/Kommands/issues/16).
+
+**P2 — `attribute_modifiers` hard-codes this version's wrapper**
+
+- At 1.21.1 the component is `{modifiers:[…],show_in_tooltip?}`; from 1.21.5 it is a
+  bare array. No trait describes that, and adding a fourth flag means editing the
+  authoritative matrix in [`minecraft-versions.md`](minecraft-versions.md) — a
+  decision worth making on its own rather than inside #7. Until then, adding 1.21.5
+  is a serializer change rather than a data change, which is the one thing the version
+  model exists to prevent. `enchantments` is not affected: its own change rides
+  `enchantmentsShape`, which already exists.
+
+**P2 — An unset required argument in the middle of a sequence emits a double space**
+
+- `serialize.ts` pops trailing empties, so an unfilled optional tail disappears
+  cleanly. A gap in the _middle_ survives `parts.join(' ').trim()` as two spaces —
+  `give @p  1` when no item has been picked. The comment there says the gap is
+  deliberately visible, and it should be; a doubled space is not visible, it is
+  malformed text a user will paste. The fix is probably a placeholder token for an
+  unset required argument, which is a design change rather than a patch.
 
 ---
 

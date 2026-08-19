@@ -87,6 +87,8 @@ change is wrong.
 
 /give @p minecraft:diamond_chestplate[attribute_modifiers={modifiers:[{type:"minecraft:generic.armor",amount:4,operation:"add_value",slot:"chest",id:"kommands:bonus"}]}]
 
+/give @p minecraft:diamond_pickaxe[lore=['{"text":"Forged in the deep","color":"gray"}']]
+
 /tellraw @a {"text":"Server restarting","color":"red","bold":true}
 
 /execute as @a at @s run particle minecraft:flame ~ ~1 ~ 0.2 0.2 0.2 0 10
@@ -112,6 +114,7 @@ Verified 2026-08-19 against
 | ------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `enchantments={levels:{…}}`           | `dispatch …[enchantments]`        | `#[until="1.21.5"] #[canonical] Enchantments`, a struct with a `levels` field. The bare map is the 1.21.5 form                                               |
 | `custom_name='{…}'`                   | `dispatch …[custom_name]`         | `#[until="1.21.5"] #[text_component] string` — a quoted JSON string, not SNBT                                                                                |
+| `lore=['{…}']`                        | `dispatch …[lore]`                | A _list_ whose element is `#[until="1.21.5"] #[text_component] string`. One quoted JSON string per line, not one component holding every line                |
 | `attribute_modifiers={modifiers:[…]}` | `dispatch …[attribute_modifiers]` | `#[until="1.21.5"] #[canonical] AttributeModifiers`, the `{modifiers,show_in_tooltip?}` wrapper. A bare array also parses, but is canonical only from 1.21.5 |
 | `minecraft:generic.armor`             | `attribute` registry              | `generic.armor` present; bare `armor` absent                                                                                                                 |
 | `id:"kommands:bonus"`                 | `AttributeModifier` struct        | `#[since="1.21"] id`, replacing the pre-1.21 `uuid` + `name` pair                                                                                            |

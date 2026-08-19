@@ -40,11 +40,18 @@ the editor (below).
 argument grouping, help text. Derivation cannot produce these; Brigadier has no
 human-facing strings.
 
-**4. Add a route** so the command is reachable.
+**4. Check the route.** There is nothing to add: `/c/$commandId` resolves any
+definition in the generated set, so `/c/vanilla:give` works the moment the skeleton
+exists. A command only needs a route entry of its own if it needs a page that is not
+the workbench — and if it does, that is a finding about the design rather than a step
+in this list.
 
 **5. Add fixtures.** At minimum one expected output string per supported version,
 in `<command>.test.ts`. Copy the style of the canonical examples in
-[`minecraft-versions.md`](minecraft-versions.md).
+[`minecraft-versions.md`](minecraft-versions.md) — and if the shape you are asserting
+is not already one of them, verify it against a primary source and add a provenance
+row there first. A fixture carries its evidence; an unverified one just records what
+the code happened to do.
 
 **6. Run `/suite-kit:health`.**
 

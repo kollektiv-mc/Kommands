@@ -4,6 +4,7 @@ import { beforeEach, expect, test } from 'vitest'
 import { CommandWorkbench } from './CommandWorkbench'
 import commandsPayload from '../data/generated/1.21.1/commands.json'
 import { makeRegistryLookup } from '../data/versions/registry'
+import { withUi } from '../data/authored/ui'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import type { CommandDefinition } from '../schema/types'
 import { useCommandStore } from '../stores/useCommandStore'
@@ -73,4 +74,43 @@ test('an item that does not exist in this version warns without blocking the out
 test('the output panel names the version it is generating for', () => {
   renderGive()
   expect(screen.getByText(`Output · ${v1_21_1.id}`)).toBeDefined()
+})
+
+test('authored presentation replaces the Brigadier argument names', () => {
+  // Derivation cannot produce these: Brigadier names an argument for the parser that
+  // reads it, and carries no help text at all. Without withUi the raw names show,
+  // which is the fallback the other tests in this file rely on.
+  render(<CommandWorkbench definition={withUi(GIVE)} version={v1_21_1} registries={registries} />)
+
+  expect(screen.getByText('Recipients')).toBeDefined()
+  expect(screen.getByText('Who receives the item.')).toBeDefined()
+  expect(screen.queryByText('targets')).toBeNull()
+})
+
+test('the generated command can be copied', async () => {
+  const user = userEvent.setup()
+  renderGive()
+
+  await user.type(screen.getByLabelText('Item'), 'stone')
+  await user.click(screen.getByText('copy'))
+
+  expect(await navigator.clipboard.readText()).toBe('/give @p minecraft:stone')
+  expect(screen.getByText('copied')).toBeDefined()
+})
+
+test('switching to another command does not carry the previous values over', async () => {
+  // Values are keyed by path, and a path means nothing outside the definition it was
+  // built against — /2 is an item here and a block position in the next command. The
+  // guard is read during render, so there is no frame showing the old values under
+  // the new labels.
+  const user = userEvent.setup()
+  const { rerender } = renderGive()
+
+  await user.type(screen.getByLabelText('Item'), 'stone')
+  expect(screen.getByText('/give @p minecraft:stone')).toBeDefined()
+
+  const CLEAR = commands['vanilla:clear']!
+  rerender(<CommandWorkbench definition={CLEAR} version={v1_21_1} registries={registries} />)
+
+  expect(screen.queryByText(/minecraft:stone/)).toBeNull()
 })

@@ -1,6 +1,6 @@
 import type { Diagnostic } from '../../schema/types'
 import { writeSnbt, type SnbtValue } from '../../schema/snbt'
-import { serializeTextComponent, type TextComponent } from '../../schema/text-component'
+import { textComponentField, type TextComponent } from '../../schema/text-component'
 import type { SerializeContext } from '../versions/types'
 
 /**
@@ -157,7 +157,7 @@ const CUSTOM_NAME: ItemComponentSpec = {
   editor: 'text-component',
   defaultValue: (): TextComponent => ({ text: '' }),
   isEmpty: (value) => (value as TextComponent).text === '',
-  serialize: (value, ctx) => serializeTextComponent(value as TextComponent, ctx),
+  serialize: (value, ctx) => writeSnbt(textComponentField(value as TextComponent, ctx)),
 }
 
 const LORE: ItemComponentSpec = {
@@ -167,14 +167,10 @@ const LORE: ItemComponentSpec = {
   defaultValue: (): TextComponent[] => [{ text: '' }],
   isEmpty: (value) => (value as TextComponent[]).every((line) => line.text === ''),
   serialize: (value, ctx) => {
-    // A list of text components, one per line. Each element is already a complete
-    // component in this version's form — a quoted JSON string before 1.21.5 — so it
-    // goes in raw rather than being encoded a second time.
+    // A list of text components, one per line — each element is a field in its own
+    // right, so each is quoted before 1.21.5 rather than the list as a whole.
     const lines = (value as TextComponent[]).filter((line) => line.text !== '')
-    return writeSnbt({
-      kind: 'list',
-      items: lines.map((line) => ({ kind: 'raw', text: serializeTextComponent(line, ctx) })),
-    })
+    return writeSnbt({ kind: 'list', items: lines.map((line) => textComponentField(line, ctx)) })
   },
 }
 

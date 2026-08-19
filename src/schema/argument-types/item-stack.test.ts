@@ -167,9 +167,26 @@ describe('the same values under different traits', () => {
   })
 
   test('lore is a list of quoted JSON strings at 1.21.1', () => {
-    // Verified against SpyglassMC/vanilla-mcdoc: dispatch …[lore] is a list whose
-    // element is `#[until="1.21.5"] #[text_component] string`. See
-    // docs/minecraft-versions.md § Provenance.
+    // The fourth canonical fixture. Its shape had no provenance row until #7 — it
+    // appears in none of the other three — so it was checked against
+    // SpyglassMC/vanilla-mcdoc first: dispatch …[lore] is a *list* whose element is
+    // `#[until="1.21.5"] #[text_component] string`, one per line rather than one
+    // component holding all of them.
+    const out = serializeCommand(
+      GIVE,
+      value({
+        [ITEM]: stack('diamond_pickaxe', {
+          lore: [{ text: 'Forged in the deep', color: 'gray' }] satisfies TextComponent[],
+        }),
+      }),
+      ctx,
+    )
+    expect(out).toBe(
+      '/give @p minecraft:diamond_pickaxe[lore=[\'{"text":"Forged in the deep","color":"gray"}\']]',
+    )
+  })
+
+  test('each lore line is its own quoted component, not one component with newlines', () => {
     const out = serializeCommand(
       GIVE,
       value({

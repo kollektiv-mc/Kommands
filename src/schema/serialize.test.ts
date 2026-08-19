@@ -7,7 +7,8 @@ import { NO_REGISTRIES } from '../data/versions/registry'
 import type { CommandDefinition } from './types'
 import { serializeCommand, type CommandValue } from './serialize'
 import { evaluateConstraints } from './constraints'
-import { serializeTextComponent } from './text-component'
+import { serializeTextComponent, textComponentField } from './text-component'
+import { writeSnbt } from './snbt'
 
 const commands = commandsPayload.commands as unknown as Record<string, CommandDefinition>
 /** The derived skeleton, so a Ref resolves to the real thing rather than a stand-in. */
@@ -89,24 +90,67 @@ describe('a sequence, and what an unfilled argument does to it', () => {
 describe('serializers branch on traits, never on a version', () => {
   const component = { text: 'Server restarting', color: 'red', bold: true }
 
-  test('1.21.1 emits a quoted JSON string', () => {
+  test('as a command argument, 1.21.1 emits bare JSON', () => {
+    // The canonical /tellraw fixture in docs/minecraft-versions.md. No surrounding
+    // quotes: the argument is a component, not a string that contains one.
     expect(serializeTextComponent(component, ctx)).toBe(
+      '{"text":"Server restarting","color":"red","bold":true}',
+    )
+  })
+
+  test('as a data-component field, the same value is a quoted string', () => {
+    // The distinction that produces a command which parses and does nothing if it is
+    // got wrong. custom_name is `#[until="1.21.5"] #[text_component] string`, so
+    // before 1.21.5 the field holds a *string* whose contents are the JSON.
+    expect(writeSnbt(textComponentField(component, ctx))).toBe(
       '\'{"text":"Server restarting","color":"red","bold":true}\'',
     )
   })
 
-  test('flipping only the trait switches the form to SNBT', () => {
-    // Nothing here names a version. The same value and the same function produce the
+  test('a quote or backslash in the text is escaped for the string it is wrapped in', () => {
+    const awkward = { text: "it's a \\ backslash" }
+    expect(writeSnbt(textComponentField(awkward, ctx))).toBe(
+      '\'{"text":"it\\\'s a \\\\\\\\ backslash"}\'',
+    )
+  })
+
+  test('flipping only the trait switches both forms to SNBT', () => {
+    // Nothing here names a version. The same value and the same functions produce the
     // 1.21.5 form because one flag changed — which is the whole claim the trait model
-    // makes, tested before 1.21.5 exists as a version.
+    // makes, tested before 1.21.5 exists as a version. The field form loses its quotes
+    // because from 1.21.5 the field holds the component itself.
     const future = ctxFor({ ...v1_21_1.traits, textComponentFormat: 'snbt' })
     expect(serializeTextComponent(component, future)).toBe(
+      '{text:"Server restarting",color:"red",bold:true}',
+    )
+    expect(writeSnbt(textComponentField(component, future))).toBe(
       '{text:"Server restarting",color:"red",bold:true}',
     )
   })
 
   test('a SerializeContext carries no version id to compare against', () => {
     expect(Object.keys(ctx).sort()).toEqual(['registries', 'traits'])
+  })
+})
+
+describe('the /tellraw canonical fixture', () => {
+  test('a message is written bare, not as a quoted string', () => {
+    // docs/minecraft-versions.md § Canonical 1.21.1 output. /tellraw's editor is #8's
+    // work, but the argument type and its serializer landed with #7 — so the fixture
+    // is assertable now, and asserting it is what keeps the argument form and the
+    // data-component form from being confused for each other later.
+    const TELLRAW = commands['vanilla:tellraw']!
+    const out = serializeCommand(
+      TELLRAW,
+      value({
+        args: {
+          '/1': '@a',
+          '/2': { text: 'Server restarting', color: 'red', bold: true },
+        },
+      }),
+      ctx,
+    )
+    expect(out).toBe('/tellraw @a {"text":"Server restarting","color":"red","bold":true}')
   })
 })
 

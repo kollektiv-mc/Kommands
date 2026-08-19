@@ -1,11 +1,12 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { RegistryLookup, SerializeContext, VersionDefinition } from '../data/versions/types'
 import { CommandRenderer } from './CommandRenderer'
 import { evaluateConstraints } from '../schema/constraints'
-import { serializeCommand } from '../schema/serialize'
+import { EMPTY_VALUE, serializeCommand } from '../schema/serialize'
 import type { CommandDefinition } from '../schema/types'
 import { useCommandStore } from '../stores/useCommandStore'
 import { LABEL, WARNING } from './editors/fieldStyles'
+import { ROW_ADD } from './editors/rowStyles'
 
 /**
  * A definition, its editors, and the command they produce.
@@ -23,11 +24,29 @@ export function CommandWorkbench({
   /** The target version's registries. Loaded by the route, so the chunk stays lazy. */
   registries: RegistryLookup
 }) {
-  const value = useCommandStore((s) => s.value)
+  const stored = useCommandStore((s) => s.value)
   const setArg = useCommandStore((s) => s.setArg)
   const setFlag = useCommandStore((s) => s.setFlag)
   const setChoice = useCommandStore((s) => s.setChoice)
   const setRepeat = useCommandStore((s) => s.setRepeat)
+  const reset = useCommandStore((s) => s.reset)
+
+  /**
+   * Which definition the stored value belongs to.
+   *
+   * Values are keyed by path, and a path means nothing outside the definition it was
+   * built against — `/2` is an item in one command and a block position in the next.
+   * Clearing in an effect alone would leave one render showing the previous command's
+   * values under this one's labels, so the guard is read during render and the effect
+   * only catches the store up.
+   */
+  const [shownFor, setShownFor] = useState(definition.id)
+  useEffect(() => {
+    if (shownFor === definition.id) return
+    reset()
+    setShownFor(definition.id)
+  }, [definition.id, shownFor, reset])
+  const value = shownFor === definition.id ? stored : EMPTY_VALUE
 
   const ctx: SerializeContext = useMemo(
     () => ({ traits: version.traits, registries }),
@@ -47,7 +66,10 @@ export function CommandWorkbench({
       />
 
       <div className="border-hairline border-border-subtle bg-elevated rounded-panel flex flex-col gap-1 p-2">
-        <span className={LABEL}>{`Output · ${version.id}`}</span>
+        <div className="flex items-center gap-2">
+          <span className={LABEL}>{`Output · ${version.id}`}</span>
+          <CopyButton text={output} />
+        </div>
         <code className="text-text-primary text-1xs font-mono break-all">
           {output || <span className="text-text-faint">nothing yet</span>}
         </code>
@@ -58,5 +80,35 @@ export function CommandWorkbench({
         ))}
       </div>
     </div>
+  )
+}
+
+/**
+ * Copy the generated command.
+ *
+ * The whole product is a string the user pastes somewhere else, so this is the last
+ * step of every session. The clipboard API rejects when the document is not focused
+ * or permission is refused; the button says so rather than silently reporting success.
+ */
+function CopyButton({ text }: { text: string }) {
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
+
+  useEffect(() => setState('idle'), [text])
+
+  if (text === '') return null
+
+  return (
+    <button
+      type="button"
+      className={ROW_ADD}
+      onClick={() => {
+        navigator.clipboard.writeText(text).then(
+          () => setState('copied'),
+          () => setState('failed'),
+        )
+      }}
+    >
+      {state === 'copied' ? 'copied' : state === 'failed' ? 'could not copy' : 'copy'}
+    </button>
   )
 }
