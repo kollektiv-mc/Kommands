@@ -106,6 +106,17 @@ const MAX_LEVEL = 255
 
 const warn = (message: string): Diagnostic => ({ severity: 'warning', message })
 
+/**
+ * The enchantments that have actually been named.
+ *
+ * A row the user has added but not filled in is keyed by the empty string, which
+ * would emit `{levels:{"":1}}` — not a visible gap the way a blank field is, just an
+ * invalid command that looks complete. It is dropped from the output and reported as
+ * a warning instead.
+ */
+const named = (value: EnchantmentsValue): string[] =>
+  Object.keys(value.levels).filter((id) => id !== '')
+
 // ── Specs ───────────────────────────────────────────────────────────────────
 
 const ENCHANTMENTS: ItemComponentSpec = {
@@ -115,7 +126,7 @@ const ENCHANTMENTS: ItemComponentSpec = {
   defaultValue: (): EnchantmentsValue => ({ levels: {} }),
   isEmpty: (value) => {
     const v = value as EnchantmentsValue
-    return Object.keys(v.levels).length === 0 && v.showInTooltip === undefined
+    return named(v).length === 0 && v.showInTooltip === undefined
   },
   serialize: (value, ctx) => {
     const v = value as EnchantmentsValue
@@ -123,7 +134,7 @@ const ENCHANTMENTS: ItemComponentSpec = {
     // the order the user happened to add them.
     const levels: SnbtValue = {
       kind: 'compound',
-      entries: Object.keys(v.levels)
+      entries: named(v)
         .sort()
         .map((id) => [id, { kind: 'number', value: v.levels[id]! }] as const),
     }
@@ -139,12 +150,14 @@ const ENCHANTMENTS: ItemComponentSpec = {
   validate: (value, ctx) => {
     const v = value as EnchantmentsValue
     const out: Diagnostic[] = []
-    for (const [id, level] of Object.entries(v.levels)) {
-      if (id !== '' && !ctx.registries.has('enchantment', id)) {
+    if (Object.hasOwn(v.levels, '')) out.push(warn('An enchantment row has no enchantment.'))
+    for (const id of named(v)) {
+      if (!ctx.registries.has('enchantment', id)) {
         out.push(warn(`${id} is not an enchantment in this version.`))
       }
+      const level = v.levels[id]!
       if (!Number.isInteger(level) || level < MIN_LEVEL || level > MAX_LEVEL) {
-        out.push(warn(`Level for ${id || 'an enchantment'} must be ${MIN_LEVEL}–${MAX_LEVEL}.`))
+        out.push(warn(`Level for ${id} must be ${MIN_LEVEL}–${MAX_LEVEL}.`))
       }
     }
     return out
@@ -203,7 +216,13 @@ const ATTRIBUTE_MODIFIERS: ItemComponentSpec = {
   validate: (value, ctx) => {
     const out: Diagnostic[] = []
     for (const m of value as AttributeModifier[]) {
-      if (m.type !== '' && !ctx.registries.has('attribute', m.type)) {
+      if (m.type === '') {
+        // Kept in the output rather than dropped: unlike an unnamed enchantment, a
+        // modifier row carries four other fields the user did fill in, and silently
+        // discarding them would lose work. The empty namespace is glaring in the
+        // output, and this says so.
+        out.push(warn('A modifier row has no attribute.'))
+      } else if (!ctx.registries.has('attribute', m.type)) {
         // The id is read from the registry already spelled for this version. 1.21.1
         // uses three category prefixes, so computing one would emit an id that has
         // never existed — see docs/minecraft-versions.md § Registry drift.

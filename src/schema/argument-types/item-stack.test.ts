@@ -7,7 +7,7 @@ import type { AttributeModifier, EnchantmentsValue } from '../../data/authored/i
 import type { TextComponent } from '../text-component'
 import { serializeCommand, type CommandValue } from '../serialize'
 import type { CommandDefinition } from '../types'
-import type { ItemStackValue } from './item-stack'
+import { validateItemStack, type ItemStackValue } from './item-stack'
 
 /**
  * The acceptance set for `/give`.
@@ -226,6 +226,41 @@ describe('an item stack that is not filled in yet', () => {
     // if that default moved and quietly rewrote all three of them.
     const out = serializeCommand(GIVE, value({ [TARGETS]: '@a', [ITEM]: stack('stone') }), ctx)
     expect(out).toBe('/give @a minecraft:stone')
+  })
+
+  test('a half-typed enchantment row is dropped from the output, and warned about', () => {
+    // Keyed by the empty string while the id is still being typed. Emitting
+    // `{levels:{"":1}}` would be an invalid command that looks complete — not a
+    // visible gap the way a blank field is.
+    const half = stack('netherite_sword', { enchantments: enchantments({ '': 1 }) })
+    expect(serializeCommand(GIVE, value({ [ITEM]: half }), ctx)).toBe(
+      '/give @p minecraft:netherite_sword',
+    )
+    expect(validateItemStack(half, ctx).map((d) => d.message)).toContain(
+      'An enchantment row has no enchantment.',
+    )
+  })
+
+  test('an item outside the version registry warns, and still generates', () => {
+    // Validation warns, never blocks. A generator that refused to generate would be
+    // failing at the one thing it exists to do.
+    const unknown = stack('copper_sword')
+    expect(serializeCommand(GIVE, value({ [ITEM]: unknown }), ctx)).toBe(
+      '/give @p minecraft:copper_sword',
+    )
+    expect(validateItemStack(unknown, ctx).map((d) => d.message)).toEqual([
+      'copper_sword is not an item in this version.',
+    ])
+  })
+
+  test('components carry data this version cannot express is said out loud', () => {
+    const old = ctxFor({ ...v1_21_1.traits, itemFormat: 'nbt' })
+    const withComponents = stack('netherite_sword', {
+      enchantments: enchantments({ sharpness: 5 }),
+    })
+    expect(validateItemStack(withComponents, old).map((d) => d.message)).toContain(
+      'This version writes item data as NBT, so data components are not emitted.',
+    )
   })
 
   test('an added but untouched component is not emitted', () => {
