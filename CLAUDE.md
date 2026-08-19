@@ -74,10 +74,23 @@ Each fact lives in exactly one file. This file links; it does not restate.
 | `docs/adding-a-preview.md`   | Adding a 3D preview module                                         |
 | `docs/design-tokens.md`      | The token pipeline and the full token set                          |
 | `docs/roadmap.md`            | Now / Next / Later                                                 |
+| `docs/health-checklist.md`   | The quality yardstick, and what is currently open against it       |
 | `docs/suite.md`              | The suite this repo belongs to — shared agent tooling and tracking |
 
 `docs/minecraft-versions.md` is the file that prevents syntax bugs. Read it
 before writing or changing any serializer.
+
+## Definition of done
+
+Run `/suite-kit:health`. It runs lint, typecheck, tests and format, plus this
+repo's invariant greps and its generated-file check, driven by
+`.claude/suite.json`, and reports a table. **A skipped check is not a passing
+one** — the report says so, and most of the value is in that distinction.
+
+Then sanity-check the area you touched against the four pillars in
+`docs/health-checklist.md` (Clean / Correct / Scalable / Performant), and confirm
+the change is in scope for the current roadmap phase. Track any gap you cannot
+close now under that checklist's `Open backlog` rather than leaving it unwritten.
 
 ## Working agreements
 
