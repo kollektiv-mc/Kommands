@@ -32,7 +32,6 @@ export const v1_21_5: VersionDefinition = {
   traits: {
     itemFormat: 'components',
     enchantmentsShape: 'flat', // changed from 'levels-wrapper'
-    attributeIdPrefix: '', // changed at 1.21.2
     textComponentFormat: 'snbt', // changed from 'json-string'
   },
 }
@@ -62,7 +61,8 @@ pnpm gen:diff <previous> <new>
 
 Removed entries mean commands that were valid before are now invalid. Additions are
 harmless; removals and renames are not. The 1.21.2 attribute rename showed up here
-as 31 removed and 32 added.
+as 31 removed and 32 added — and **only** here, since it is a registry change and no
+trait describes it.
 
 ### 5. Handle syntax differences
 

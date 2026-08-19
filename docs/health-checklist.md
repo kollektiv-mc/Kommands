@@ -100,10 +100,12 @@ right and silently does nothing in game** — so correctness of emitted syntax i
 belongs here.
 
 - [ ] Every canonical fixture in [`minecraft-versions.md`](minecraft-versions.md)
-      § Canonical 1.21.1 output generates **byte-exact**. These are regression
+      § Canonical 1.21.1 output generates **byte-exact**. Partly: the shallow spine
+      of `/give` is asserted, and the `text_component` trait branch is asserted in
+      both forms. The three data-component fixtures wait on #7's editor. These are regression
       fixtures: a serializer change that breaks one is wrong, not the fixture.
       Verify: `pnpm test` — each must be an assertion, not a comment.
-- [ ] Every fixture has been checked against a **primary source** —
+- [x] Every fixture has been checked against a **primary source** —
       [minecraft.wiki](https://minecraft.wiki) or the pinned mcmeta data — not against
       training data or a third-party tutorial. 1.21.1 sits between two breaking
       changes and is easy to get wrong in both directions; third-party examples
@@ -119,7 +121,7 @@ belongs here.
       operators, an identifier not spelled `version`, and any `semver` import.
       One shape is still uncovered; see `Open backlog`.
       Verify: `pnpm lint` and the invariant, together. Neither alone is sufficient.
-- [ ] Version definitions declare **every** trait explicitly — no inheritance, no
+- [x] Version definitions declare **every** trait explicitly — no inheritance, no
       defaults, no partials. A missing trait must be a type error, not a silent
       fallback to another version's behaviour.
 - [ ] Registries are pinned per version by mcmeta **tag**, never by branch, and
@@ -127,19 +129,20 @@ belongs here.
       attributes were renamed at 1.21.2 — so a shared "latest" registry would offer
       values that do not exist in the target version.
       Verify: `grep -rn "mcmeta" scripts` — every URL must carry a version tag.
-- [ ] Validation **warns, never blocks**. Output always renders; the user decides.
+- [x] Validation **warns, never blocks**. Output always renders; the user decides.
       A validator that throws, or a diagnostic that gates the output panel, is the
       failure.
-- [ ] The renderer never branches on command id. If a command appears to need custom
+- [x] The renderer never branches on command id. If a command appears to need custom
       component logic, the schema is missing something — extend the schema, not the
       renderer.
       Verify: `grep -rnE "id === '|definitionId === '" src/components src/routes` —
       expect no matches.
-- [ ] A `Ref` never resolves to its own definition without passing through a
+- [x] A `Ref` never resolves to its own definition without passing through a
       `Repeat`. Otherwise rendering does not terminate.
 - [ ] Tests exist and pass for the paths where a silent wrong answer is possible:
       each serializer, the trait branches, the deriver's parser mapping, and the
-      WorldEdit expression evaluator's golden fixtures.
+      WorldEdit expression evaluator's golden fixtures. Partly: trait branches and
+      the parser table are covered; the deriver and the evaluator do not exist yet.
 
 ## 3. Scalable / future-proof
 
@@ -150,7 +153,7 @@ belongs here.
       Verify: `git diff` for the last command added — expect
       `src/data/authored/ui/`, a route entry, and a test. Nothing else.
 - [ ] Adding a Minecraft version touches only version data and generated files.
-      Adding 1.21.2 flips one trait flag; 1.21.5 flips three. Neither touches
+      Adding 1.21.5 flips three trait flags; 1.21.2 flips none. Neither touches
       serializer control flow.
 - [x] Routes are assembled from definitions rather than generated per command. A file
       per command reintroduces exactly the per-command cost
@@ -229,20 +232,12 @@ it should be stable between runs.
   once the registries and a preview module are in and the real shape of the bundle is
   known — a budget guessed at now would be either slack or wrong.
 
-**P2 — Two documented facts are unverified against a primary source**
+**P2 — `pnpm gen:diff` is referenced but unspecified**
 
-- The `attribute_modifiers` fixture in
-  [`minecraft-versions.md`](minecraft-versions.md) may have the wrong top-level shape
-  — `{modifiers:[…]}` versus a bare array. It is quoted as ground truth by
-  [#7](https://github.com/kollektiv-mc/Kommands/issues/7)'s acceptance criteria, so a
-  wrong fixture there produces exactly the silent-invalid-command failure this project
-  exists to prevent. Needs a direct check against
-  [Data component format](https://minecraft.wiki/w/Data_component_format).
-  [#15](https://github.com/kollektiv-mc/Kommands/issues/15).
-- `pnpm gen:diff` is referenced by [`adding-a-version.md`](adding-a-version.md) as the
-  step that catches registry regressions, but is specified nowhere and appears in no
-  command table. [#14](https://github.com/kollektiv-mc/Kommands/issues/14) leans
-  toward scoping it into #4.
+- [`adding-a-version.md`](adding-a-version.md) names it as the step that catches
+  registry regressions, but it is specified nowhere and appears in no command table.
+  [#14](https://github.com/kollektiv-mc/Kommands/issues/14) leans toward scoping it
+  into #4, which is the natural fit: same script, same pinned data.
 
 ---
 

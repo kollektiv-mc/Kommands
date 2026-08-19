@@ -28,14 +28,16 @@ Both axes must be checked.
 
 Do **not** model this as an enum of eras. Each row is an independent flag. This is
 not a stylistic preference: the changes do not land together, so an era enum
-cannot represent reality. Attribute IDs changed at **1.21.2**, while the
-enchantments and text-component changes landed at **1.21.5**.
+cannot represent reality. The enchantments and text-component changes landed at
+**1.21.5**; the item format changed at **1.20.5**.
+
+Attribute IDs also changed, at **1.21.2** — but that one is _not_ a trait. It is a
+registry change, and it is covered under [Registry drift](#registry-drift) below.
 
 | Trait                 | ≤ 1.20.4      | 1.20.5 – 1.21.1  | 1.21.2 – 1.21.4  | 1.21.5+      |
 | --------------------- | ------------- | ---------------- | ---------------- | ------------ |
 | `itemFormat`          | `nbt`         | `components`     | `components`     | `components` |
 | `enchantmentsShape`   | n/a           | `levels-wrapper` | `levels-wrapper` | `flat`       |
-| `attributeIdPrefix`   | `generic.`    | `generic.`       | _(none)_         | _(none)_     |
 | `textComponentFormat` | `json-string` | `json-string`    | `json-string`    | `snbt`       |
 
 **1.21.1 is the second column.** It sits between two breaking changes, so it is
@@ -57,14 +59,6 @@ that lives alongside it, were removed in 1.21.5.
 ```
 levels-wrapper   [enchantments={levels:{sharpness:5},show_in_tooltip:true}]
 flat             [enchantments={sharpness:5}]
-```
-
-**`attributeIdPrefix`** — every one of the 31 attribute IDs was renamed in 1.21.2.
-This is a total rename, not an addition:
-
-```
-generic.   generic.armor  generic.attack_damage  generic.max_health
-(none)     armor          attack_damage          max_health
 ```
 
 **`textComponentFormat`** — `custom_name`, `item_name`, and `lore` carry a text
@@ -101,6 +95,32 @@ change is wrong.
 Note `minecraft:generic.armor` in the attribute example — the `generic.` prefix is
 required in 1.21.1 and forbidden from 1.21.2.
 
+### Provenance
+
+Each fixture above was checked against a primary source, and this note says which.
+That is the convention: **a fixture carries its evidence.** The inverse — marking the
+_unverified_ ones — depends on someone remembering to add the marker, and the fact
+that goes unmarked is exactly the one nobody checked. A new fixture with no provenance
+line here stands out on its own.
+
+Verified 2026-08-19 against
+[SpyglassMC/vanilla-mcdoc](https://github.com/SpyglassMC/vanilla-mcdoc)
+(`java/world/component/item.mcdoc`, whose dispatches carry explicit `#[since]` /
+`#[until]` version guards) and the pinned `1.21.1-summary` registries:
+
+| Fixture                               | What was checked                  | Result                                                                                                                                                       |
+| ------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `enchantments={levels:{…}}`           | `dispatch …[enchantments]`        | `#[until="1.21.5"] #[canonical] Enchantments`, a struct with a `levels` field. The bare map is the 1.21.5 form                                               |
+| `custom_name='{…}'`                   | `dispatch …[custom_name]`         | `#[until="1.21.5"] #[text_component] string` — a quoted JSON string, not SNBT                                                                                |
+| `attribute_modifiers={modifiers:[…]}` | `dispatch …[attribute_modifiers]` | `#[until="1.21.5"] #[canonical] AttributeModifiers`, the `{modifiers,show_in_tooltip?}` wrapper. A bare array also parses, but is canonical only from 1.21.5 |
+| `minecraft:generic.armor`             | `attribute` registry              | `generic.armor` present; bare `armor` absent                                                                                                                 |
+| `id:"kommands:bonus"`                 | `AttributeModifier` struct        | `#[since="1.21"] id`, replacing the pre-1.21 `uuid` + `name` pair                                                                                            |
+
+The `attribute_modifiers` row is the one worth keeping in mind: third-party examples
+of the bare-array form are easy to find and are not wrong so much as _later_, and they
+often mix eras in the same snippet — the same sources show unprefixed `attack_damage`,
+which is the 1.21.2+ spelling.
+
 ---
 
 ## Registry drift
@@ -120,6 +140,35 @@ as added. Measured between the 1.21.1 and 1.21.5 mcmeta summaries:
 Because entries are removed, a shared "latest" registry would offer the user values
 that do not exist in their target version. Registries are therefore pinned per
 version and never merged.
+
+### The attribute rename is a registry change, not a trait
+
+The `attribute` row above is the whole of it: at 1.21.2 every id was replaced, which
+the table shows as 31 removed and 32 added. It is tempting to model this as a syntax
+trait — "1.21.1 prefixes attribute ids with `generic.`" — and an earlier revision of
+this document did. **That model is wrong**, and wrong in a way that emits invalid
+commands.
+
+1.21.1 does not use one prefix. It uses three:
+
+| Prefix     | Count | Example                       |
+| ---------- | ----- | ----------------------------- |
+| `generic.` | 23    | `generic.armor`               |
+| `player.`  | 7     | `player.mining_efficiency`    |
+| `zombie.`  | 1     | `zombie.spawn_reinforcements` |
+
+A serializer that prepended `generic.` would emit
+`minecraft:generic.mining_efficiency` — an id that has never existed in any version.
+
+There is nothing to branch on, because there is nothing to compute: the version's own
+registry already holds the correct id, and reading it from there is what the
+no-hardcoded-game-values rule requires anyway. Stripping the prefix maps all 31 of
+1.21.1's ids onto 1.21.5's bare names exactly, with `tempt_range` the only genuinely
+new entry — so the two registries describe the same attributes, spelled differently,
+and each version spells them the way its own registry says.
+
+The practical consequence is that **adding 1.21.2 flips no trait flags at all.** It is
+purely a registry regeneration.
 
 ---
 

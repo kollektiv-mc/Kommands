@@ -40,9 +40,9 @@
         "name": "no hardcoded game values",
         "grep": "minecraft:[a-z_]+",
         "paths": ["src"],
-        "exclude": ["src/assets/**", "src/data/**"],
+        "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/assets/**", "src/data/**"],
         "expect": "no matches",
-        "diagnosis": "A game value was inlined instead of read from the version registry. Minecraft identifiers are versioned data \u2014 an item that exists in 1.21.1 may not exist in another version, and a literal silently ships the wrong value. Legitimate exception: the bare 'minecraft:' namespace prefix being constructed by a serializer. Judge by whether a specific entity, item, or enchantment is named \u2014 'minecraft:' alone is fine, 'minecraft:diamond_sword' is not.",
+        "diagnosis": "A game value was inlined instead of read from the version registry. Minecraft identifiers are versioned data \u2014 an item that exists in 1.21.1 may not exist in another version, and a literal silently ships the wrong value. Legitimate exception: the bare 'minecraft:' namespace prefix being constructed by a serializer. Judge by whether a specific entity, item, or enchantment is named \u2014 'minecraft:' alone is fine, 'minecraft:diamond_sword' is not. Test files are excluded: a serializer fixture asserts literal expected command text, so the identifiers in it are the thing under test rather than a value that should have come from a registry. The rule is about components and serializers reaching for a literal instead of the version's data; a fixture that did that would not be a fixture. Canonical fixtures and their provenance live in docs/minecraft-versions.md.",
         "reference": "docs/minecraft-versions.md"
       },
       {

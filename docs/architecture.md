@@ -147,7 +147,9 @@ Two independent axes — syntax traits and registry contents — specified in
 The design requirement is that adding 1.21.5 must be a new definition set plus an
 adapter, never a refactor. That holds because **serializers branch on traits, not
 version numbers**. Adding 1.21.5 flips three trait flags and adds a generated
-registry set; adding 1.21.2 flips one. Neither touches serializer control flow.
+registry set; adding 1.21.2 flips **none** — the attribute rename that version
+carries is a registry change, not a syntax one. Neither touches serializer control
+flow.
 
 If a future version differs in a way no trait captures, the change is to add a
 trait and give every existing version an explicit value — still additive.
