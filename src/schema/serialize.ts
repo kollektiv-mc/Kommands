@@ -84,7 +84,14 @@ function serializeNode(
       // '@p' while the output said '/give' — the form and the command disagreeing
       // about what the command is, which is the one thing this panel must not do.
       const raw = value.args[path] ?? type.defaultValue(node.typeOptions ?? {})
-      return type.serialize(raw, ctx)
+      const text = type.serialize(raw, ctx)
+      // An unfilled *required* argument becomes a visible placeholder rather than an
+      // empty string. Empty was the one shape that could not be shown honestly: at the
+      // end of a command it vanished, so `/tellraw @p` looked like a finished command
+      // that says nothing; in the middle it left two spaces, which is not a visible
+      // gap either — just malformed text that reads as valid. Angle brackets are
+      // Brigadier's own usage-string convention, so the gap reads as a gap.
+      return text === '' && !node.optional ? `<${node.name}>` : text
     }
 
     case 'sequence': {
@@ -92,9 +99,10 @@ function serializeNode(
         serializeNode(n, child(path, i), value, ctx, options, depth),
       )
       // Trailing empties are dropped, which is how an unfilled optional tail
-      // disappears: `/give @p stone` rather than `/give @p stone `. An empty part in
-      // the *middle* is kept as-is so the gap is visible in the output rather than
-      // silently closing up into a command that means something else.
+      // disappears: `/give @p stone` rather than `/give @p stone `. Only optional
+      // arguments can be empty here now — a required one carries its placeholder — so
+      // this no longer swallows a gap that mattered, and the doubled space a middle
+      // gap used to leave is gone with it.
       while (parts.length > 0 && parts[parts.length - 1] === '') parts.pop()
       return parts.join(' ').trim()
     }

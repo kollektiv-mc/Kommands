@@ -6,7 +6,13 @@ import { SelectorEditor } from '../../components/editors/SelectorEditor'
 import { ItemStackEditor } from '../../components/editors/ItemStackEditor'
 import { TextComponentEditor } from '../../components/editors/TextComponentEditor'
 import { selectorsFor } from '../../data/authored/selectors'
-import { serializeTextComponent, type TextComponent } from '../text-component'
+import {
+  emptyTextComponent,
+  isEmptyTextComponent,
+  serializeTextComponent,
+  type TextComponent,
+  validateTextComponent,
+} from '../text-component'
 import {
   serializeItemStack,
   validateItemStack,
@@ -113,9 +119,10 @@ const TYPES: ErasedArgumentType[] = [
   defineArgumentType<TextComponent>({
     key: 'text_component',
     editor: TextComponentEditor,
-    serialize: (value, ctx) => (value.text === '' ? '' : serializeTextComponent(value, ctx)),
-    validate: () => [],
-    defaultValue: () => ({ text: '' }),
+    serialize: (value, ctx) =>
+      isEmptyTextComponent(value) ? '' : serializeTextComponent(value, ctx),
+    validate: validateTextComponent,
+    defaultValue: emptyTextComponent,
   }),
   // The fallback a deep parser binds to before its editor exists. Its presence is
   // what lets derivation degrade a command to a text field instead of failing.

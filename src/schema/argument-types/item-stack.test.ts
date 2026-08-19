@@ -56,6 +56,12 @@ const stack = (id: string, components: Record<string, unknown> = {}): ItemStackV
 
 const enchantments = (levels: Record<string, number>): EnchantmentsValue => ({ levels })
 
+/** A plain-text component. The content is a union, so even the simplest case names its kind. */
+const plain = (text: string, rest: Partial<TextComponent> = {}): TextComponent => ({
+  content: { kind: 'text', text },
+  ...rest,
+})
+
 describe('the three canonical /give fixtures', () => {
   test('enchantments carry the levels wrapper, and an optional count trails', () => {
     const out = serializeCommand(
@@ -70,7 +76,7 @@ describe('the three canonical /give fixtures', () => {
   })
 
   test('a custom name is a quoted JSON string, and components emit in sorted order', () => {
-    const customName: TextComponent = { text: 'Digger', color: 'aqua' }
+    const customName = plain('Digger', { color: 'aqua' })
     const out = serializeCommand(
       GIVE,
       value({
@@ -154,8 +160,8 @@ describe('the same values under different traits', () => {
       GIVE,
       value({
         [ITEM]: stack('diamond_pickaxe', {
-          custom_name: { text: 'Digger', color: 'aqua' } satisfies TextComponent,
-          lore: [{ text: 'one' }, { text: 'two' }] satisfies TextComponent[],
+          custom_name: plain('Digger', { color: 'aqua' }),
+          lore: [plain('one'), plain('two')],
         }),
       }),
       future,
@@ -176,7 +182,7 @@ describe('the same values under different traits', () => {
       GIVE,
       value({
         [ITEM]: stack('diamond_pickaxe', {
-          lore: [{ text: 'Forged in the deep', color: 'gray' }] satisfies TextComponent[],
+          lore: [plain('Forged in the deep', { color: 'gray' })],
         }),
       }),
       ctx,
@@ -191,7 +197,7 @@ describe('the same values under different traits', () => {
       GIVE,
       value({
         [ITEM]: stack('diamond_pickaxe', {
-          lore: [{ text: 'one' }, { text: 'two', color: 'gray' }] satisfies TextComponent[],
+          lore: [plain('one'), plain('two', { color: 'gray' })],
         }),
       }),
       ctx,
@@ -216,8 +222,16 @@ describe('the same values under different traits', () => {
 })
 
 describe('an item stack that is not filled in yet', () => {
-  test('no item means no token, and the optional tail still disappears', () => {
-    expect(serializeCommand(GIVE, value({}), ctx)).toBe('/give @p')
+  test('an unpicked item is a visible gap, and the optional tail still disappears', () => {
+    // `/give @p` was the previous answer, and it is a command that reads as finished
+    // and gives nothing. The count is genuinely optional, so it still vanishes.
+    expect(serializeCommand(GIVE, value({}), ctx)).toBe('/give @p <item>')
+  })
+
+  test('a count without an item no longer collapses into a doubled space', () => {
+    // This used to be `/give @p  1` — two spaces where the item should be, which is
+    // malformed text that looks valid at a glance.
+    expect(serializeCommand(GIVE, value({ [COUNT]: 1 }), ctx)).toBe('/give @p <item> 1')
   })
 
   test('the fixtures above rely on the selector default rather than setting targets', () => {
@@ -269,7 +283,7 @@ describe('an item stack that is not filled in yet', () => {
     const out = serializeCommand(
       GIVE,
       value({
-        [ITEM]: stack('netherite_sword', { lore: [{ text: '' }], enchantments: enchantments({}) }),
+        [ITEM]: stack('netherite_sword', { lore: [plain('')], enchantments: enchantments({}) }),
       }),
       ctx,
     )

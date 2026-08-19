@@ -24,10 +24,15 @@ export function SelectorEditor({ value, onChange, options, diagnostics }: Editor
         onChange={(e) => onChange(e.target.value)}
       />
       <datalist id={listId}>
+        {/*
+          The description goes in `label`, not in the option's text. A datalist sits
+          inside the wrapping label the renderer puts around every editor, so option
+          text joins the input's accessible name — this field announced itself as
+          "targets Nearest player Random player All players". The attribute is what the
+          datalist dropdown shows anyway.
+        */}
         {shorthands.map((s) => (
-          <option key={s.token} value={s.token}>
-            {s.label}
-          </option>
+          <option key={s.token} value={s.token} label={s.label} />
         ))}
       </datalist>
     </>

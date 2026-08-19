@@ -7,12 +7,18 @@ import { NO_REGISTRIES } from '../data/versions/registry'
 import type { CommandDefinition } from './types'
 import { serializeCommand, type CommandValue } from './serialize'
 import { evaluateConstraints } from './constraints'
-import { serializeTextComponent, textComponentField } from './text-component'
+import { serializeTextComponent, textComponentField, type TextComponent } from './text-component'
 import { writeSnbt } from './snbt'
 
 const commands = commandsPayload.commands as unknown as Record<string, CommandDefinition>
 /** The derived skeleton, so a Ref resolves to the real thing rather than a stand-in. */
 const GIVE = commands['vanilla:give']!
+
+/** A plain-text component. The content is a union, so even the simplest case names its kind. */
+const plain = (text: string, rest: Partial<TextComponent> = {}): TextComponent => ({
+  content: { kind: 'text', text },
+  ...rest,
+})
 
 const ctxFor = (traits: VersionTraits): SerializeContext => ({ traits, registries: NO_REGISTRIES })
 const ctx = ctxFor(v1_21_1.traits)
@@ -88,7 +94,7 @@ describe('a sequence, and what an unfilled argument does to it', () => {
 })
 
 describe('serializers branch on traits, never on a version', () => {
-  const component = { text: 'Server restarting', color: 'red', bold: true }
+  const component = plain('Server restarting', { color: 'red', bold: true })
 
   test('as a command argument, 1.21.1 emits bare JSON', () => {
     // The canonical /tellraw fixture in docs/minecraft-versions.md. No surrounding
@@ -108,7 +114,7 @@ describe('serializers branch on traits, never on a version', () => {
   })
 
   test('a quote or backslash in the text is escaped for the string it is wrapped in', () => {
-    const awkward = { text: "it's a \\ backslash" }
+    const awkward = plain("it's a \\ backslash")
     expect(writeSnbt(textComponentField(awkward, ctx))).toBe(
       '\'{"text":"it\\\'s a \\\\\\\\ backslash"}\'',
     )
@@ -145,12 +151,46 @@ describe('the /tellraw canonical fixture', () => {
       value({
         args: {
           '/1': '@a',
-          '/2': { text: 'Server restarting', color: 'red', bold: true },
+          '/2': plain('Server restarting', { color: 'red', bold: true }),
         },
       }),
       ctx,
     )
     expect(out).toBe('/tellraw @a {"text":"Server restarting","color":"red","bold":true}')
+  })
+
+  const tellraw = (message: TextComponent) =>
+    serializeCommand(
+      commands['vanilla:tellraw']!,
+      value({ args: { '/1': '@a', '/2': message } }),
+      ctx,
+    )
+
+  test('a child carrying both events', () => {
+    expect(
+      tellraw(
+        plain('Reset ', {
+          extra: [
+            plain('here', {
+              color: 'aqua',
+              underlined: true,
+              clickEvent: { action: 'run_command', value: '/spawn' },
+              hoverEvent: { action: 'show_text', contents: plain('Teleports you') },
+            }),
+          ],
+        }),
+      ),
+    ).toBe(
+      '/tellraw @a {"text":"Reset ","extra":[{"text":"here","color":"aqua","underlined":true,' +
+        '"clickEvent":{"action":"run_command","value":"/spawn"},' +
+        '"hoverEvent":{"action":"show_text","contents":{"text":"Teleports you"}}}]}',
+    )
+  })
+
+  test('a score, which has no text field at all', () => {
+    expect(tellraw({ content: { kind: 'score', objective: 'kills', name: '@s' } })).toBe(
+      '/tellraw @a {"score":{"objective":"kills","name":"@s"}}',
+    )
   })
 })
 
@@ -231,7 +271,9 @@ describe('//generate — flags, variadic tail, mutex', () => {
     const diagnostics = evaluateConstraints(GENERATE, v)
     expect(diagnostics).toEqual([{ severity: 'warning', message: 'Choose one origin mode.' }])
     // The point of "warns, never blocks": the command is still generated.
-    expect(serializeCommand(GENERATE, v, ctx)).toBe('//generate -ro')
+    // The two required arguments show as placeholders rather than as nothing: this
+    // command is incomplete, and the output says so instead of looking finished.
+    expect(serializeCommand(GENERATE, v, ctx)).toBe('//generate -ro <pattern> <expression>')
   })
 
   test('one origin mode is not a violation', () => {

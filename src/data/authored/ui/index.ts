@@ -1,5 +1,6 @@
 import type { CommandDefinition, UiMetadata } from '../../../schema/types'
 import { giveUi } from './give'
+import { tellrawUi } from './tellraw'
 
 /**
  * Presentation metadata, attached to a definition on the way to the renderer.
@@ -11,6 +12,7 @@ import { giveUi } from './give'
  */
 const UI: Readonly<Record<string, UiMetadata>> = {
   'vanilla:give': giveUi,
+  'vanilla:tellraw': tellrawUi,
 }
 
 /** The definition with its authored presentation, or unchanged if it has none. */

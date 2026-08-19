@@ -100,10 +100,11 @@ or boolean) is a hard error — those must be generically representable. An unma
 _deep_ parser binds a `raw_text` fallback editor and records the gap, so a command
 degrades to a text field rather than breaking the build.
 
-All of them are emitted, though only `/give`, `/tellraw`, and `/execute` have
-authored editors and routes today. Emitting the full tree costs nothing extra — it
-is one walk — and it means adding a command later is a routing and editor decision
-rather than a data problem.
+All of them are emitted, and all of them are reachable: one dynamic route resolves
+any definition in the set, so a command needs no route of its own. What a command
+still needs is an authored editor for each deep argument it uses, and presentation
+metadata. Emitting the full tree costs nothing extra — it is one walk — and it means
+adding a command later is an editor decision rather than a data problem.
 
 The count is **78 commands and 5 aliases**, not 83. Eighty-three is the number of
 Brigadier root children, and five of those — `tell`, `w`, `tm`, `tp`, `xp` — are
