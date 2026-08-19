@@ -2,11 +2,6 @@
 
 Minecraft Java Edition command generator. React web app. Target version **1.21.1**.
 
-> **Scaffold status:** this repo currently holds docs and config only. `src/`,
-> `scripts/`, and `package.json` do not exist yet. The commands below are the
-> contract those files must satisfy — they are not yet runnable. Delete this
-> block once the app is scaffolded.
-
 ## Stack
 
 Vite · React 19 · TypeScript (strict) · TanStack Router · Zustand · Tailwind v4 ·
@@ -15,19 +10,19 @@ Package manager: **pnpm**.
 
 ## Commands
 
-| Command | Does |
-|---|---|
-| `pnpm dev` | Dev server |
-| `pnpm build` | `tsc && vite build` |
-| `pnpm typecheck` | `tsc --noEmit` |
-| `pnpm lint` | `eslint src scripts` |
-| `pnpm format` | `prettier --write .` |
-| `pnpm format:check` | `prettier --check .` |
-| `pnpm test` | `vitest run` |
-| `pnpm test:watch` | `vitest` |
-| `pnpm gen:commands` | Derive command skeletons + registries from mcmeta |
-| `pnpm gen:tokens` | Regenerate `src/styles/tokens.css` from `tokens.source.json` |
-| `pnpm gen` | Both generators |
+| Command             | Does                                                         |
+| ------------------- | ------------------------------------------------------------ |
+| `pnpm dev`          | Dev server                                                   |
+| `pnpm build`        | `tsc && vite build`                                          |
+| `pnpm typecheck`    | `tsc --noEmit`                                               |
+| `pnpm lint`         | `eslint src scripts`                                         |
+| `pnpm format`       | `prettier --write .`                                         |
+| `pnpm format:check` | `prettier --check .`                                         |
+| `pnpm test`         | `vitest run`                                                 |
+| `pnpm test:watch`   | `vitest`                                                     |
+| `pnpm gen:commands` | Derive command skeletons + registries from mcmeta            |
+| `pnpm gen:tokens`   | Regenerate `src/styles/tokens.css` from `tokens.source.json` |
+| `pnpm gen`          | Both generators                                              |
 
 Run `/suite-kit:health` before calling any task done. It runs lint, typecheck, and
 tests, and greps for the two things this codebase forbids (below).
@@ -69,20 +64,33 @@ Other conventions:
 
 Each fact lives in exactly one file. This file links; it does not restate.
 
-| File | Answers |
-|---|---|
-| `docs/architecture.md` | How the system fits together, and why it is shaped this way |
-| `docs/command-schema.md` | The authoritative command definition schema |
-| `docs/minecraft-versions.md` | Which syntax differs per version, and what 1.21.1 emits |
-| `docs/adding-a-command.md` | Adding a command definition |
-| `docs/adding-a-version.md` | Adding a Minecraft version |
-| `docs/adding-a-preview.md` | Adding a 3D preview module |
-| `docs/design-tokens.md` | The token pipeline and the full token set |
-| `docs/roadmap.md` | Now / Next / Later |
-| `docs/suite.md` | The suite this repo belongs to — shared agent tooling and tracking |
+| File                         | Answers                                                            |
+| ---------------------------- | ------------------------------------------------------------------ |
+| `docs/architecture.md`       | How the system fits together, and why it is shaped this way        |
+| `docs/command-schema.md`     | The authoritative command definition schema                        |
+| `docs/minecraft-versions.md` | Which syntax differs per version, and what 1.21.1 emits            |
+| `docs/adding-a-command.md`   | Adding a command definition                                        |
+| `docs/adding-a-version.md`   | Adding a Minecraft version                                         |
+| `docs/adding-a-preview.md`   | Adding a 3D preview module                                         |
+| `docs/design-tokens.md`      | The token pipeline and the full token set                          |
+| `docs/roadmap.md`            | Now / Next / Later                                                 |
+| `docs/health-checklist.md`   | The quality yardstick, and what is currently open against it       |
+| `docs/suite.md`              | The suite this repo belongs to — shared agent tooling and tracking |
 
 `docs/minecraft-versions.md` is the file that prevents syntax bugs. Read it
 before writing or changing any serializer.
+
+## Definition of done
+
+Run `/suite-kit:health`. It runs lint, typecheck, tests and format, plus this
+repo's invariant greps and its generated-file check, driven by
+`.claude/suite.json`, and reports a table. **A skipped check is not a passing
+one** — the report says so, and most of the value is in that distinction.
+
+Then sanity-check the area you touched against the four pillars in
+`docs/health-checklist.md` (Clean / Correct / Scalable / Performant), and confirm
+the change is in scope for the current roadmap phase. Track any gap you cannot
+close now under that checklist's `Open backlog` rather than leaving it unwritten.
 
 ## Working agreements
 

@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # One job, because there is one toolchain. Konnekt splits its runner into a
+  # separate job and excludes the `commands` section there, since its flat manifest
+  # cannot express a windows/webkit matrix. Kommands has no such matrix, so all
+  # three sections run here.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pnpm install --frozen-lockfile
+
+      # Named steps rather than leaving these to the runner below. Both run the
+      # same commands — health.commands and these steps are the same list — but a
+      # failing step named `lint` reads better from the checks tab than one row in
+      # a runner's table, and the duplication is four lines.
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm test
+      - run: pnpm build
+
+      # The manifest is the authority on what this repo's health means, and until
+      # now nothing ever ran it on a push: the invariant greps and the generated
+      # clean-diff check only executed when someone invoked /suite-kit:health with
+      # the plugin installed. Declaring a plugin does not install it.
+      #
+      # --require-runnable turns a skip into a failure. Every declared check can
+      # genuinely run here, so a skip means the setup above broke rather than a
+      # check that legitimately does not apply — and a skip reported as green is
+      # how this repo spent its whole pre-scaffold life looking healthy.
+      - name: Health manifest
+        run: ./.claude/suite-check.py --require-runnable

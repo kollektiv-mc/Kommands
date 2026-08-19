@@ -18,7 +18,7 @@ Vite app whose data is derived from pinned mcmeta tags. Merging them would put t
 unrelated toolchains behind one CI run and break Konnekt's release pipeline for no
 gain.
 
-What *is* genuinely shared is narrower and more valuable:
+What _is_ genuinely shared is narrower and more valuable:
 
 - **The design language.** Both use the same CSS-custom-property token system with
   runtime theme overrides. The source is `kollektiv/design/tokens.json`; both
@@ -63,12 +63,12 @@ beside it.
 A Claude Code plugin published from the umbrella's own marketplace. It supplies
 what both products need identically:
 
-| Skill | What it does here |
-|---|---|
-| `/suite-kit:health` | Runs the checks declared in `.claude/suite.json` |
-| `/suite-kit:mc-syntax` | Verifies syntax against mcmeta before a serializer is written or changed |
-| `/suite-kit:design-tokens` | The no-literal-hex, no-literal-px rule |
-| `/suite-kit:suite-sync` | Mirrors the suite's GitHub Issues into Linear |
+| Skill                      | What it does here                                                        |
+| -------------------------- | ------------------------------------------------------------------------ |
+| `/suite-kit:health`        | Runs the checks declared in `.claude/suite.json`                         |
+| `/suite-kit:mc-syntax`     | Verifies syntax against mcmeta before a serializer is written or changed |
+| `/suite-kit:design-tokens` | The no-literal-hex, no-literal-px rule                                   |
+| `/suite-kit:suite-sync`    | Mirrors the suite's GitHub Issues into Linear                            |
 
 Per-repo configuration lives in [`.claude/suite.json`](../.claude/suite.json) —
 product name, stack kind, tracking mode, roadmap path, and the full health

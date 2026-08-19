@@ -1,7 +1,7 @@
 # Roadmap
 
 Direction and sequencing. Individual tasks live in
-[GitHub Issues](../../issues) — this file does not track work items, and there is
+[GitHub Issues](../../../issues) — this file does not track work items, and there is
 no `TODO.md`.
 
 ---
@@ -82,14 +82,14 @@ Recording these so they are not accidentally re-litigated:
 
 ## Health indicators
 
-The design is holding if:
+Two questions this file is the right place to ask, because they are about direction
+rather than code, and no check can answer either:
 
-- Adding a vanilla command touches only data, metadata, and a route
-- Adding a Minecraft version touches only version data and generated files
-- No file in `src/` compares a version number
-- No component contains a literal hex or px value
-- No game value appears outside `src/data/`
+- Does adding a vanilla command still touch only data, metadata, and a route?
+- Does adding a Minecraft version still touch only version data and generated files?
 
-`/suite-kit:health` verifies the last three mechanically. The first two are judgement
-calls — if either starts requiring code changes, surface it rather than absorbing
-the cost.
+Both are judgement calls. If either starts requiring code changes, that is a finding
+about the design — surface it rather than absorbing the cost.
+
+Everything mechanically verifiable lives in
+[`health-checklist.md`](health-checklist.md) and is run by `/suite-kit:health`.

@@ -43,17 +43,18 @@ pnpm dev
 
 ## Documentation
 
-| Document | Contents |
-|---|---|
-| [Architecture](docs/architecture.md) | How the system fits together, and the reasoning behind it |
-| [Command schema](docs/command-schema.md) | The authoritative definition schema |
-| [Minecraft versions](docs/minecraft-versions.md) | Syntax trait matrix — what differs per version |
-| [Adding a command](docs/adding-a-command.md) | |
-| [Adding a version](docs/adding-a-version.md) | |
-| [Adding a preview](docs/adding-a-preview.md) | |
-| [Design tokens](docs/design-tokens.md) | |
-| [Roadmap](docs/roadmap.md) | |
-| [Suite](docs/suite.md) | The umbrella this repo belongs to, and the tooling it shares |
+| Document                                         | Contents                                                     |
+| ------------------------------------------------ | ------------------------------------------------------------ |
+| [Architecture](docs/architecture.md)             | How the system fits together, and the reasoning behind it    |
+| [Command schema](docs/command-schema.md)         | The authoritative definition schema                          |
+| [Minecraft versions](docs/minecraft-versions.md) | Syntax trait matrix — what differs per version               |
+| [Adding a command](docs/adding-a-command.md)     |                                                              |
+| [Adding a version](docs/adding-a-version.md)     |                                                              |
+| [Adding a preview](docs/adding-a-preview.md)     |                                                              |
+| [Design tokens](docs/design-tokens.md)           |                                                              |
+| [Roadmap](docs/roadmap.md)                       |                                                              |
+| [Health checklist](docs/health-checklist.md)     | The quality yardstick this repo is measured against          |
+| [Suite](docs/suite.md)                           | The umbrella this repo belongs to, and the tooling it shares |
 
 ## Credits
 

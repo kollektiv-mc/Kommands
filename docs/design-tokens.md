@@ -27,12 +27,6 @@ tokens.source.json  ──►  pnpm gen:tokens  ──►  src/styles/tokens.css
    (vendored, committed)                        (generated, committed)      Tailwind utilities
 ```
 
-> **Not built yet.** `pnpm gen:tokens` and `src/styles/tokens.css` do not exist —
-> this repo is pre-scaffold. `tokens.source.json` is in place; the contract below is
-> what to implement when the app is scaffolded, and Konnekt's
-> `frontend/scripts/gen-tokens.mjs` is a working implementation of the same contract
-> against the same source.
-
 `tokens.source.json` and `src/styles/tokens.css` are both committed — a build must
 work from a standalone clone, without a `kollektiv` checkout beside it.
 `src/styles/tokens.css` carries a DO-NOT-EDIT header. Tailwind v4's `@theme inline`
@@ -118,16 +112,29 @@ a drop shadow, it needs a different surface or border instead.
 
 ---
 
+## The three faces
+
+`type.family` names Ranade (`--font-sans`), Excon (`--font-title`), and Satoshi
+(`--font-display`). Those are real font files, not system faces, and the token
+source cannot carry them — it holds values, not binaries. The `.woff2` files are
+therefore vendored into `src/assets/fonts/` and declared as `@font-face` rules in
+`src/styles/index.css`, alongside Konnekt's copies of the same three.
+
+This is the one part of the token layer that is **not** generated, and the one that
+fails silently: with the files absent every stack falls through to its next entry,
+the app still renders, and the two products quietly stop looking alike. `--font-mono`
+is the exception — it is system faces the whole way down and needs no file.
+
 ## Component patterns
 
-| Pattern | Shape |
-|---|---|
-| Panel / tile | `rounded-panel` + `border-hairline` over `bg-surface` |
-| Segmented control | Pill container, sliding accent indicator at `--radius-lg` minus 1px |
-| Toggle | `20×36px` pill, `16px` knob, accent when on, `--border-hover` when off |
-| Row divider | `border-bottom: var(--border-hairline) solid var(--border-subtle)` |
-| Scrollbar | `4px`, `--border-hover` thumb, transparent track |
-| Value text | Monospace, `text-xs`, `text-text-secondary` |
+| Pattern           | Shape                                                                  |
+| ----------------- | ---------------------------------------------------------------------- |
+| Panel / tile      | `rounded-panel` + `border-hairline` over `bg-surface`                  |
+| Segmented control | Pill container, sliding accent indicator at `--radius-lg` minus 1px    |
+| Toggle            | `20×36px` pill, `16px` knob, accent when on, `--border-hover` when off |
+| Row divider       | `border-bottom: var(--border-hairline) solid var(--border-subtle)`     |
+| Scrollbar         | `4px`, `--border-hover` thumb, transparent track                       |
+| Value text        | Monospace, `text-xs`, `text-text-secondary`                            |
 
 The sliding-indicator radius is `--radius-lg` minus 1px so it sits concentrically
 inside the container border. Concentric radii matter at hairline weights —

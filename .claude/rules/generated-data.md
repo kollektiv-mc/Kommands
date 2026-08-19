@@ -46,6 +46,19 @@ Deliberately asymmetric — do not "simplify" it into one behaviour:
 Never silently skip a node. A skipped node produces a definition that looks valid
 and generates invalid commands.
 
+**"Unmapped" means absent from the parser table**, not "has no editor yet". The two
+are different, and conflating them makes the policy unimplementable:
+
+- A parser with no entry in `src/data/authored/parsers.ts` is a hard error for either
+  kind — the deriver does not know what it is, so it cannot know which branch applies.
+  `lookupParser` throws.
+- A parser _with_ an entry whose argument type has no editor yet is expected. Where
+  the entry is **shallow** that is fine and not a gap: a scalar is generically
+  representable, so it gets a plainer editor, and the value round-trips unchanged.
+  Where it is **deep** it is the recorded gap — the user hand-writes the syntax the
+  app exists to build — and `unimplementedDeepParsers()` enumerates them so the list
+  shrinks by itself as editors land rather than going stale.
+
 ## Scope of derivation
 
 All 83 vanilla commands are emitted, not only those with routes. Emitting the full
