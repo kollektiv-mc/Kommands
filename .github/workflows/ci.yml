@@ -32,6 +32,15 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # The deriver caches each pinned mcmeta tag. The tag is immutable, so the cache
+      # never goes stale and the key never needs a fallback: a hit means the run below
+      # touches no network at all. Without this, an mcmeta outage would fail the
+      # generated-file check on a change that has nothing to do with it.
+      - uses: actions/cache@v4
+        with:
+          path: .cache/mcmeta
+          key: mcmeta-${{ hashFiles('src/data/versions/*.ts') }}
+
       # Named steps rather than leaving these to the runner below. Both run the
       # same commands — health.commands and these steps are the same list — but a
       # failing step named `lint` reads better from the checks tab than one row in
@@ -41,6 +50,7 @@ jobs:
       - run: pnpm format:check
       - run: pnpm test
       - run: pnpm build
+      - run: pnpm check-bundle
 
       # The manifest is the authority on what this repo's health means, and until
       # now nothing ever ran it on a push: the invariant greps and the generated

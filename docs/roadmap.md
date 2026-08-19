@@ -16,7 +16,7 @@ this phase is to **prove the schema against real commands**, not to ship breadth
   `tokens.source.json`, with the full named scale so no component ever needs a
   literal hex or px value. Konnekt's `frontend/scripts/gen-tokens.mjs` already
   implements this contract against the same source
-- `pnpm gen:commands` → derive all 83 vanilla skeletons for 1.21.1 from mcmeta,
+- `pnpm gen:commands` → derive every vanilla skeleton for 1.21.1 from mcmeta,
   committed
 - Version trait model, plus the 1.21.1 definition
 - Schema and renderer: `sequence`, `argument`, `literal` nodes

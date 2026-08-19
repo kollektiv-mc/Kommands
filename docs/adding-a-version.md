@@ -56,8 +56,13 @@ This is the step that catches silent breakage. Compare against the previous
 version and look specifically for **removals**:
 
 ```sh
-pnpm gen:diff <previous> <new>
+pnpm gen:diff 1.21.1 1.21.5          # a supported version, or a raw mcmeta tag
 ```
+
+It groups each registry into outright removals, re-prefixings, and additions. That
+middle group matters: a rename that only drops a category prefix reads as a total wipe
+otherwise, and the 1.21.2 attribute change would show as 31 removed and 32 added with
+the one genuinely new entry lost among them.
 
 Removed entries mean commands that were valid before are now invalid. Additions are
 harmless; removals and renames are not. The 1.21.2 attribute rename showed up here

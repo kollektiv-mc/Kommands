@@ -22,6 +22,8 @@ Package manager: **pnpm**.
 | `pnpm test:watch`   | `vitest`                                                     |
 | `pnpm gen:commands` | Derive command skeletons + registries from mcmeta            |
 | `pnpm gen:tokens`   | Regenerate `src/styles/tokens.css` from `tokens.source.json` |
+| `pnpm gen:diff`     | Compare two versions' registries, removals first             |
+| `pnpm check-bundle` | Entry-chunk gzip budget                                      |
 | `pnpm gen`          | Both generators                                              |
 
 Run `/suite-kit:health` before calling any task done. It runs lint, typecheck, and
