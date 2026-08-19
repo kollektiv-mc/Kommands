@@ -147,3 +147,73 @@ test('a command with nothing filled in says which argument is missing', async ()
   )
   expect(screen.getByText('/tellraw @p <message>')).toBeDefined()
 })
+
+test('driving /execute through the app, where the Ref was never wired', async () => {
+  // The regression this file exists to catch. Every serializer test passed a `resolve`
+  // callback of its own, and the workbench passed none — so `/execute` emitted a
+  // dangling `/execute  run` in the app while its unit tests were green. Rendering
+  // through the workbench is the only place that gap is visible.
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={withUi(commands['vanilla:execute']!)}
+      version={v1_21_1}
+      registries={registries}
+      catalogue={commands}
+    />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+
+  // Untouched: no dangling keyword, and no doubled space where the empty repeat sits.
+  expect(output()).toBe('/execute')
+
+  await user.click(screen.getByText('+ add'))
+  await user.selectOptions(screen.getAllByLabelText('Clause')[0]!, '2')
+  expect(output()).toBe('/execute as @p')
+
+  // The run clause is optional, so it appears only once chosen — and choosing it
+  // without choosing a command leaves a visible gap rather than a finished-looking
+  // command that does nothing.
+  await user.selectOptions(screen.getAllByLabelText('Clause').at(-1)!, '0')
+  expect(output()).toBe('/execute as @p run <command>')
+
+  await user.selectOptions(screen.getByLabelText('command'), 'vanilla:particle')
+  // /particle's optional tail contributes nothing, and its optional `viewers` seeds
+  // nothing: the two tokens that made the canonical fixture unproducible.
+  expect(output()).toBe('/execute as @p run particle <name>')
+})
+
+test('reordering clauses reorders the command, and removing one takes its values', async () => {
+  // `/execute as @a at @s` and `/execute at @s as @a` are different commands — the
+  // clauses apply in order — so reorder is not a convenience. And a removed clause
+  // must take its values with it: they used to stay behind under an index no longer
+  // rendered and reappear, filled in, in the next clause added.
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={commands['vanilla:execute']!}
+      version={v1_21_1}
+      registries={registries}
+      catalogue={commands}
+    />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+
+  await user.click(screen.getByText('+ add'))
+  await user.selectOptions(screen.getAllByLabelText('Clause')[0]!, '2')
+  await user.click(screen.getByText('+ add'))
+  await user.selectOptions(screen.getAllByLabelText('Clause')[1]!, '3')
+  expect(output()).toBe('/execute as @p at @p')
+
+  // Make the two clauses tell each other apart before moving them.
+  const second = screen.getAllByLabelText('targets')[1]!
+  await user.clear(second)
+  await user.type(second, '@s')
+  expect(output()).toBe('/execute as @p at @s')
+
+  await user.click(screen.getByLabelText('Move clause 2 earlier'))
+  expect(output()).toBe('/execute at @s as @p')
+
+  await user.click(screen.getByLabelText('Remove clause 1'))
+  expect(output()).toBe('/execute as @p')
+})

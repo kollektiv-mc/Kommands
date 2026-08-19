@@ -19,6 +19,7 @@ import {
   type UiMetadata,
 } from '../schema/types'
 import { FIELD, LABEL, WARNING } from './editors/fieldStyles'
+import { ROW_ADD, ROW_REMOVE } from './editors/rowStyles'
 
 /**
  * Renders a command definition.
@@ -34,6 +35,7 @@ interface Actions {
   setFlag: (path: Path, on: boolean) => void
   setChoice: (path: Path, index: number) => void
   setRepeat: (path: Path, count: number) => void
+  reorderRepeat: (path: Path, order: readonly number[]) => void
   setRef: (path: Path, definitionId: string) => void
 }
 
@@ -189,36 +191,65 @@ function NodeView({ node, path, value, ctx, actions, scope }: NodeViewProps) {
 
     case 'repeat': {
       const count = repeatCount(value.repeats, path, node)
+      const positions = Array.from({ length: count }, (_, i) => i)
+      // Each control hands the store the order it wants, rather than an index and a
+      // verb. Moving and removing are the same operation on a path-keyed tree, and
+      // saying so once is what keeps a removed clause's values from coming back.
+      const swap = (i: number, j: number) => positions.map((p) => (p === i ? j : p === j ? i : p))
+      const without = (i: number) => positions.filter((p) => p !== i)
+
       return (
         <div className="border-l-hairline border-border-subtle flex flex-col gap-2 pl-2">
-          {Array.from({ length: count }, (_, i) => (
-            <NodeView
-              key={i}
-              node={node.node}
-              path={instance(path, i)}
-              value={value}
-              ctx={ctx}
-              actions={actions}
-              scope={scope}
-            />
+          {positions.map((i) => (
+            <div key={i} className="flex items-start gap-2">
+              <NodeView
+                node={node.node}
+                path={instance(path, i)}
+                value={value}
+                ctx={ctx}
+                actions={actions}
+                scope={scope}
+              />
+              <div className="flex gap-1 pt-4">
+                <button
+                  type="button"
+                  className={ROW_REMOVE}
+                  aria-label={`Move clause ${i + 1} earlier`}
+                  disabled={i === 0}
+                  onClick={() => actions.reorderRepeat(path, swap(i, i - 1))}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className={ROW_REMOVE}
+                  aria-label={`Move clause ${i + 1} later`}
+                  disabled={i === count - 1}
+                  onClick={() => actions.reorderRepeat(path, swap(i, i + 1))}
+                >
+                  ↓
+                </button>
+                {count > (node.min ?? 0) && (
+                  <button
+                    type="button"
+                    className={ROW_REMOVE}
+                    aria-label={`Remove clause ${i + 1}`}
+                    onClick={() => actions.reorderRepeat(path, without(i))}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
           ))}
           <div className="flex gap-2">
             <button
               type="button"
-              className="text-accent text-2xs"
+              className={ROW_ADD}
               onClick={() => actions.setRepeat(path, count + 1)}
             >
               + add
             </button>
-            {count > (node.min ?? 0) && (
-              <button
-                type="button"
-                className="text-text-muted text-2xs"
-                onClick={() => actions.setRepeat(path, count - 1)}
-              >
-                − remove
-              </button>
-            )}
           </div>
         </div>
       )

@@ -23,6 +23,7 @@ const actions = {
   setFlag: vi.fn(),
   setChoice: vi.fn(),
   setRepeat: vi.fn(),
+  reorderRepeat: vi.fn(),
   setRef: vi.fn(),
 }
 

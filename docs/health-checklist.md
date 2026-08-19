@@ -247,6 +247,38 @@ it should be stable between runs.
   `enchantmentsShape`, which already exists.
   [#26](https://github.com/kollektiv-mc/Kommands/issues/26).
 
+**P1 — Derived argument names are not unique, so nothing can address one**
+
+- `types.ts` promises a name is unique within a definition; 33 of 78 derived commands
+  break that, worst `/execute` with 36 argument nodes called `scale` and `/data` with
+  315 nodes over 13 names. Values are unaffected — they key by path, which is what
+  `paths.ts` was written for — but `pathsForName` resolves a name to _every_ path it
+  occupies, and that is the documented addressing scheme for `Constraint.targets` and
+  for preview `inputs`. Both are consumed by work that is next: a `mutex` on a derived
+  command, and the build-time input validation #12 puts in scope. Either disambiguate
+  during derivation or restate the invariant and make name-addressing path-scoped —
+  a decision worth making before #10 and #12, not after.
+  [#29](https://github.com/kollektiv-mc/Kommands/issues/29).
+
+**P2 — Three schema fields are documented and read by nothing**
+
+- `ArgumentNode.variadic`, `ArgumentNode.default` and `RepeatNode.max` exist in the
+  type and in `command-schema.md`, and no code in `src/` reads any of them. A
+  documented field with no behaviour reads as a guarantee, which is worse than an
+  absent one. `variadic` blocks #10, whose `we_expression` tail would otherwise ship
+  working by accident — `raw_text` passes any string through, so the field appears to
+  function without ever being consulted.
+  [#30](https://github.com/kollektiv-mc/Kommands/issues/30).
+
+**P2 — `gen:diff` can pin to a branch**
+
+- Every path that feeds the build pins by mcmeta tag, and a test asserts it. `gen-diff`
+  passes an unrecognised argv string straight through as a ref, and `fetchSummary`
+  then caches it permanently, so one typo fetches a moving branch and freezes that
+  snapshot. Nothing shipped is wrong — `gen:diff` only reports — but the guarantee has
+  a hole, and the guard belongs in `fetchSummary`, which owns the cache.
+  [#31](https://github.com/kollektiv-mc/Kommands/issues/31).
+
 ---
 
 When a backlog item closes, delete it here. If the write-up is worth keeping —

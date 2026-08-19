@@ -39,6 +39,7 @@ export function CommandWorkbench({
   const setFlag = useCommandStore((s) => s.setFlag)
   const setChoice = useCommandStore((s) => s.setChoice)
   const setRepeat = useCommandStore((s) => s.setRepeat)
+  const reorderRepeat = useCommandStore((s) => s.reorderRepeat)
   const setRef = useCommandStore((s) => s.setRef)
   const reset = useCommandStore((s) => s.reset)
 
@@ -75,7 +76,7 @@ export function CommandWorkbench({
         definition={definition}
         value={value}
         ctx={ctx}
-        actions={{ setArg, setFlag, setChoice, setRepeat, setRef }}
+        actions={{ setArg, setFlag, setChoice, setRepeat, reorderRepeat, setRef }}
         catalogue={catalogue}
       />
 

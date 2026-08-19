@@ -19,6 +19,43 @@ export const child = (parent: Path, index: number): Path => `${parent}/${index}`
 export const instance = (parent: Path, index: number): Path => `${parent}/#${index}`
 export const branch = (parent: Path, index: number): Path => `${parent}/|${index}`
 
+/**
+ * Rewrite every key beneath a Repeat so its instances land in a new order.
+ *
+ * An instance path carries its index — `/1/#0` — so moving or dropping a clause is
+ * never a change to one key. Every value, choice, flag, nested repeat count and ref
+ * below it is keyed through that index and has to move with it.
+ *
+ * `order[i]` is the index the instance now at position `i` held before. An index
+ * absent from `order` is dropped, which is what removal is: the alternative, leaving
+ * the keys in place, is what made a removed clause's values reappear in the next one
+ * added.
+ */
+export function reindexInstances<T>(
+  table: Readonly<Record<Path, T>>,
+  repeatPath: Path,
+  order: readonly number[],
+): Record<Path, T> {
+  const prefix = `${repeatPath}/#`
+  const next: Record<Path, T> = {}
+  for (const [key, held] of Object.entries(table)) {
+    if (!key.startsWith(prefix)) {
+      next[key] = held
+      continue
+    }
+    // Read the whole index, not one character: `#1` and `#10` share a prefix, and
+    // truncating would fold the eleventh clause into the second.
+    const rest = key.slice(prefix.length)
+    const end = rest.indexOf('/')
+    const digits = end === -1 ? rest : rest.slice(0, end)
+    const was = Number(digits)
+    const now = order.indexOf(was)
+    if (!/^\d+$/.test(digits) || now === -1) continue
+    next[`${prefix}${now}${end === -1 ? '' : rest.slice(end)}`] = held
+  }
+  return next
+}
+
 /** Every path at which an argument called `name` currently sits. */
 export function pathsForName(root: Node, name: string, counts: RepeatCounts): Path[] {
   const found: Path[] = []

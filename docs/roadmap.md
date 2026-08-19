@@ -11,9 +11,6 @@ no `TODO.md`.
 Completing the acceptance set. Each of these stresses part of the schema that
 `/give` does not.
 
-- **`/tellraw`** — recursive `text_component` editor, `json-string` trait
-- **`/execute`** — exercises `repeat`, `choice`, and `ref`; the case that proves
-  the tree schema was necessary
 - **`//generate`** — first WorldEdit definition; exercises `flagset`, variadic
   arguments, and `mutex` constraints
 - WorldEdit `we_pattern` and `we_mask` editors
@@ -25,7 +22,9 @@ Completing the acceptance set. Each of these stresses part of the schema that
 - **`worldedit/shape` preview** for `//generate`
 
 Exit criterion: all four commands in the schema's acceptance set generate correct
-output, and one 3D preview is live.
+output, and one 3D preview is live. Three of the four are done; `//generate` is the
+one left, and it is the only acceptance case that touches `flagset`, a variadic tail
+and a `mutex` constraint — all three still unexercised outside a fixture.
 
 ## Done
 
@@ -51,6 +50,21 @@ It also produced two things the phase did not name, because `/give` needed them:
 `text_component` argument type — bound to fifteen arguments across five commands — and
 one dynamic route resolving all 78 derived definitions, so reaching a command is a data
 question rather than a routing one.
+
+Then two more commands, both of which were meant to stress the schema and did:
+
+- **`/tellraw`** — the recursive `text_component` editor, and the `json-string` trait
+- **`/execute`** — `repeat`, `choice` and `ref` end to end: a reorderable clause chain
+  and a command picker that renders the chosen command inline through the same walk
+
+`/execute` is the one that paid for itself. It found that `optional` lived only on
+`ArgumentNode`, so a clause led by a **keyword** — `/particle`'s `force|normal`,
+`/difficulty`'s `peaceful|easy|normal|hard` — had nowhere to record that it could be
+skipped, and a `Choice` with no empty state fell back to its first branch. 54 such
+clauses across 22 commands were emitting a token nobody chose. That is the acceptance
+set doing its job: the finding was a gap in the schema, not a command needing
+special-casing, and `ChoiceNode.optional` closed it without the renderer learning a
+single command's name.
 
 ## Later
 
