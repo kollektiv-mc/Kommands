@@ -25,12 +25,7 @@ import { ROW, ROW_ADD, ROW_GROUP, ROW_REMOVE } from './rowStyles'
  * spec out, so adding a component is an entry in that table; only a genuinely new
  * kind of input reaches this file.
  */
-export function ItemStackEditor({
-  value,
-  onChange,
-  ctx,
-  diagnostics,
-}: EditorProps<ItemStackValue>) {
+export function ItemStackEditor({ value, onChange, ctx }: EditorProps<ItemStackValue>) {
   const present = Object.keys(value.components).sort()
   const absent = ITEM_COMPONENTS.filter((spec) => !(spec.id in value.components))
 
@@ -48,7 +43,10 @@ export function ItemStackEditor({
         value={value.id}
         entries={ctx.registries.entries('item')}
         ariaLabel="Item"
-        invalid={diagnostics.length > 0}
+        // Checked here rather than read off `diagnostics`, which covers the whole
+        // stack: an enchantment row with no enchantment would otherwise mark the item
+        // field red for a problem that is not the item's.
+        invalid={value.id !== '' && !ctx.registries.has('item', value.id)}
         onChange={(next) => onChange({ ...value, id: next })}
       />
 
