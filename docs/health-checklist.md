@@ -235,6 +235,7 @@ it should be stable between runs.
   is a serializer change rather than a data change, which is the one thing the version
   model exists to prevent. `enchantments` is not affected: its own change rides
   `enchantmentsShape`, which already exists.
+  [#26](https://github.com/kollektiv-mc/Kommands/issues/26).
 
 **P2 — An unset required argument in the middle of a sequence emits a double space**
 
@@ -244,6 +245,7 @@ it should be stable between runs.
   deliberately visible, and it should be; a doubled space is not visible, it is
   malformed text a user will paste. The fix is probably a placeholder token for an
   unset required argument, which is a design change rather than a patch.
+  [#27](https://github.com/kollektiv-mc/Kommands/issues/27).
 
 ---
 
