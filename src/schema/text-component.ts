@@ -399,7 +399,7 @@ function collect(value: TextComponent, ctx: SerializeContext, out: Diagnostic[])
   }
 
   if (value.clickEvent) out.push(...clickDiagnostics(value.clickEvent))
-  if (value.hoverEvent) out.push(...hoverDiagnostics(value.hoverEvent, ctx, out))
+  if (value.hoverEvent) collectHover(value.hoverEvent, ctx, out)
 
   for (const child of value.extra ?? []) collect(child, ctx, out)
 }
@@ -419,26 +419,22 @@ function clickDiagnostics(event: ClickEvent): Diagnostic[] {
   return []
 }
 
-function hoverDiagnostics(
-  event: HoverEvent,
-  ctx: SerializeContext,
-  out: Diagnostic[],
-): Diagnostic[] {
+/** Pushes rather than returns, because two of the three actions carry a component. */
+function collectHover(event: HoverEvent, ctx: SerializeContext, out: Diagnostic[]): void {
   switch (event.action) {
     case 'show_text':
       collect(event.contents, ctx, out)
-      return []
+      return
     case 'show_item':
-      return event.id !== '' && !ctx.registries.has('item', event.id)
-        ? [warn(`${event.id} is not an item in this version.`)]
-        : []
-    case 'show_entity': {
-      const found: Diagnostic[] = []
+      if (event.id !== '' && !ctx.registries.has('item', event.id)) {
+        out.push(warn(`${event.id} is not an item in this version.`))
+      }
+      return
+    case 'show_entity':
       if (event.entityType !== '' && !ctx.registries.has('entity_type', event.entityType)) {
-        found.push(warn(`${event.entityType} is not an entity type in this version.`))
+        out.push(warn(`${event.entityType} is not an entity type in this version.`))
       }
       if (event.name) collect(event.name, ctx, out)
-      return found
-    }
+      return
   }
 }
