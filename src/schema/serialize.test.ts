@@ -237,7 +237,9 @@ describe('//generate — flags, variadic tail, mutex', () => {
     const diagnostics = evaluateConstraints(GENERATE, v)
     expect(diagnostics).toEqual([{ severity: 'warning', message: 'Choose one origin mode.' }])
     // The point of "warns, never blocks": the command is still generated.
-    expect(serializeCommand(GENERATE, v, ctx)).toBe('//generate -ro')
+    // The two required arguments show as placeholders rather than as nothing: this
+    // command is incomplete, and the output says so instead of looking finished.
+    expect(serializeCommand(GENERATE, v, ctx)).toBe('//generate -ro <pattern> <expression>')
   })
 
   test('one origin mode is not a violation', () => {

@@ -222,8 +222,16 @@ describe('the same values under different traits', () => {
 })
 
 describe('an item stack that is not filled in yet', () => {
-  test('no item means no token, and the optional tail still disappears', () => {
-    expect(serializeCommand(GIVE, value({}), ctx)).toBe('/give @p')
+  test('an unpicked item is a visible gap, and the optional tail still disappears', () => {
+    // `/give @p` was the previous answer, and it is a command that reads as finished
+    // and gives nothing. The count is genuinely optional, so it still vanishes.
+    expect(serializeCommand(GIVE, value({}), ctx)).toBe('/give @p <item>')
+  })
+
+  test('a count without an item no longer collapses into a doubled space', () => {
+    // This used to be `/give @p  1` — two spaces where the item should be, which is
+    // malformed text that looks valid at a glance.
+    expect(serializeCommand(GIVE, value({ [COUNT]: 1 }), ctx)).toBe('/give @p <item> 1')
   })
 
   test('the fixtures above rely on the selector default rather than setting targets', () => {
