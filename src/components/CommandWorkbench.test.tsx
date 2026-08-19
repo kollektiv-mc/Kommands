@@ -114,3 +114,36 @@ test('switching to another command does not carry the previous values over', asy
 
   expect(screen.queryByText(/minecraft:stone/)).toBeNull()
 })
+
+test('building a message in the editors produces the canonical /tellraw command', async () => {
+  // The /tellraw counterpart to the item test above, and the other half of #8: the
+  // expected string is the canonical fixture in docs/minecraft-versions.md, reached by
+  // driving the real recursive editor rather than by handing the serializer a value.
+  const user = userEvent.setup()
+  const TELLRAW = commands['vanilla:tellraw']!
+  render(<CommandWorkbench definition={TELLRAW} version={v1_21_1} registries={registries} />)
+
+  const targets = screen.getByLabelText('targets')
+  await user.clear(targets)
+  await user.type(targets, '@a')
+
+  await user.type(screen.getByLabelText('Message text'), 'Server restarting')
+  await user.type(screen.getByLabelText('Message colour'), 'red')
+  await user.click(screen.getByLabelText('Message bold'))
+
+  expect(
+    screen.getByText('/tellraw @a {"text":"Server restarting","color":"red","bold":true}'),
+  ).toBeDefined()
+})
+
+test('a command with nothing filled in says which argument is missing', async () => {
+  // Rather than `/tellraw @p`, which reads as a finished command and sends nothing.
+  render(
+    <CommandWorkbench
+      definition={commands['vanilla:tellraw']!}
+      version={v1_21_1}
+      registries={registries}
+    />,
+  )
+  expect(screen.getByText('/tellraw @p <message>')).toBeDefined()
+})
