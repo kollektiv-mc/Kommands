@@ -61,7 +61,7 @@ are different, and conflating them makes the policy unimplementable:
 
 ## Scope of derivation
 
-All 83 vanilla commands are emitted, not only those with routes. Emitting the full
+All 78 vanilla commands are emitted, not only those with routes. Emitting the full
 tree is one walk and costs nothing extra; narrowing it would reintroduce per-command
 work every time a command is added.
 
