@@ -8,28 +8,6 @@ no `TODO.md`.
 
 ## Now
 
-Getting a single command generating correct 1.21.1 output end to end. The goal of
-this phase is to **prove the schema against real commands**, not to ship breadth.
-
-- Scaffold the app: Vite, React, TypeScript strict, router, Tailwind v4, Vitest
-- `pnpm gen:tokens` → `src/styles/tokens.css` from the vendored
-  `tokens.source.json`, with the full named scale so no component ever needs a
-  literal hex or px value. Konnekt's `frontend/scripts/gen-tokens.mjs` already
-  implements this contract against the same source
-- `pnpm gen:commands` → derive every vanilla skeleton for 1.21.1 from mcmeta,
-  committed
-- Version trait model, plus the 1.21.1 definition
-- Schema and renderer: `sequence`, `argument`, `literal` nodes
-- Shallow argument types: `integer`, `bool`, `string`, `entity_selector`
-- **`/give`** — including the `item_stack` deep editor with enchantments,
-  `custom_name`, and `lore` in their 1.21.1 forms
-- `/suite-kit:health` wired and passing
-
-Exit criterion: `/give` produces every canonical output in
-[`minecraft-versions.md`](minecraft-versions.md) exactly.
-
-## Next
-
 Completing the acceptance set. Each of these stresses part of the schema that
 `/give` does not.
 
@@ -48,6 +26,31 @@ Completing the acceptance set. Each of these stresses part of the schema that
 
 Exit criterion: all four commands in the schema's acceptance set generate correct
 output, and one 3D preview is live.
+
+## Done
+
+Getting a single command generating correct 1.21.1 output end to end. The goal of
+this phase was to **prove the schema against real commands**, not to ship breadth.
+Its exit criterion — `/give` producing every canonical output exactly — is met.
+
+- Scaffold the app: Vite, React, TypeScript strict, router, Tailwind v4, Vitest
+- `pnpm gen:tokens` → `src/styles/tokens.css` from the vendored
+  `tokens.source.json`, with the full named scale so no component ever needs a
+  literal hex or px value. Konnekt's `frontend/scripts/gen-tokens.mjs` already
+  implements this contract against the same source
+- `pnpm gen:commands` → derive every vanilla skeleton for 1.21.1 from mcmeta,
+  committed
+- Version trait model, plus the 1.21.1 definition
+- Schema and renderer: `sequence`, `argument`, `literal` nodes
+- Shallow argument types: `integer`, `bool`, `string`, `entity_selector`
+- **`/give`** — including the `item_stack` deep editor with enchantments,
+  `custom_name`, and `lore` in their 1.21.1 forms
+- `/suite-kit:health` wired and passing
+
+It also produced two things the phase did not name, because `/give` needed them: the
+`text_component` argument type — bound to fifteen arguments across five commands — and
+one dynamic route resolving all 78 derived definitions, so reaching a command is a data
+question rather than a routing one.
 
 ## Later
 

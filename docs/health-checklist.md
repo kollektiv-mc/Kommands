@@ -103,11 +103,10 @@ belongs here.
       § Canonical 1.21.1 output generates **byte-exact**. All four `/give` fixtures are
       asserted in `src/schema/argument-types/item-stack.test.ts`, against the _derived_
       skeleton rather than a transcription of it, so a deriver change that reshapes
-      `/give` fails there too. `/tellraw`'s is asserted in `serialize.test.ts` — its
-      editor is #8's, but its argument type is not — and separately from the
-      `custom_name` form, because a component written as an argument is bare and the
-      same component written into a data-component field is a quoted string. Only
-      `/execute`'s remains, with #9. These are regression fixtures: a serializer change
+      `/give` fails there too. All three `/tellraw` fixtures are asserted in
+      `serialize.test.ts`, and separately from the `custom_name` form, because a
+      component written as an argument is bare and the same component written into a
+      data-component field is a quoted string. Only `/execute`'s remains, with #9. These are regression fixtures: a serializer change
       that breaks one is wrong, not the fixture.
       Verify: `pnpm test` — each must be an assertion, not a comment.
 - [x] Every fixture has been checked against a **primary source** —
@@ -148,8 +147,9 @@ belongs here.
       each serializer, the trait branches, the deriver's parser mapping, and the
       WorldEdit expression evaluator's golden fixtures. Partly: all three trait
       branches now have a branch site and a test, the parser table and the SNBT writer
-      are covered, and the deriver is asserted through its committed artefact. The
-      evaluator does not exist yet.
+      are covered, the text-component grammar is asserted in both of its forms, and the
+      deriver is asserted through its committed artefact. The evaluator does not exist
+      yet.
 
 ## 3. Scalable / future-proof
 
@@ -236,16 +236,6 @@ it should be stable between runs.
   model exists to prevent. `enchantments` is not affected: its own change rides
   `enchantmentsShape`, which already exists.
   [#26](https://github.com/kollektiv-mc/Kommands/issues/26).
-
-**P2 — An unset required argument in the middle of a sequence emits a double space**
-
-- `serialize.ts` pops trailing empties, so an unfilled optional tail disappears
-  cleanly. A gap in the _middle_ survives `parts.join(' ').trim()` as two spaces —
-  `give @p  1` when no item has been picked. The comment there says the gap is
-  deliberately visible, and it should be; a doubled space is not visible, it is
-  malformed text a user will paste. The fix is probably a placeholder token for an
-  unset required argument, which is a design change rather than a patch.
-  [#27](https://github.com/kollektiv-mc/Kommands/issues/27).
 
 ---
 

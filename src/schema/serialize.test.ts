@@ -158,6 +158,40 @@ describe('the /tellraw canonical fixture', () => {
     )
     expect(out).toBe('/tellraw @a {"text":"Server restarting","color":"red","bold":true}')
   })
+
+  const tellraw = (message: TextComponent) =>
+    serializeCommand(
+      commands['vanilla:tellraw']!,
+      value({ args: { '/1': '@a', '/2': message } }),
+      ctx,
+    )
+
+  test('a child carrying both events', () => {
+    expect(
+      tellraw(
+        plain('Reset ', {
+          extra: [
+            plain('here', {
+              color: 'aqua',
+              underlined: true,
+              clickEvent: { action: 'run_command', value: '/spawn' },
+              hoverEvent: { action: 'show_text', contents: plain('Teleports you') },
+            }),
+          ],
+        }),
+      ),
+    ).toBe(
+      '/tellraw @a {"text":"Reset ","extra":[{"text":"here","color":"aqua","underlined":true,' +
+        '"clickEvent":{"action":"run_command","value":"/spawn"},' +
+        '"hoverEvent":{"action":"show_text","contents":{"text":"Teleports you"}}}]}',
+    )
+  })
+
+  test('a score, which has no text field at all', () => {
+    expect(tellraw({ content: { kind: 'score', objective: 'kills', name: '@s' } })).toBe(
+      '/tellraw @a {"score":{"objective":"kills","name":"@s"}}',
+    )
+  })
 })
 
 describe('/execute — the case that decides whether the tree was necessary', () => {

@@ -91,6 +91,10 @@ change is wrong.
 
 /tellraw @a {"text":"Server restarting","color":"red","bold":true}
 
+/tellraw @a {"text":"Reset ","extra":[{"text":"here","color":"aqua","underlined":true,"clickEvent":{"action":"run_command","value":"/spawn"},"hoverEvent":{"action":"show_text","contents":{"text":"Teleports you"}}}]}
+
+/tellraw @a {"score":{"objective":"kills","name":"@s"}}
+
 /execute as @a at @s run particle minecraft:flame ~ ~1 ~ 0.2 0.2 0.2 0 10
 ```
 
@@ -107,17 +111,33 @@ line here stands out on its own.
 
 Verified 2026-08-19 against
 [SpyglassMC/vanilla-mcdoc](https://github.com/SpyglassMC/vanilla-mcdoc)
-(`java/world/component/item.mcdoc`, whose dispatches carry explicit `#[since]` /
-`#[until]` version guards) and the pinned `1.21.1-summary` registries:
+(`java/world/component/item.mcdoc` and `java/util/text.mcdoc`, whose dispatches carry
+explicit `#[since]` / `#[until]` version guards) and the pinned `1.21.1-summary`
+registries. The text-component rows were cross-checked against
+[Kyori Adventure](https://github.com/KyoriPowered/adventure)'s `JSONOptions`, which
+gates emission per Minecraft version and is the reference implementation Paper and
+Velocity use — the wiki's pre-1.21.5 page is the usual reference and was unreachable
+from the environment this was checked in, so two primary sources stand in for it
+rather than one:
 
-| Fixture                               | What was checked                  | Result                                                                                                                                                       |
-| ------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `enchantments={levels:{…}}`           | `dispatch …[enchantments]`        | `#[until="1.21.5"] #[canonical] Enchantments`, a struct with a `levels` field. The bare map is the 1.21.5 form                                               |
-| `custom_name='{…}'`                   | `dispatch …[custom_name]`         | `#[until="1.21.5"] #[text_component] string` — a quoted JSON string, not SNBT                                                                                |
-| `lore=['{…}']`                        | `dispatch …[lore]`                | A _list_ whose element is `#[until="1.21.5"] #[text_component] string`. One quoted JSON string per line, not one component holding every line                |
-| `attribute_modifiers={modifiers:[…]}` | `dispatch …[attribute_modifiers]` | `#[until="1.21.5"] #[canonical] AttributeModifiers`, the `{modifiers,show_in_tooltip?}` wrapper. A bare array also parses, but is canonical only from 1.21.5 |
-| `minecraft:generic.armor`             | `attribute` registry              | `generic.armor` present; bare `armor` absent                                                                                                                 |
-| `id:"kommands:bonus"`                 | `AttributeModifier` struct        | `#[since="1.21"] id`, replacing the pre-1.21 `uuid` + `name` pair                                                                                            |
+| Fixture                               | What was checked                  | Result                                                                                                                                                                               |
+| ------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `enchantments={levels:{…}}`           | `dispatch …[enchantments]`        | `#[until="1.21.5"] #[canonical] Enchantments`, a struct with a `levels` field. The bare map is the 1.21.5 form                                                                       |
+| `custom_name='{…}'`                   | `dispatch …[custom_name]`         | `#[until="1.21.5"] #[text_component] string` — a quoted JSON string, not SNBT                                                                                                        |
+| `extra:[…]`                           | `struct TextBase`                 | `extra?: [Text] @ 1..` — a list of whole components, minimum one. An empty list is not a smaller value, it is an invalid one                                                         |
+| `score:{objective,name}`              | `struct ScoreText`                | Both sub-fields required, unguarded. There is no `value` override at any version                                                                                                     |
+| `clickEvent:{action,value}`           | `struct TextStyle`                | `#[until="1.21.5"] clickEvent` — camelCase, and **every** action pays out under `value` as a string. From 1.21.5 the wrapper is `click_event` and each action names its own key      |
+| `hoverEvent:{action,contents}`        | `struct TextStyle`                | `#[until="1.21.5"] hoverEvent`, payload under `contents`. From 1.21.5 `show_text` moves it to `value` — the two key names **swap**, which is the easiest thing here to get backwards |
+| `show_entity` `{type,id}`             | `struct EntityHoverContent`       | Entity type under `type`, uuid under `id`. From 1.21.5 they rotate: type→`id`, uuid→`uuid`                                                                                           |
+| `lore=['{…}']`                        | `dispatch …[lore]`                | A _list_ whose element is `#[until="1.21.5"] #[text_component] string`. One quoted JSON string per line, not one component holding every line                                        |
+| `attribute_modifiers={modifiers:[…]}` | `dispatch …[attribute_modifiers]` | `#[until="1.21.5"] #[canonical] AttributeModifiers`, the `{modifiers,show_in_tooltip?}` wrapper. A bare array also parses, but is canonical only from 1.21.5                         |
+| `minecraft:generic.armor`             | `attribute` registry              | `generic.armor` present; bare `armor` absent                                                                                                                                         |
+| `id:"kommands:bonus"`                 | `AttributeModifier` struct        | `#[since="1.21"] id`, replacing the pre-1.21 `uuid` + `name` pair                                                                                                                    |
+
+One text-component trap is worth naming separately, because it is the one that looks
+like a typo and is not: at 1.21.1 a `show_text` hover pays out under `contents`, and
+from 1.21.5 under `value`. `contents` is the newer-_looking_ name and it is the older
+one. A component with the two crossed parses and shows the wrong thing, with no error.
 
 The `attribute_modifiers` row is the one worth keeping in mind: third-party examples
 of the bare-array form are easy to find and are not wrong so much as _later_, and they
