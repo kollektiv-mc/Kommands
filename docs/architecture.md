@@ -29,13 +29,13 @@ version data  ──►  command definitions  ──►  renderer  ──►  se
                                                   └──►  preview module (optional, lazy)
 ```
 
-| Layer | Responsibility |
-|---|---|
-| **Version data** | Which values exist (registries) and how they are written (traits) |
-| **Definitions** | The shape of each command: nodes, argument types, constraints |
-| **Renderer** | Walks a definition, renders an editor per argument, holds the value tree |
-| **Serializer** | Turns the value tree into command text, branching on traits |
-| **Preview** | Optional 3D visualisation, bound to a definition, lazy-loaded |
+| Layer            | Responsibility                                                           |
+| ---------------- | ------------------------------------------------------------------------ |
+| **Version data** | Which values exist (registries) and how they are written (traits)        |
+| **Definitions**  | The shape of each command: nodes, argument types, constraints            |
+| **Renderer**     | Walks a definition, renders an editor per argument, holds the value tree |
+| **Serializer**   | Turns the value tree into command text, branching on traits              |
+| **Preview**      | Optional 3D visualisation, bound to a definition, lazy-loaded            |
 
 The renderer never knows which command it is rendering, and the serializer never
 knows which version it is targeting beyond the traits it is handed.
@@ -44,7 +44,7 @@ knows which version it is targeting beyond the traits it is handed.
 
 ## Derivation: what can and cannot be generated
 
-Vanilla command *skeletons* are derived from the Brigadier command tree that
+Vanilla command _skeletons_ are derived from the Brigadier command tree that
 Minecraft itself exports, republished per version by
 [misode/mcmeta](https://github.com/misode/mcmeta). For 1.21.1 that tree holds 83
 commands across 1763 nodes, using 51 distinct argument parsers.
@@ -64,10 +64,10 @@ text-component tree is just `minecraft:component`.
 This produces the real boundary in the system. It is **not** vanilla versus
 WorldEdit; it cuts across both:
 
-|  | Command skeleton | Argument type editors |
-|---|---|---|
-| **Vanilla** | **Derived** from Brigadier | **Authored** |
-| **WorldEdit** | **Authored** | **Authored** — shared with vanilla |
+|               | Command skeleton           | Argument type editors              |
+| ------------- | -------------------------- | ---------------------------------- |
+| **Vanilla**   | **Derived** from Brigadier | **Authored**                       |
+| **WorldEdit** | **Authored**               | **Authored** — shared with vanilla |
 
 A vanilla command is therefore `derived skeleton + authored type bindings +
 authored presentation metadata`. WorldEdit swaps only the first term. Everything
@@ -86,9 +86,9 @@ rather than two subsystems behind an interface.
 4. Map each `parser` + `properties` pair to an argument-type key and options.
 5. Write `src/data/generated/<version>/`, stamped `provenance: 'derived'`.
 
-**Failure policy:** an unmapped *shallow* parser (a plain scalar such as an integer
+**Failure policy:** an unmapped _shallow_ parser (a plain scalar such as an integer
 or boolean) is a hard error — those must be generically representable. An unmapped
-*deep* parser binds a `raw_text` fallback editor and records the gap, so a command
+_deep_ parser binds a `raw_text` fallback editor and records the gap, so a command
 degrades to a text field rather than breaking the build.
 
 All 83 commands are emitted, though only `/give`, `/tellraw`, and `/execute` have
@@ -156,14 +156,14 @@ trait and give every existing version an explicit value — still additive.
 
 ## Where data lives
 
-| Category | Source | Loading |
-|---|---|---|
-| Items, entities, enchantments, effects, particles, attributes, potions, sounds | mcmeta → `src/data/generated/<v>/registries.json` | Lazy, per version |
-| Block states | mcmeta → `src/data/generated/<v>/blocks.json` | Lazy, route-split |
-| Command skeletons | Derived → `src/data/generated/<v>/commands.json` | Lazy, per command route |
-| Version traits | `src/data/versions/<v>.ts` | Static |
-| Selectors, colour codes, WorldEdit patterns and masks | `src/data/authored/` | Static |
-| Design tokens | Generated → `src/styles/tokens.css` | Global CSS |
+| Category                                                                       | Source                                            | Loading                 |
+| ------------------------------------------------------------------------------ | ------------------------------------------------- | ----------------------- |
+| Items, entities, enchantments, effects, particles, attributes, potions, sounds | mcmeta → `src/data/generated/<v>/registries.json` | Lazy, per version       |
+| Block states                                                                   | mcmeta → `src/data/generated/<v>/blocks.json`     | Lazy, route-split       |
+| Command skeletons                                                              | Derived → `src/data/generated/<v>/commands.json`  | Lazy, per command route |
+| Version traits                                                                 | `src/data/versions/<v>.ts`                        | Static                  |
+| Selectors, colour codes, WorldEdit patterns and masks                          | `src/data/authored/`                              | Static                  |
+| Design tokens                                                                  | Generated → `src/styles/tokens.css`               | Global CSS              |
 
 Nothing in this table is a literal inside a component. `/suite-kit:health` enforces it.
 
@@ -211,21 +211,17 @@ semantic utilities. Components reference tokens only — never a literal hex or 
 value. Pipeline and conventions in [`design-tokens.md`](design-tokens.md); the
 values themselves live in `kollektiv/design/tokens.json`.
 
-The generator is not written yet — this repo is pre-scaffold. `tokens.source.json`
-is in place and [`design-tokens.md`](design-tokens.md) specifies the contract to
-implement.
-
 ---
 
 ## Decision record
 
-| Decision | Alternative rejected | Why |
-|---|---|---|
-| Commands as data | A page per command | Command list is open-ended; per-page cost never falls |
-| Schema as node tree | Flat argument list | `/execute` recurses and embeds commands |
-| One schema + `dialect` | WorldEdit as sibling subsystem | `//generate` needs no structure vanilla lacks, and shares all argument editors |
-| Derive skeletons only | Derive everything | Brigadier has no semantics for `item_stack` or `component` — the parts that matter |
-| Emit all 83 commands | Emit only the three in scope | Same cost; makes future additions a routing decision |
-| Commit generated data | Gitignore and generate on install | Reviewable version diffs, offline builds, no network in CI |
-| Traits, not eras | Era enum | Changes do not land together — attributes moved at 1.21.2, enchantments at 1.21.5 |
-| Preview receives values | Preview parses command text | Keeps previews independent of serializer and version traits |
+| Decision                | Alternative rejected              | Why                                                                                |
+| ----------------------- | --------------------------------- | ---------------------------------------------------------------------------------- |
+| Commands as data        | A page per command                | Command list is open-ended; per-page cost never falls                              |
+| Schema as node tree     | Flat argument list                | `/execute` recurses and embeds commands                                            |
+| One schema + `dialect`  | WorldEdit as sibling subsystem    | `//generate` needs no structure vanilla lacks, and shares all argument editors     |
+| Derive skeletons only   | Derive everything                 | Brigadier has no semantics for `item_stack` or `component` — the parts that matter |
+| Emit all 83 commands    | Emit only the three in scope      | Same cost; makes future additions a routing decision                               |
+| Commit generated data   | Gitignore and generate on install | Reviewable version diffs, offline builds, no network in CI                         |
+| Traits, not eras        | Era enum                          | Changes do not land together — attributes moved at 1.21.2, enchantments at 1.21.5  |
+| Preview receives values | Preview parses command text       | Keeps previews independent of serializer and version traits                        |

@@ -1,0 +1,55 @@
+@import 'tailwindcss';
+
+/* The design tokens — the @theme mapping and every themed value — are generated
+   from the suite's shared source. Do not add token definitions to this file; add
+   them to kollektiv/design/tokens.json and run `pnpm gen:tokens`.
+   See docs/design-tokens.md. */
+@import './tokens.css';
+
+/* The three faces the shared token source's --font-* stacks name. They are
+   vendored alongside Konnekt's copies so both products render the same source
+   identically; without them every stack silently falls through to system-ui. */
+@font-face {
+  font-family: 'Ranade';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/Ranade-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Excon';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../assets/fonts/Excon-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Satoshi';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('../assets/fonts/Satoshi-Black.woff2') format('woff2');
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 4px thumb over a transparent track — docs/design-tokens.md § Component patterns. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-hover) transparent;
+}

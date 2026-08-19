@@ -26,9 +26,7 @@ See `docs/command-schema.md`.
 Mutual exclusion, dependencies, and numeric relationships are declared:
 
 ```ts
-constraints: [
-  { kind: 'mutex', targets: ['-r', '-o', '-c'], message: 'Choose one origin mode.' },
-]
+constraints: [{ kind: 'mutex', targets: ['-r', '-o', '-c'], message: 'Choose one origin mode.' }]
 ```
 
 Not implemented as conditionals inside an editor. Constraints are inspectable,
@@ -54,8 +52,8 @@ error, not a silent fallback to another version's behaviour.
 ## No hardcoded game values
 
 Item IDs, entities, enchantments, effects, particles, and attributes come from the
-version registry. This directory holds *structure*; `src/data/generated/` holds
-*content*.
+version registry. This directory holds _structure_; `src/data/generated/` holds
+_content_.
 
 Authored data that genuinely has no upstream source — selectors, colour codes,
 WorldEdit patterns and masks — lives in `src/data/authored/` and is still versioned

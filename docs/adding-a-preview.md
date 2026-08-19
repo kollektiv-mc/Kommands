@@ -32,9 +32,9 @@ preview: {
 }
 ```
 
-| Field | Meaning |
-|---|---|
-| `module` | Key into the preview registry |
+| Field    | Meaning                                       |
+| -------- | --------------------------------------------- |
+| `module` | Key into the preview registry                 |
 | `inputs` | Argument and flag `name`s the module observes |
 
 `inputs` names must resolve against `ArgumentNode.name` or `FlagSetNode` flag names
@@ -60,9 +60,7 @@ export const shapePreview: PreviewModule = {
   load: () => import('./ShapePreview'),
 
   // build-time validation of the binding
-  accepts: (def) =>
-    def.dialect === 'worldedit' &&
-    hasArgument(def, 'expression', 'we_expression'),
+  accepts: (def) => def.dialect === 'worldedit' && hasArgument(def, 'expression', 'we_expression'),
 }
 ```
 
@@ -82,9 +80,9 @@ export default function ShapePreview({ values, registry }: PreviewProps) {
 
 `PreviewProps`:
 
-| Prop | Contents |
-|---|---|
-| `values` | Parsed values for the declared `inputs`, keyed by name |
+| Prop       | Contents                                                      |
+| ---------- | ------------------------------------------------------------- |
+| `values`   | Parsed values for the declared `inputs`, keyed by name        |
 | `registry` | The active version registry, for resolving block and item IDs |
 
 The component renders **inside** the shared `<PreviewCanvas>`. Do not create a

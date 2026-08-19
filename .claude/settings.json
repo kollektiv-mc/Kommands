@@ -25,13 +25,7 @@
       "Bash(git diff)",
       "Bash(git diff:*)"
     ],
-    "deny": [
-      "Read(./.env)",
-      "Read(./.env.*)",
-      "Read(./secrets/**)"
-    ],
-    "ask": [
-      "Bash(git push:*)"
-    ]
+    "deny": ["Read(./.env)", "Read(./.env.*)", "Read(./secrets/**)"],
+    "ask": ["Bash(git push:*)"]
   }
 }

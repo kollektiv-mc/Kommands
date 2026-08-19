@@ -1,7 +1,7 @@
 # Roadmap
 
 Direction and sequencing. Individual tasks live in
-[GitHub Issues](../../issues) — this file does not track work items, and there is
+[GitHub Issues](../../../issues) — this file does not track work items, and there is
 no `TODO.md`.
 
 ---

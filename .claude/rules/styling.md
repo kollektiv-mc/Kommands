@@ -60,7 +60,7 @@ Status colours are stored as `--accent-rgb: 74 222 128`, so alpha needs no secon
 token:
 
 ```css
-color: var(--accent);                     /* solid */
+color: var(--accent); /* solid */
 background: rgb(var(--accent-rgb) / 0.2); /* 20% */
 ```
 

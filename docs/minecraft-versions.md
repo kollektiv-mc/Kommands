@@ -13,10 +13,10 @@ modelled so that adding a version is a data change.
 Version handling is often mis-modelled as a single sequence of "eras". It is two
 separate things, and conflating them produces wrong output:
 
-| Axis | Question | Where it lives |
-|---|---|---|
-| **Syntax traits** | *How* is a value written? | `src/data/versions/<version>.ts` → `traits` |
-| **Registry contents** | *Which* values exist? | `src/data/generated/<version>/registries.json` |
+| Axis                  | Question                  | Where it lives                                 |
+| --------------------- | ------------------------- | ---------------------------------------------- |
+| **Syntax traits**     | _How_ is a value written? | `src/data/versions/<version>.ts` → `traits`    |
+| **Registry contents** | _Which_ values exist?     | `src/data/generated/<version>/registries.json` |
 
 A command can be syntactically valid and still reference an item that does not
 exist in the target version, or reference a real item using the wrong syntax.
@@ -31,12 +31,12 @@ not a stylistic preference: the changes do not land together, so an era enum
 cannot represent reality. Attribute IDs changed at **1.21.2**, while the
 enchantments and text-component changes landed at **1.21.5**.
 
-| Trait | ≤ 1.20.4 | 1.20.5 – 1.21.1 | 1.21.2 – 1.21.4 | 1.21.5+ |
-|---|---|---|---|---|
-| `itemFormat` | `nbt` | `components` | `components` | `components` |
-| `enchantmentsShape` | n/a | `levels-wrapper` | `levels-wrapper` | `flat` |
-| `attributeIdPrefix` | `generic.` | `generic.` | *(none)* | *(none)* |
-| `textComponentFormat` | `json-string` | `json-string` | `json-string` | `snbt` |
+| Trait                 | ≤ 1.20.4      | 1.20.5 – 1.21.1  | 1.21.2 – 1.21.4  | 1.21.5+      |
+| --------------------- | ------------- | ---------------- | ---------------- | ------------ |
+| `itemFormat`          | `nbt`         | `components`     | `components`     | `components` |
+| `enchantmentsShape`   | n/a           | `levels-wrapper` | `levels-wrapper` | `flat`       |
+| `attributeIdPrefix`   | `generic.`    | `generic.`       | _(none)_         | _(none)_     |
+| `textComponentFormat` | `json-string` | `json-string`    | `json-string`    | `snbt`       |
 
 **1.21.1 is the second column.** It sits between two breaking changes, so it is
 easy to get wrong in both directions — by emitting pre-1.20.5 NBT, or by emitting
@@ -68,7 +68,7 @@ generic.   generic.armor  generic.attack_damage  generic.max_health
 ```
 
 **`textComponentFormat`** — `custom_name`, `item_name`, and `lore` carry a text
-component. Before 1.21.5 that is a *quoted JSON string*; from 1.21.5 it is SNBT.
+component. Before 1.21.5 that is a _quoted JSON string_; from 1.21.5 it is SNBT.
 
 ```
 json-string   [custom_name='{"text":"Excalibur","color":"gold"}']
@@ -108,14 +108,14 @@ required in 1.21.1 and forbidden from 1.21.2.
 Registry contents move independently of syntax, and entries are **removed** as well
 as added. Measured between the 1.21.1 and 1.21.5 mcmeta summaries:
 
-| Registry | 1.21.1 | 1.21.5 | Added | Removed |
-|---|---|---|---|---|
-| `item` | 1333 | 1396 | 63 | 0 |
-| `entity_type` | 130 | 150 | 23 | **3** |
-| `attribute` | 31 | 32 | 32 | **31** |
-| `particle_type` | 109 | 114 | 5 | 0 |
-| `enchantment` | 42 | 42 | 0 | 0 |
-| `mob_effect` | 39 | 39 | 0 | 0 |
+| Registry        | 1.21.1 | 1.21.5 | Added | Removed |
+| --------------- | ------ | ------ | ----- | ------- |
+| `item`          | 1333   | 1396   | 63    | 0       |
+| `entity_type`   | 130    | 150    | 23    | **3**   |
+| `attribute`     | 31     | 32     | 32    | **31**  |
+| `particle_type` | 109    | 114    | 5     | 0       |
+| `enchantment`   | 42     | 42     | 0     | 0       |
+| `mob_effect`    | 39     | 39     | 0     | 0       |
 
 Because entries are removed, a shared "latest" registry would offer the user values
 that do not exist in their target version. Registries are therefore pinned per

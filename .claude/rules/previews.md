@@ -16,7 +16,7 @@ previews recompute on every keystroke, and a naive voxel loop freezes the tab.
 
 ```tsx
 function ShapePreview({ values }: PreviewProps) {
-  const { expression, pattern } = values   // right — structured values
+  const { expression, pattern } = values // right — structured values
 }
 ```
 

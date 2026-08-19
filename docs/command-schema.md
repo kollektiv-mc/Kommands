@@ -55,13 +55,7 @@ recurses and embeds other commands.
 
 ```ts
 type Node =
-  | LiteralNode
-  | ArgumentNode
-  | SequenceNode
-  | ChoiceNode
-  | RepeatNode
-  | FlagSetNode
-  | RefNode
+  LiteralNode | ArgumentNode | SequenceNode | ChoiceNode | RepeatNode | FlagSetNode | RefNode
 ```
 
 ### `LiteralNode`
@@ -120,8 +114,8 @@ Boolean switches. WorldEdit only; vanilla has no equivalent.
 {
   kind: 'flagset'
   flags: Array<{
-    name: string            // referenced by constraints as '-h'
-    char: string            // 'h'
+    name: string // referenced by constraints as '-h'
+    char: string // 'h'
     label: string
   }>
 }
@@ -154,11 +148,11 @@ Rules spanning multiple arguments, which the tree shape cannot express.
 }
 ```
 
-| Kind | Meaning |
-|---|---|
-| `mutex` | At most one of `targets` may be set |
-| `requires` | The first target being set requires the rest |
-| `range` | Numeric relationship between targets, e.g. min ≤ max |
+| Kind       | Meaning                                              |
+| ---------- | ---------------------------------------------------- |
+| `mutex`    | At most one of `targets` may be set                  |
+| `requires` | The first target being set requires the rest         |
+| `range`    | Numeric relationship between targets, e.g. min ≤ max |
 
 Constraint violations **warn, never block**. The command still renders; the user
 decides.
@@ -172,9 +166,9 @@ decides.
 ```ts
 interface ArgumentType {
   key: ArgumentTypeKey
-  editor: ComponentType<EditorProps>          // React editor
+  editor: ComponentType<EditorProps> // React editor
   serialize: (value, ctx: SerializeContext) => string
-  validate: (value, options) => Diagnostic[]  // warnings, never hard failures
+  validate: (value, options) => Diagnostic[] // warnings, never hard failures
   defaultValue: (options) => unknown
 }
 ```
@@ -187,28 +181,28 @@ policy — see [`architecture.md`](architecture.md).
 
 **Shallow** — generic editors driven by Brigadier `properties`:
 
-| Key | From parser | Editor |
-|---|---|---|
-| `integer` | `brigadier:integer` | Number input honouring `min`/`max` |
-| `float` / `double` | `brigadier:float`, `brigadier:double` | Number input |
-| `bool` | `brigadier:bool` | Toggle |
-| `string` | `brigadier:string` | Text input |
-| `block_pos` | `minecraft:block_pos` | Three coordinate fields with `~` / `^` support |
-| `vec3` / `vec2` | `minecraft:vec3`, `minecraft:vec2` | Coordinate fields |
-| `resource_location` | `minecraft:resource_location` | Registry-backed combo box |
-| `entity_selector` | `minecraft:entity` | Selector builder, constrained by `properties` |
+| Key                 | From parser                           | Editor                                         |
+| ------------------- | ------------------------------------- | ---------------------------------------------- |
+| `integer`           | `brigadier:integer`                   | Number input honouring `min`/`max`             |
+| `float` / `double`  | `brigadier:float`, `brigadier:double` | Number input                                   |
+| `bool`              | `brigadier:bool`                      | Toggle                                         |
+| `string`            | `brigadier:string`                    | Text input                                     |
+| `block_pos`         | `minecraft:block_pos`                 | Three coordinate fields with `~` / `^` support |
+| `vec3` / `vec2`     | `minecraft:vec3`, `minecraft:vec2`    | Coordinate fields                              |
+| `resource_location` | `minecraft:resource_location`         | Registry-backed combo box                      |
+| `entity_selector`   | `minecraft:entity`                    | Selector builder, constrained by `properties`  |
 
 **Deep** — hand-authored; this is where the product value is:
 
-| Key | From parser | Editor |
-|---|---|---|
-| `item_stack` | `minecraft:item_stack` | Item picker + data-component editor |
-| `text_component` | `minecraft:component` | Recursive text-component builder |
-| `nbt_compound` | `minecraft:nbt_compound_tag` | Structured NBT editor |
-| `block_state` | `minecraft:block_state` | Block picker + state properties |
-| `we_pattern` | — (WorldEdit) | Pattern builder |
-| `we_mask` | — (WorldEdit) | Mask builder |
-| `we_expression` | — (WorldEdit) | Expression editor |
+| Key              | From parser                  | Editor                              |
+| ---------------- | ---------------------------- | ----------------------------------- |
+| `item_stack`     | `minecraft:item_stack`       | Item picker + data-component editor |
+| `text_component` | `minecraft:component`        | Recursive text-component builder    |
+| `nbt_compound`   | `minecraft:nbt_compound_tag` | Structured NBT editor               |
+| `block_state`    | `minecraft:block_state`      | Block picker + state properties     |
+| `we_pattern`     | — (WorldEdit)                | Pattern builder                     |
+| `we_mask`        | — (WorldEdit)                | Mask builder                        |
+| `we_expression`  | — (WorldEdit)                | Expression editor                   |
 
 **Fallback** — `raw_text`, a plain text field. Bound automatically when derivation
 meets an unmapped deep parser, so an unsupported command degrades instead of

@@ -31,9 +31,9 @@ export const v1_21_5: VersionDefinition = {
   mcmetaTag: '1.21.5-summary',
   traits: {
     itemFormat: 'components',
-    enchantmentsShape: 'flat',          // changed from 'levels-wrapper'
-    attributeIdPrefix: '',              // changed at 1.21.2
-    textComponentFormat: 'snbt',        // changed from 'json-string'
+    enchantmentsShape: 'flat', // changed from 'levels-wrapper'
+    attributeIdPrefix: '', // changed at 1.21.2
+    textComponentFormat: 'snbt', // changed from 'json-string'
   },
 }
 ```
@@ -48,7 +48,7 @@ Writes `src/data/generated/<version>/{commands,registries,blocks}.json`.
 
 **Fix any hard errors before continuing.** An unmapped shallow parser fails the
 build by design — it means the new version introduced a scalar type the deriver
-does not understand. An unmapped *deep* parser only warns and falls back to
+does not understand. An unmapped _deep_ parser only warns and falls back to
 `raw_text`.
 
 ### 4. Diff the registries

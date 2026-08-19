@@ -9,11 +9,11 @@ Schema reference: [`command-schema.md`](command-schema.md).
 
 ## Which path applies
 
-| Situation | Path |
-|---|---|
-| Vanilla command, already in the Brigadier tree | **A — wire up a derived skeleton** |
-| WorldEdit or any non-vanilla command | **B — author a definition** |
-| Vanilla command needing a temporary override | **B**, with `dialect: 'vanilla'`, `provenance: 'authored'` |
+| Situation                                      | Path                                                       |
+| ---------------------------------------------- | ---------------------------------------------------------- |
+| Vanilla command, already in the Brigadier tree | **A — wire up a derived skeleton**                         |
+| WorldEdit or any non-vanilla command           | **B — author a definition**                                |
+| Vanilla command needing a temporary override   | **B**, with `dialect: 'vanilla'`, `provenance: 'authored'` |
 
 All 83 vanilla commands are already derived into
 `src/data/generated/<version>/commands.json`. Path A is usually just wiring.
@@ -67,21 +67,21 @@ export const myCommand: CommandDefinition = {
   provenance: 'authored',
   versions: { min: '1.21.1' },
   aliases: [],
-  root: { kind: 'sequence', nodes: [ /* … */ ] },
+  root: { kind: 'sequence', nodes: [/* … */] },
 }
 ```
 
 **2. Model the structure with the right nodes.**
 
-| Need | Node |
-|---|---|
-| Fixed keyword | `literal` |
-| User value | `argument` |
-| Ordered parts | `sequence` |
-| One-of alternatives | `choice` |
-| Repeatable clause | `repeat` |
-| Boolean switches | `flagset` |
-| Embedded command | `ref` |
+| Need                | Node       |
+| ------------------- | ---------- |
+| Fixed keyword       | `literal`  |
+| User value          | `argument` |
+| Ordered parts       | `sequence` |
+| One-of alternatives | `choice`   |
+| Repeatable clause   | `repeat`   |
+| Boolean switches    | `flagset`  |
+| Embedded command    | `ref`      |
 
 **3. Express cross-argument rules as `constraints`**, not as editor logic. Mutually
 exclusive flags are `kind: 'mutex'`. Constraints warn; they never block.
