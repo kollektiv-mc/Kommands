@@ -1,7 +1,13 @@
 import type { Diagnostic } from '../../schema/types'
 import { writeSnbt, type SnbtValue } from '../../schema/snbt'
-import { textComponentField, type TextComponent } from '../../schema/text-component'
+import {
+  emptyTextComponent,
+  isEmptyTextComponent,
+  textComponentField,
+  type TextComponent,
+} from '../../schema/text-component'
 import type { SerializeContext } from '../versions/types'
+import { namespaced } from './namespace'
 
 /**
  * The data components an item stack may carry, and how each is written.
@@ -19,9 +25,6 @@ import type { SerializeContext } from '../versions/types'
  * `java/util/attribute.mcdoc`, `java/util/slot.mcdoc`), whose dispatches carry
  * explicit `#[since]` / `#[until]` guards. See docs/minecraft-versions.md § Provenance.
  */
-
-/** The namespace every vanilla id is written with. */
-export const NAMESPACE = 'minecraft:'
 
 /**
  * The namespace an attribute modifier's own id is written with.
@@ -168,8 +171,11 @@ const CUSTOM_NAME: ItemComponentSpec = {
   id: 'custom_name',
   label: 'Custom name',
   editor: 'text-component',
-  defaultValue: (): TextComponent => ({ text: '' }),
-  isEmpty: (value) => (value as TextComponent).text === '',
+  defaultValue: emptyTextComponent,
+  // The shared rule, not a `text === ''` check of its own. Emptiness is a property of
+  // the content, and a translate-only name has no text field at all — three call sites
+  // disagreeing about that is how a component one of them keeps gets dropped by another.
+  isEmpty: (value) => isEmptyTextComponent(value as TextComponent),
   serialize: (value, ctx) => writeSnbt(textComponentField(value as TextComponent, ctx)),
 }
 
@@ -177,12 +183,12 @@ const LORE: ItemComponentSpec = {
   id: 'lore',
   label: 'Lore',
   editor: 'text-component-list',
-  defaultValue: (): TextComponent[] => [{ text: '' }],
-  isEmpty: (value) => (value as TextComponent[]).every((line) => line.text === ''),
+  defaultValue: (): TextComponent[] => [emptyTextComponent()],
+  isEmpty: (value) => (value as TextComponent[]).every(isEmptyTextComponent),
   serialize: (value, ctx) => {
     // A list of text components, one per line — each element is a field in its own
     // right, so each is quoted before 1.21.5 rather than the list as a whole.
-    const lines = (value as TextComponent[]).filter((line) => line.text !== '')
+    const lines = (value as TextComponent[]).filter((line) => !isEmptyTextComponent(line))
     return writeSnbt({ kind: 'list', items: lines.map((line) => textComponentField(line, ctx)) })
   },
 }
@@ -201,7 +207,7 @@ const ATTRIBUTE_MODIFIERS: ItemComponentSpec = {
     const items: SnbtValue[] = modifiers.map((m) => ({
       kind: 'compound',
       entries: [
-        ['type', { kind: 'string', value: `${NAMESPACE}${m.type}` }],
+        ['type', { kind: 'string', value: namespaced(m.type) }],
         ['amount', { kind: 'number', value: m.amount }],
         ['operation', { kind: 'string', value: m.operation }],
         ['slot', { kind: 'string', value: m.slot }],

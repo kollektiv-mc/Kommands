@@ -7,12 +7,18 @@ import { NO_REGISTRIES } from '../data/versions/registry'
 import type { CommandDefinition } from './types'
 import { serializeCommand, type CommandValue } from './serialize'
 import { evaluateConstraints } from './constraints'
-import { serializeTextComponent, textComponentField } from './text-component'
+import { serializeTextComponent, textComponentField, type TextComponent } from './text-component'
 import { writeSnbt } from './snbt'
 
 const commands = commandsPayload.commands as unknown as Record<string, CommandDefinition>
 /** The derived skeleton, so a Ref resolves to the real thing rather than a stand-in. */
 const GIVE = commands['vanilla:give']!
+
+/** A plain-text component. The content is a union, so even the simplest case names its kind. */
+const plain = (text: string, rest: Partial<TextComponent> = {}): TextComponent => ({
+  content: { kind: 'text', text },
+  ...rest,
+})
 
 const ctxFor = (traits: VersionTraits): SerializeContext => ({ traits, registries: NO_REGISTRIES })
 const ctx = ctxFor(v1_21_1.traits)
@@ -88,7 +94,7 @@ describe('a sequence, and what an unfilled argument does to it', () => {
 })
 
 describe('serializers branch on traits, never on a version', () => {
-  const component = { text: 'Server restarting', color: 'red', bold: true }
+  const component = plain('Server restarting', { color: 'red', bold: true })
 
   test('as a command argument, 1.21.1 emits bare JSON', () => {
     // The canonical /tellraw fixture in docs/minecraft-versions.md. No surrounding
@@ -108,7 +114,7 @@ describe('serializers branch on traits, never on a version', () => {
   })
 
   test('a quote or backslash in the text is escaped for the string it is wrapped in', () => {
-    const awkward = { text: "it's a \\ backslash" }
+    const awkward = plain("it's a \\ backslash")
     expect(writeSnbt(textComponentField(awkward, ctx))).toBe(
       '\'{"text":"it\\\'s a \\\\\\\\ backslash"}\'',
     )
@@ -145,7 +151,7 @@ describe('the /tellraw canonical fixture', () => {
       value({
         args: {
           '/1': '@a',
-          '/2': { text: 'Server restarting', color: 'red', bold: true },
+          '/2': plain('Server restarting', { color: 'red', bold: true }),
         },
       }),
       ctx,

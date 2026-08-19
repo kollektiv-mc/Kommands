@@ -56,6 +56,12 @@ const stack = (id: string, components: Record<string, unknown> = {}): ItemStackV
 
 const enchantments = (levels: Record<string, number>): EnchantmentsValue => ({ levels })
 
+/** A plain-text component. The content is a union, so even the simplest case names its kind. */
+const plain = (text: string, rest: Partial<TextComponent> = {}): TextComponent => ({
+  content: { kind: 'text', text },
+  ...rest,
+})
+
 describe('the three canonical /give fixtures', () => {
   test('enchantments carry the levels wrapper, and an optional count trails', () => {
     const out = serializeCommand(
@@ -70,7 +76,7 @@ describe('the three canonical /give fixtures', () => {
   })
 
   test('a custom name is a quoted JSON string, and components emit in sorted order', () => {
-    const customName: TextComponent = { text: 'Digger', color: 'aqua' }
+    const customName = plain('Digger', { color: 'aqua' })
     const out = serializeCommand(
       GIVE,
       value({
@@ -154,8 +160,8 @@ describe('the same values under different traits', () => {
       GIVE,
       value({
         [ITEM]: stack('diamond_pickaxe', {
-          custom_name: { text: 'Digger', color: 'aqua' } satisfies TextComponent,
-          lore: [{ text: 'one' }, { text: 'two' }] satisfies TextComponent[],
+          custom_name: plain('Digger', { color: 'aqua' }),
+          lore: [plain('one'), plain('two')],
         }),
       }),
       future,
@@ -176,7 +182,7 @@ describe('the same values under different traits', () => {
       GIVE,
       value({
         [ITEM]: stack('diamond_pickaxe', {
-          lore: [{ text: 'Forged in the deep', color: 'gray' }] satisfies TextComponent[],
+          lore: [plain('Forged in the deep', { color: 'gray' })],
         }),
       }),
       ctx,
@@ -191,7 +197,7 @@ describe('the same values under different traits', () => {
       GIVE,
       value({
         [ITEM]: stack('diamond_pickaxe', {
-          lore: [{ text: 'one' }, { text: 'two', color: 'gray' }] satisfies TextComponent[],
+          lore: [plain('one'), plain('two', { color: 'gray' })],
         }),
       }),
       ctx,
@@ -269,7 +275,7 @@ describe('an item stack that is not filled in yet', () => {
     const out = serializeCommand(
       GIVE,
       value({
-        [ITEM]: stack('netherite_sword', { lore: [{ text: '' }], enchantments: enchantments({}) }),
+        [ITEM]: stack('netherite_sword', { lore: [plain('')], enchantments: enchantments({}) }),
       }),
       ctx,
     )

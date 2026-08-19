@@ -1,5 +1,6 @@
 import type { SerializeContext } from '../../data/versions/types'
-import { NAMESPACE, itemComponent } from '../../data/authored/item-components'
+import { itemComponent } from '../../data/authored/item-components'
+import { namespaced } from '../../data/authored/namespace'
 import type { Diagnostic } from '../types'
 
 /**
@@ -30,7 +31,7 @@ const warn = (message: string): Diagnostic => ({ severity: 'warning', message })
  */
 export function serializeItemStack(value: ItemStackValue, ctx: SerializeContext): string {
   if (value.id === '') return ''
-  const item = `${NAMESPACE}${value.id}`
+  const item = namespaced(value.id)
 
   // Before 1.20.5 an item's extra data was an NBT suffix rather than a component
   // list, and the two are not interconvertible. No supported version writes that

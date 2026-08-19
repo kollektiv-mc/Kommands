@@ -7,7 +7,7 @@ import {
   type EnchantmentsValue,
   type ItemComponentSpec,
 } from '../../data/authored/item-components'
-import type { TextComponent } from '../../schema/text-component'
+import { emptyTextComponent, type TextComponent } from '../../schema/text-component'
 import type { ItemStackValue } from '../../schema/argument-types/item-stack'
 import type { EditorProps } from '../../schema/types'
 import { AttributeModifiersEditor } from './AttributeModifiersEditor'
@@ -157,6 +157,7 @@ function ComponentValue({ spec, value, ctx, onChange }: ComponentValueProps) {
         <TextComponentFields
           value={value as TextComponent}
           ariaPrefix={spec.label}
+          ctx={ctx}
           onChange={(next) => onChange(next)}
         />
       )
@@ -165,6 +166,7 @@ function ComponentValue({ spec, value, ctx, onChange }: ComponentValueProps) {
         <TextComponentList
           value={value as TextComponent[]}
           label={spec.label}
+          ctx={ctx}
           onChange={onChange}
         />
       )
@@ -174,10 +176,12 @@ function ComponentValue({ spec, value, ctx, onChange }: ComponentValueProps) {
 function TextComponentList({
   value,
   label,
+  ctx,
   onChange,
 }: {
   value: TextComponent[]
   label: string
+  ctx: SerializeContext
   onChange: (next: TextComponent[]) => void
 }) {
   return (
@@ -187,6 +191,7 @@ function TextComponentList({
           <TextComponentFields
             value={line}
             ariaPrefix={`${label} line ${index + 1}`}
+            ctx={ctx}
             onChange={(next) => onChange(value.map((l, i) => (i === index ? next : l)))}
           />
           <button
@@ -199,7 +204,11 @@ function TextComponentList({
           </button>
         </div>
       ))}
-      <button type="button" className={ROW_ADD} onClick={() => onChange([...value, { text: '' }])}>
+      <button
+        type="button"
+        className={ROW_ADD}
+        onClick={() => onChange([...value, emptyTextComponent()])}
+      >
         + line
       </button>
     </div>
