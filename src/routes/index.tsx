@@ -1,7 +1,7 @@
 import { createRoute } from '@tanstack/react-router'
 import { rootRoute } from './root'
 import { CommandWorkbench } from '../components/CommandWorkbench'
-import { loadCommands } from '../data/loadGenerated'
+import { loadCommands, loadRegistries } from '../data/loadGenerated'
 import { v1_21_1 } from '../data/versions/1.21.1'
 
 // The component is inline, matching root.tsx: a route file that exported both a
@@ -13,11 +13,14 @@ export const indexRoute = createRoute({
   // commands.json stays out of the entry chunk. TanStack Router awaits this before
   // rendering, so the component never sees a half-loaded definition.
   loader: async () => {
-    const commands = await loadCommands(v1_21_1)
-    return { give: commands['vanilla:give'] }
+    const [commands, registries] = await Promise.all([
+      loadCommands(v1_21_1),
+      loadRegistries(v1_21_1),
+    ])
+    return { give: commands['vanilla:give'], registries }
   },
   component: () => {
-    const { give } = indexRoute.useLoaderData()
+    const { give, registries } = indexRoute.useLoaderData()
     return (
       <div className="flex max-w-2xl flex-col gap-3">
         <section className="border-hairline border-border-subtle bg-surface rounded-panel p-3">
@@ -29,7 +32,7 @@ export const indexRoute = createRoute({
           </p>
         </section>
         {give ? (
-          <CommandWorkbench definition={give} version={v1_21_1} />
+          <CommandWorkbench definition={give} version={v1_21_1} registries={registries} />
         ) : (
           <p className="text-warning text-2xs">/give is missing from the generated data.</p>
         )}

@@ -3,7 +3,16 @@ import { NumberEditor } from '../../components/editors/NumberEditor'
 import { ToggleEditor } from '../../components/editors/ToggleEditor'
 import { TextEditor } from '../../components/editors/TextEditor'
 import { SelectorEditor } from '../../components/editors/SelectorEditor'
+import { ItemStackEditor } from '../../components/editors/ItemStackEditor'
+import { TextComponentEditor } from '../../components/editors/TextComponentEditor'
 import { selectorsFor } from '../../data/authored/selectors'
+import { serializeTextComponent, type TextComponent } from '../text-component'
+import {
+  serializeItemStack,
+  validateItemStack,
+  EMPTY_ITEM_STACK,
+  type ItemStackValue,
+} from './item-stack'
 
 /**
  * The argument-type registry.
@@ -91,6 +100,23 @@ const TYPES: ErasedArgumentType[] = [
     defaultValue: (options) => selectorsFor(options)[0]?.token ?? '',
   }),
   textType('string'),
+  // The first two deep types. Everything about them is hand-authored — Brigadier
+  // describes each as one opaque token — which is exactly why they are the product
+  // rather than a gap the fallback papers over.
+  defineArgumentType<ItemStackValue>({
+    key: 'item_stack',
+    editor: ItemStackEditor,
+    serialize: serializeItemStack,
+    validate: (value, _options, ctx) => validateItemStack(value, ctx),
+    defaultValue: () => EMPTY_ITEM_STACK,
+  }),
+  defineArgumentType<TextComponent>({
+    key: 'text_component',
+    editor: TextComponentEditor,
+    serialize: (value, ctx) => (value.text === '' ? '' : serializeTextComponent(value, ctx)),
+    validate: () => [],
+    defaultValue: () => ({ text: '' }),
+  }),
   // The fallback a deep parser binds to before its editor exists. Its presence is
   // what lets derivation degrade a command to a text field instead of failing.
   textType('raw_text'),

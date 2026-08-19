@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { PARSERS, lookupParser, unimplementedDeepParsers } from './parsers'
 import { hasArgumentType, lookupArgumentType, FALLBACK_TYPE } from '../../schema/argument-types'
+import { NO_REGISTRIES } from '../versions/registry'
 
 describe('the parser table', () => {
   test('covers every parser the pinned 1.21.1 tree uses', () => {
@@ -22,7 +23,7 @@ describe('the parser table', () => {
     // shallow type whose editor is not built yet gets a plainer editor, not a broken
     // one — the value survives unchanged. 34 of the 41 shallow types are in that
     // state today (block_pos, angle, gamemode …) and none of them lose data.
-    const ctx = { traits: {}, registries: { entries: () => [], has: () => true } }
+    const ctx = { traits: {}, registries: NO_REGISTRIES }
     for (const [parser, binding] of Object.entries(PARSERS)) {
       if (binding.kind !== 'shallow' || hasArgumentType(binding.type)) continue
       const type = lookupArgumentType(binding.type)
@@ -35,8 +36,13 @@ describe('the parser table', () => {
     // product — the user hand-writes what the app exists to build — so the gap is
     // enumerable rather than notional, and shrinks by itself as editors land.
     const gaps = unimplementedDeepParsers(hasArgumentType)
-    expect(gaps.map((g) => g.type)).toContain('item_stack')
-    expect(gaps.map((g) => g.type)).toContain('text_component')
+    // The list is computed, so it shrinks by itself as editors land. item_stack and
+    // text_component left with #7; asserting their absence is what stops the list
+    // from quietly going back to being a list nobody updates.
+    expect(gaps.map((g) => g.type)).not.toContain('item_stack')
+    expect(gaps.map((g) => g.type)).not.toContain('text_component')
+    expect(gaps.map((g) => g.type)).toContain('nbt_path')
+    expect(gaps.map((g) => g.type)).toContain('block_state')
     expect(hasArgumentType(FALLBACK_TYPE)).toBe(true)
   })
 })

@@ -1,4 +1,5 @@
 import type { CommandDefinition } from '../schema/types'
+import { makeRegistryLookup } from './versions/registry'
 import type { RegistryLookup, VersionDefinition } from './versions/types'
 
 /**
@@ -106,15 +107,7 @@ export function loadRegistries(version: VersionDefinition): Promise<RegistryLook
         version.id,
         `${version.id}/registries.json`,
       )
-      return {
-        entries: (registry: string) =>
-          Object.hasOwn(registries, registry) ? registries[registry]! : [],
-        // Unknown registry -> true, deliberately. A validator that warned "this item
-        // does not exist" because *the registry* was missing would be blaming the
-        // user's input for the app's gap, and validation only warns anyway.
-        has: (registry: string, id: string) =>
-          !Object.hasOwn(registries, registry) || registries[registry]!.includes(id),
-      }
+      return makeRegistryLookup(registries)
     })
   registryCache.set(version.id, promise)
   return promise

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { SerializeContext, VersionDefinition } from '../data/versions/types'
+import type { RegistryLookup, SerializeContext, VersionDefinition } from '../data/versions/types'
 import { CommandRenderer } from './CommandRenderer'
 import { evaluateConstraints } from '../schema/constraints'
 import { serializeCommand } from '../schema/serialize'
@@ -16,9 +16,12 @@ import { LABEL, WARNING } from './editors/fieldStyles'
 export function CommandWorkbench({
   definition,
   version,
+  registries,
 }: {
   definition: CommandDefinition
   version: VersionDefinition
+  /** The target version's registries. Loaded by the route, so the chunk stays lazy. */
+  registries: RegistryLookup
 }) {
   const value = useCommandStore((s) => s.value)
   const setArg = useCommandStore((s) => s.setArg)
@@ -27,8 +30,8 @@ export function CommandWorkbench({
   const setRepeat = useCommandStore((s) => s.setRepeat)
 
   const ctx: SerializeContext = useMemo(
-    () => ({ traits: version.traits, registries: { entries: () => [], has: () => true } }),
-    [version],
+    () => ({ traits: version.traits, registries }),
+    [version, registries],
   )
 
   const output = serializeCommand(definition, value, ctx)

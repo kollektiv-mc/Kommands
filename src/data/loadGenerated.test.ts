@@ -151,9 +151,18 @@ describe('argument types', () => {
         .filter((b) => b.kind === 'deep')
         .map((b) => b.type),
     )
-    const onFallback = argumentNodes.filter(({ node }) => deepTypes.has(node.type))
-    expect(onFallback).toHaveLength(183)
-    expect(onFallback.every(({ node }) => !hasArgumentType(node.type))).toBe(true)
+    const deep = argumentNodes.filter(({ node }) => deepTypes.has(node.type))
+    expect(deep).toHaveLength(183)
+
+    // #7 registered item_stack (17 uses) and text_component (15). The split is
+    // asserted rather than the total, so an editor landing has to move a number here:
+    // that is the check that it was actually wired into the registry.
+    const covered = deep.filter(({ node }) => hasArgumentType(node.type))
+    expect(covered).toHaveLength(32)
+    expect(new Set(covered.map(({ node }) => node.type))).toEqual(
+      new Set(['item_stack', 'text_component']),
+    )
+    expect(deep.length - covered.length).toBe(151)
   })
 
   test('optional marks arguments the command may end before', () => {

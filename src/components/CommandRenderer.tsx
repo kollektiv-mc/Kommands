@@ -50,7 +50,7 @@ function NodeView({ node, path, value, ctx, actions }: NodeViewProps) {
       return <span className="text-text-muted text-1xs font-mono">{node.token}</span>
 
     case 'argument':
-      return <ArgumentView node={node} path={path} value={value} actions={actions} />
+      return <ArgumentView node={node} path={path} value={value} ctx={ctx} actions={actions} />
 
     case 'sequence':
       return (
@@ -172,14 +172,15 @@ interface ArgumentViewProps {
   node: Extract<Node, { kind: 'argument' }>
   path: Path
   value: CommandValue
+  ctx: SerializeContext
   actions: Actions
 }
 
-function ArgumentView({ node, path, value, actions }: ArgumentViewProps) {
+function ArgumentView({ node, path, value, ctx, actions }: ArgumentViewProps) {
   const type = lookupArgumentType(node.type)
   const options = node.typeOptions ?? {}
   const current = value.args[path] ?? type.defaultValue(options)
-  const diagnostics: readonly Diagnostic[] = type.validate(current, options)
+  const diagnostics: readonly Diagnostic[] = type.validate(current, options, ctx)
   const Editor = type.editor
 
   return (
@@ -193,6 +194,7 @@ function ArgumentView({ node, path, value, actions }: ArgumentViewProps) {
         onChange={(next) => actions.setArg(path, next)}
         options={options}
         diagnostics={diagnostics}
+        ctx={ctx}
       />
       {diagnostics.map((d, i) => (
         <span key={i} className={WARNING}>

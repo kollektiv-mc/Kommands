@@ -33,6 +33,16 @@ export interface EditorProps<T = unknown> {
   options: Readonly<Record<string, unknown>>
   /** Warnings for this argument. Rendered alongside the editor, never instead of it. */
   diagnostics: readonly Diagnostic[]
+  /**
+   * Traits and registries for the target version.
+   *
+   * An editor that offers game values — an item picker, an enchantment list — must
+   * read them from here rather than hold a list of its own, for the same reason a
+   * serializer must: the values are versioned, and a component that knew them would
+   * be wrong for every version but one. It is the same object the serializer is
+   * handed, so it carries no version id to compare against either.
+   */
+  ctx: SerializeContext
 }
 
 export type ArgumentOptions = Readonly<Record<string, unknown>>
@@ -42,8 +52,8 @@ export interface ArgumentType<T = unknown> {
   editor: ComponentType<EditorProps<T>>
   /** Turns a value into command text. Reads traits from ctx; never a version number. */
   serialize: (value: T, ctx: SerializeContext) => string
-  /** Returns warnings. Never throws, never blocks. */
-  validate: (value: T, options: ArgumentOptions) => Diagnostic[]
+  /** Returns warnings. Never throws, never blocks. Reads registries from ctx. */
+  validate: (value: T, options: ArgumentOptions, ctx: SerializeContext) => Diagnostic[]
   defaultValue: (options: ArgumentOptions) => T
 }
 
@@ -68,9 +78,10 @@ export interface ErasedArgumentType {
     onChange: (next: unknown) => void
     options: ArgumentOptions
     diagnostics: readonly Diagnostic[]
+    ctx: SerializeContext
   }>
   serialize: (value: unknown, ctx: SerializeContext) => string
-  validate: (value: unknown, options: ArgumentOptions) => Diagnostic[]
+  validate: (value: unknown, options: ArgumentOptions, ctx: SerializeContext) => Diagnostic[]
   defaultValue: (options: ArgumentOptions) => unknown
 }
 

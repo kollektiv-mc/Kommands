@@ -1,13 +1,19 @@
 import { describe, expect, test } from 'vitest'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import type { SerializeContext, VersionTraits } from '../data/versions/types'
-import { EXECUTE, GENERATE, GIVE } from './fixtures'
+import commandsPayload from '../data/generated/1.21.1/commands.json'
+import { EXECUTE, GENERATE } from './fixtures'
+import { NO_REGISTRIES } from '../data/versions/registry'
+import type { CommandDefinition } from './types'
 import { serializeCommand, type CommandValue } from './serialize'
 import { evaluateConstraints } from './constraints'
 import { serializeTextComponent } from './text-component'
 
-const noRegistries = { entries: () => [], has: () => true }
-const ctxFor = (traits: VersionTraits): SerializeContext => ({ traits, registries: noRegistries })
+const commands = commandsPayload.commands as unknown as Record<string, CommandDefinition>
+/** The derived skeleton, so a Ref resolves to the real thing rather than a stand-in. */
+const GIVE = commands['vanilla:give']!
+
+const ctxFor = (traits: VersionTraits): SerializeContext => ({ traits, registries: NO_REGISTRIES })
 const ctx = ctxFor(v1_21_1.traits)
 
 const value = (over: Partial<CommandValue> = {}): CommandValue => ({
@@ -19,41 +25,64 @@ const value = (over: Partial<CommandValue> = {}): CommandValue => ({
   ...over,
 })
 
-describe('/give — the shallow spine, end to end', () => {
-  // Paths, not names: '' is the root sequence, /1 its second child. See paths.ts for
-  // why values are keyed this way rather than by argument name.
-  const targets = '/1'
-  const item = '/2'
-  const count = '/3'
+describe('a sequence, and what an unfilled argument does to it', () => {
+  // A local definition rather than a real command: what is under test is the walk,
+  // and /give's own output is asserted byte-for-byte against the canonical fixtures
+  // in argument-types/item-stack.test.ts, using the derived skeleton.
+  const SEQ: CommandDefinition = {
+    id: 'vanilla:seq',
+    label: '/seq',
+    dialect: 'vanilla',
+    provenance: 'authored',
+    versions: { min: '1.21.1' },
+    root: {
+      kind: 'sequence',
+      nodes: [
+        { kind: 'literal', token: 'seq' },
+        {
+          kind: 'argument',
+          name: 'who',
+          type: 'entity_selector',
+          typeOptions: { type: 'players' },
+        },
+        { kind: 'argument', name: 'note', type: 'string' },
+        {
+          kind: 'argument',
+          name: 'count',
+          type: 'integer',
+          typeOptions: { min: 1 },
+          optional: true,
+        },
+      ],
+    },
+  }
 
   test('serializes every filled argument in order', () => {
-    const out = serializeCommand(
-      GIVE,
-      value({ args: { [targets]: '@p', [item]: 'minecraft:netherite_sword', [count]: 1 } }),
-      ctx,
-    )
-    expect(out).toBe('/give @p minecraft:netherite_sword 1')
+    const out = serializeCommand(SEQ, value({ args: { '/1': '@p', '/2': 'hello', '/3': 1 } }), ctx)
+    expect(out).toBe('/seq @p hello 1')
   })
 
   test('an unfilled optional tail disappears rather than trailing a space', () => {
-    const out = serializeCommand(
-      GIVE,
-      value({ args: { [targets]: '@a', [item]: 'minecraft:stone' } }),
-      ctx,
-    )
-    expect(out).toBe('/give @a minecraft:stone')
+    const out = serializeCommand(SEQ, value({ args: { '/1': '@a', '/2': 'hello' } }), ctx)
+    expect(out).toBe('/seq @a hello')
   })
 
-  test('item_stack degrades to raw_text until #7, rather than breaking', () => {
-    // The parser table marks item_stack `deep`; no editor is registered for it yet, so
-    // the registry hands back the raw_text fallback. The documented degradation, and
-    // the reason a command with an unimplemented deep type still generates.
-    const out = serializeCommand(
-      GIVE,
-      value({ args: { [targets]: '@s', [item]: 'minecraft:stone[custom_name=x]' } }),
-      ctx,
+  test('a deep type with no editor still degrades to a text field', () => {
+    // The documented degradation, and the reason a command with an unimplemented deep
+    // type still generates. nbt_path stands in for the 151 arguments still there.
+    const withPath: CommandDefinition = {
+      ...SEQ,
+      root: {
+        kind: 'sequence',
+        nodes: [
+          { kind: 'literal', token: 'seq' },
+          { kind: 'argument', name: 'path', type: 'nbt_path' },
+        ],
+      },
+    }
+    expect(serializeCommand(withPath, value({ args: { '/1': 'Inventory[0].id' } }), ctx)).toBe(
+      '/seq Inventory[0].id',
     )
-    expect(out).toBe('/give @s minecraft:stone[custom_name=x]')
   })
 })
 
@@ -101,7 +130,11 @@ describe('/execute — the case that decides whether the tree was necessary', ()
       value({
         repeats: { '/1': 1 },
         choices: { '/1/#0': 0 },
-        args: { '/1/#0/|0/1': '@a', '/2/1/1': '@s', '/2/1/2': 'minecraft:stone' },
+        args: {
+          '/1/#0/|0/1': '@a',
+          '/2/1/1': '@s',
+          '/2/1/2': { id: 'stone', components: {} },
+        },
         refs: { '/2/1': 'vanilla:give' },
       }),
       ctx,
@@ -114,13 +147,17 @@ describe('/execute — the case that decides whether the tree was necessary', ()
     // command-schema.md forbids a Ref that reaches itself without passing a Repeat,
     // but a definition is data and data can be wrong. The cap turns a frozen tab into
     // truncated output — a bug report someone can act on.
-    const cyclic = {
-      ...GIVE,
+    const cyclic: CommandDefinition = {
+      id: 'vanilla:loop',
+      label: '/loop',
+      dialect: 'vanilla',
+      provenance: 'authored',
+      versions: { min: '1.21.1' },
       root: {
-        kind: 'sequence' as const,
+        kind: 'sequence',
         nodes: [
-          { kind: 'literal' as const, token: 'loop' },
-          { kind: 'ref' as const, definitionId: 'vanilla:give' },
+          { kind: 'literal', token: 'loop' },
+          { kind: 'ref', definitionId: 'vanilla:loop' },
         ],
       },
     }
