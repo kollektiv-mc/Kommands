@@ -4,7 +4,7 @@ import type { SerializeContext, VersionTraits } from '../data/versions/types'
 import commandsPayload from '../data/generated/1.21.1/commands.json'
 import { EXECUTE, GENERATE } from './fixtures'
 import { NO_REGISTRIES } from '../data/versions/registry'
-import type { CommandDefinition } from './types'
+import type { CommandDefinition, Node } from './types'
 import { serializeCommand, type CommandValue } from './serialize'
 import { evaluateConstraints } from './constraints'
 import { serializeTextComponent, textComponentField, type TextComponent } from './text-component'
@@ -196,6 +196,9 @@ describe('the /tellraw canonical fixture', () => {
 
 describe('/execute — the case that decides whether the tree was necessary', () => {
   test('renders a chain of clauses without any per-command handling', () => {
+    // The `run` clause is optional and nothing selected it, so it contributes nothing —
+    // no keyword, no trailing space. `/execute as @a at @s` is a complete command: every
+    // if/unless leaf is executable, which is what makes the tail skippable at all.
     const out = serializeCommand(
       EXECUTE,
       value({
@@ -205,7 +208,23 @@ describe('/execute — the case that decides whether the tree was necessary', ()
       }),
       ctx,
     )
-    expect(out).toBe('/execute as @a at @s run')
+    expect(out).toBe('/execute as @a at @s')
+  })
+
+  test('choosing the run clause without choosing a command leaves a visible gap', () => {
+    // The inverse of the test above, and the reason a Ref carries no `optional` of its
+    // own: once the clause is selected the command is required, so an unpicked one
+    // reads as a gap rather than as a finished `/execute as @a run`.
+    const out = serializeCommand(
+      EXECUTE,
+      value({
+        repeats: { '/1': 1 },
+        choices: { '/1/#0': 0, '/2': 0 },
+        args: { '/1/#0/|0/1': '@a' },
+      }),
+      ctx,
+    )
+    expect(out).toBe('/execute as @a run <command>')
   })
 
   test('a Ref resolves through the same walk', () => {
@@ -213,13 +232,13 @@ describe('/execute — the case that decides whether the tree was necessary', ()
       EXECUTE,
       value({
         repeats: { '/1': 1 },
-        choices: { '/1/#0': 0 },
+        choices: { '/1/#0': 0, '/2': 0 },
         args: {
           '/1/#0/|0/1': '@a',
-          '/2/1/1': '@s',
-          '/2/1/2': { id: 'stone', components: {} },
+          '/2/|0/1/1': '@s',
+          '/2/|0/1/2': { id: 'stone', components: {} },
         },
-        refs: { '/2/1': 'vanilla:give' },
+        refs: { '/2/|0/1': 'vanilla:give' },
       }),
       ctx,
       { resolve: (id) => (id === GIVE.id ? GIVE : undefined) },
@@ -278,5 +297,63 @@ describe('//generate — flags, variadic tail, mutex', () => {
 
   test('one origin mode is not a violation', () => {
     expect(evaluateConstraints(GENERATE, value({ flags: { '/1/-o': true } }))).toEqual([])
+  })
+})
+
+describe('the canonical /execute fixture', () => {
+  // docs/minecraft-versions.md § Canonical 1.21.1 output. Asserted against the
+  // *derived* skeleton rather than the abridged fixture, so a deriver change that
+  // reshapes /execute or /particle fails here too — and because the derived tree is
+  // what the app actually renders.
+  const EXECUTE_1_21_1 = commands['vanilla:execute']!
+  const PARTICLE = commands['vanilla:particle']!
+
+  test('/execute as @a at @s run particle …, byte for byte', () => {
+    const out = serializeCommand(
+      EXECUTE_1_21_1,
+      value({
+        repeats: { '/1': 2 },
+        choices: { '/1/#0': 2, '/1/#1': 3, '/2': 0 },
+        args: {
+          '/1/#0/|2/1': '@a',
+          '/1/#1/|3/1': '@s',
+          '/2/|0/1/1': 'minecraft:flame',
+          '/2/|0/1/2': '~ ~1 ~',
+          '/2/|0/1/3': '0.2 0.2 0.2',
+          '/2/|0/1/4': 0,
+          '/2/|0/1/5': 10,
+        },
+        refs: { '/2/|0/1': 'vanilla:particle' },
+      }),
+      ctx,
+      { resolve: (id) => commands[id] },
+    )
+    expect(out).toBe('/execute as @a at @s run particle minecraft:flame ~ ~1 ~ 0.2 0.2 0.2 0 10')
+  })
+
+  test('the two things that used to be appended to it', () => {
+    // Regression, and the reason this fixture could not be asserted before. mcmeta
+    // marks /particle's `count` executable, so `force|normal` is a tail the user may
+    // skip — and `viewers` inside it is optional, so its editor must not seed one.
+    const tail = (PARTICLE.root as Extract<Node, { kind: 'sequence' }>).nodes[6]
+    expect(tail).toMatchObject({ kind: 'choice', optional: true })
+
+    const bare = serializeCommand(
+      PARTICLE,
+      value({ args: { '/1': 'minecraft:flame', '/4': 0, '/5': 10 } }),
+      ctx,
+    )
+    expect(bare).toBe('/particle minecraft:flame 0 10')
+  })
+
+  test('selecting the force clause does not conjure a viewer list', () => {
+    // `viewers` is optional, so an untouched one contributes nothing. It used to
+    // default to '@p' and put a viewer nobody chose into the command.
+    const out = serializeCommand(
+      PARTICLE,
+      value({ args: { '/1': 'minecraft:flame', '/4': 0, '/5': 10 }, choices: { '/6': 0 } }),
+      ctx,
+    )
+    expect(out).toBe('/particle minecraft:flame 0 10 force')
   })
 })

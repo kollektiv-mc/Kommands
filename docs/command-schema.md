@@ -92,11 +92,33 @@ Ordered children. All non-optional children must be satisfied.
 
 ### `ChoiceNode`
 
-Exactly one child applies — the `/execute` subcommand alternatives.
+Exactly one child applies — the `/execute` subcommand alternatives — or, when
+`optional` is set, none of them.
 
 ```ts
-{ kind: 'choice', nodes: Node[] }
+{
+  kind: 'choice'
+  nodes: Node[]
+  optional?: boolean        // derived from Brigadier `executable` flags
+}
 ```
+
+`optional` is how a **clause** is skipped, as against `ArgumentNode.optional`, which
+skips a **value**. The two are not interchangeable: Brigadier marks a node
+`executable` when the command may end there, and the continuation is frequently
+keyword-led. `/particle … <count>` is a finished command and `force|normal` is a tail;
+`/difficulty` is a finished command and `peaceful|easy|normal|hard` is a tail. Neither
+tail begins with an argument, so there is no `ArgumentNode` on which to hang the fact.
+
+A Choice with no branch selected serialises to nothing. This is the one place the
+default matters: a non-optional Choice with no selection recorded means the _first_
+branch, because one of them must apply; an optional one means _none_, because that is
+the state a fresh command starts in. Reading the absent case as "first" for both is
+what made every untouched `/difficulty` emit `/difficulty peaceful`.
+
+A single-branch optional Choice is not a degenerate case — it is how "this clause, or
+nothing" is written when there is only one clause. `/execute`'s `run <command>` tail
+is exactly that.
 
 ### `RepeatNode`
 
@@ -133,6 +155,13 @@ Embeds another command definition. This is `/execute … run <command>`.
 
 `'@any'` means any command in the same dialect and version — the renderer offers a
 command picker, then renders the chosen definition inline.
+
+A Ref has no `optional` of its own. Every Ref in vanilla is introduced by the keyword
+`run`, and dropping the command while keeping the keyword emits `/execute … run` —
+worse than either alternative. What is optional is the whole clause, keyword included,
+which is a `ChoiceNode` with `optional` set. A Ref that is reached and left unchosen
+is therefore required, and serialises as a `<command>` placeholder, the same honesty
+an unfilled required argument gets.
 
 ---
 
@@ -268,13 +297,21 @@ root: { kind: 'sequence', nodes: [
     // … align, anchored, facing, if, in, on, positioned, rotated, store, summon, unless
   ]}},
 
-  // terminal: embeds another command
-  { kind: 'sequence', nodes: [
-    { kind: 'literal', token: 'run' },
-    { kind: 'ref', definitionId: '@any' },
+  // terminal: embeds another command, and may be left out entirely
+  { kind: 'choice', optional: true, nodes: [
+    { kind: 'sequence', nodes: [
+      { kind: 'literal', token: 'run' },
+      { kind: 'ref', definitionId: '@any' },
+    ]},
   ]},
 ]}
 ```
+
+The tail is a one-branch optional `Choice` rather than a bare `Sequence` because every
+`if`/`unless` leaf is executable in its own right: `/execute if block ~ ~ ~ stone` is a
+finished command, so `run <command>` is a clause the user may skip — keyword included.
+A `Sequence` cannot say that. Dropping only the `ref` would leave `/execute … run`,
+which is not a smaller command, just a broken one.
 
 ### `//generate` — flags, variadic tail, mutual exclusion
 

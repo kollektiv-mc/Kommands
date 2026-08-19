@@ -106,8 +106,12 @@ belongs here.
       `/give` fails there too. All three `/tellraw` fixtures are asserted in
       `serialize.test.ts`, and separately from the `custom_name` form, because a
       component written as an argument is bare and the same component written into a
-      data-component field is a quoted string. Only `/execute`'s remains, with #9. These are regression fixtures: a serializer change
-      that breaks one is wrong, not the fixture.
+      data-component field is a quoted string. `/execute`'s is asserted there too,
+      against the derived skeletons of both `/execute` and `/particle`, so the embedded
+      command is the real one rather than a stand-in — and it is the fixture that found
+      the optional-clause gap, because until `ChoiceNode` could say "or none" it
+      generated two tokens too many. All eight now assert. These are regression
+      fixtures: a serializer change that breaks one is wrong, not the fixture.
       Verify: `pnpm test` — each must be an assertion, not a comment.
 - [x] Every fixture has been checked against a **primary source** —
       [minecraft.wiki](https://minecraft.wiki) or the pinned mcmeta data — not against
@@ -161,7 +165,13 @@ belongs here.
       are the whole diff. `/give` itself is not the evidence — it brought the
       `item_stack` argument type with it, which
       [`architecture.md`](architecture.md) buckets as authored editor code by design.
-      The next command is the test of this claim.
+      `/execute` did **not** hold to this and was not expected to: it cost a schema
+      field (`ChoiceNode.optional`), a deriver branch, and the Ref rendering #9 had
+      deferred. That is the claim behaving correctly rather than failing — `/execute`
+      is in the acceptance set precisely because it stresses the schema, and what it
+      found was a gap in the schema rather than a command needing special-casing. The
+      renderer still branches on node kind alone. The first command added _after_
+      this one is the real test.
       Verify: `git diff` for the last command added — expect
       `src/data/authored/ui/` and a test. Nothing else.
 - [ ] Adding a Minecraft version touches only version data and generated files.

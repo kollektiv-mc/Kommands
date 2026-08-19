@@ -1,9 +1,24 @@
 import type { SerializeContext } from '../data/versions/types'
-import { lookupArgumentType } from '../schema/argument-types'
-import { branch, child, instance, repeatCount, ROOT, type Path } from '../schema/paths'
+import { argumentOptions, lookupArgumentType } from '../schema/argument-types'
+import {
+  branch,
+  child,
+  choiceSelection,
+  instance,
+  NO_BRANCH,
+  repeatCount,
+  ROOT,
+  type Path,
+} from '../schema/paths'
 import type { CommandValue } from '../schema/serialize'
-import type { CommandDefinition, Diagnostic, Node, UiMetadata } from '../schema/types'
-import { LABEL, WARNING } from './editors/fieldStyles'
+import {
+  REF_ANY,
+  type CommandDefinition,
+  type Diagnostic,
+  type Node,
+  type UiMetadata,
+} from '../schema/types'
+import { FIELD, LABEL, WARNING } from './editors/fieldStyles'
 
 /**
  * Renders a command definition.
@@ -19,16 +34,62 @@ interface Actions {
   setFlag: (path: Path, on: boolean) => void
   setChoice: (path: Path, index: number) => void
   setRepeat: (path: Path, count: number) => void
+  setRef: (path: Path, definitionId: string) => void
 }
+
+/** Every command a `@any` Ref may embed, by id. */
+export type Catalogue = Readonly<Record<string, CommandDefinition>>
+
+/**
+ * What a subtree is rendered *against*, as opposed to the node itself.
+ *
+ * One object rather than three props because a Ref replaces all of it at once: inside
+ * an embedded command the labels come from that command's metadata, not the outer
+ * one's, and the budget that stops a cycle is one lower.
+ */
+interface Scope {
+  /**
+   * Authored presentation for the definition currently being walked.
+   *
+   * Threaded rather than looked up, so this component still knows nothing about which
+   * command it is rendering — it is handed the labels along with the tree.
+   */
+  ui?: UiMetadata
+  catalogue: Catalogue
+  /**
+   * How many more Refs may be entered.
+   *
+   * The mirror of the serializer's `maxDepth`, and there for the same reason:
+   * command-schema.md forbids a Ref that reaches itself without passing a Repeat, but a
+   * definition is data and data can be wrong. A cap turns a frozen tab into a form that
+   * stops early.
+   */
+  depth: number
+}
+
+const DEFAULT_MAX_DEPTH = 8
 
 interface CommandRendererProps {
   definition: CommandDefinition
   value: CommandValue
   ctx: SerializeContext
   actions: Actions
+  /**
+   * Commands reachable from a `@any` Ref. Empty when nothing embeds anything, which is
+   * every command but /execute and /return.
+   */
+  catalogue?: Catalogue
+  maxDepth?: number
 }
 
-export function CommandRenderer({ definition, value, ctx, actions }: CommandRendererProps) {
+export function CommandRenderer({
+  definition,
+  value,
+  ctx,
+  actions,
+  catalogue = {},
+  maxDepth = DEFAULT_MAX_DEPTH,
+}: CommandRendererProps) {
   return (
     <div className="flex flex-col gap-2">
       <NodeView
@@ -37,7 +98,7 @@ export function CommandRenderer({ definition, value, ctx, actions }: CommandRend
         value={value}
         ctx={ctx}
         actions={actions}
-        ui={definition.ui}
+        scope={{ ui: definition.ui, catalogue, depth: maxDepth }}
       />
     </div>
   )
@@ -49,16 +110,10 @@ interface NodeViewProps {
   value: CommandValue
   ctx: SerializeContext
   actions: Actions
-  /**
-   * Authored presentation for the whole definition.
-   *
-   * Threaded rather than looked up, so this component still knows nothing about
-   * which command it is rendering — it is handed the labels along with the tree.
-   */
-  ui?: UiMetadata
+  scope: Scope
 }
 
-function NodeView({ node, path, value, ctx, actions, ui }: NodeViewProps) {
+function NodeView({ node, path, value, ctx, actions, scope }: NodeViewProps) {
   switch (node.kind) {
     case 'literal':
       // pt-4 clears the label above a sibling editor, so a keyword lines up with the
@@ -67,7 +122,14 @@ function NodeView({ node, path, value, ctx, actions, ui }: NodeViewProps) {
 
     case 'argument':
       return (
-        <ArgumentView node={node} path={path} value={value} ctx={ctx} actions={actions} ui={ui} />
+        <ArgumentView
+          node={node}
+          path={path}
+          value={value}
+          ctx={ctx}
+          actions={actions}
+          ui={scope.ui}
+        />
       )
 
     case 'sequence':
@@ -84,23 +146,27 @@ function NodeView({ node, path, value, ctx, actions, ui }: NodeViewProps) {
               value={value}
               ctx={ctx}
               actions={actions}
-              ui={ui}
+              scope={scope}
             />
           ))}
         </div>
       )
 
     case 'choice': {
-      const selected = value.choices[path] ?? 0
-      const chosen = node.nodes[selected]
+      const selected = choiceSelection(value.choices, path, node)
+      const chosen = selected === NO_BRANCH ? undefined : node.nodes[selected]
       return (
         <div className="flex items-end gap-2">
           <select
-            className="border-hairline border-border-subtle bg-canvas text-text-primary text-1xs rounded-md px-2 py-1 font-mono"
+            className={FIELD}
             value={selected}
             aria-label="Clause"
             onChange={(e) => actions.setChoice(path, Number(e.target.value))}
           >
+            {/* An optional clause can be left out entirely, so "none" is a real
+                selection rather than the absence of one. It leads because it is where
+                a fresh command starts. */}
+            {node.optional && <option value={NO_BRANCH}>— none —</option>}
             {node.nodes.map((n, i) => (
               <option key={i} value={i}>
                 {branchLabel(n, i)}
@@ -114,7 +180,7 @@ function NodeView({ node, path, value, ctx, actions, ui }: NodeViewProps) {
               value={value}
               ctx={ctx}
               actions={actions}
-              ui={ui}
+              scope={scope}
             />
           )}
         </div>
@@ -133,7 +199,7 @@ function NodeView({ node, path, value, ctx, actions, ui }: NodeViewProps) {
               value={value}
               ctx={ctx}
               actions={actions}
-              ui={ui}
+              scope={scope}
             />
           ))}
           <div className="flex gap-2">
@@ -176,11 +242,80 @@ function NodeView({ node, path, value, ctx, actions, ui }: NodeViewProps) {
       )
 
     case 'ref':
-      // Rendering the referenced definition inline is #9's work; the picker needs the
-      // definition registry, which arrives with the deriver. Until then this is
-      // visible rather than silently absent.
-      return <span className={LABEL}>embedded command</span>
+      return (
+        <RefView node={node} path={path} value={value} ctx={ctx} actions={actions} scope={scope} />
+      )
   }
+
+  // Unreachable while Node is exhausted above. It is here so that adding a node kind
+  // is a compile error in this file too: without it the renderer is the one walk that
+  // silently drops an unknown kind, showing a form that is quietly missing a field.
+  return assertNever(node)
+}
+
+function assertNever(node: never): never {
+  throw new Error(`CommandRenderer: unhandled node ${JSON.stringify(node)}`)
+}
+
+/**
+ * A command embedded in another — `/execute … run <command>`.
+ *
+ * The picker and the embedded form are one node, not two: choosing a command is the
+ * only way the inner tree comes into existence, and the inner tree is rendered by the
+ * same walk as the outer one. Nothing here knows which command was chosen.
+ */
+function RefView({
+  node,
+  path,
+  value,
+  ctx,
+  actions,
+  scope,
+}: NodeViewProps & { node: Extract<Node, { kind: 'ref' }> }) {
+  const isAny = node.definitionId === REF_ANY
+  const chosenId = isAny ? (value.refs[path] ?? '') : node.definitionId
+  const target = scope.catalogue[chosenId]
+
+  // The embedded command's own metadata, and one less depth to spend. Its values are
+  // keyed below this Ref's path, so two embedded commands never collide.
+  const inner: Scope = { ui: target?.ui, catalogue: scope.catalogue, depth: scope.depth - 1 }
+
+  return (
+    <div className="border-l-hairline border-border-subtle flex flex-col gap-2 pl-2">
+      {isAny && (
+        <label className="flex flex-col gap-1">
+          <span className={LABEL}>command</span>
+          <select
+            className={FIELD}
+            value={chosenId}
+            onChange={(e) => actions.setRef(path, e.target.value)}
+          >
+            <option value="">choose a command</option>
+            {Object.values(scope.catalogue).map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {target && scope.depth > 0 && (
+        <NodeView
+          node={target.root}
+          path={path}
+          value={value}
+          ctx={ctx}
+          actions={actions}
+          scope={inner}
+        />
+      )}
+      {target && scope.depth <= 0 && (
+        <span className={WARNING}>
+          This command embeds itself. The form stops here so the tab does not.
+        </span>
+      )}
+    </div>
+  )
 }
 
 function branchLabel(node: Node, index: number): string {
@@ -203,7 +338,9 @@ interface ArgumentViewProps {
 
 function ArgumentView({ node, path, value, ctx, actions, ui }: ArgumentViewProps) {
   const type = lookupArgumentType(node.type)
-  const options = node.typeOptions ?? {}
+  // The same options the serializer builds, so the field and the command agree about
+  // what an untouched argument holds — including that an optional one holds nothing.
+  const options = argumentOptions(node)
   const current = value.args[path] ?? type.defaultValue(options)
   const diagnostics: readonly Diagnostic[] = type.validate(current, options, ctx)
   const Editor = type.editor

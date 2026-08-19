@@ -23,11 +23,21 @@ const actions = {
   setFlag: vi.fn(),
   setChoice: vi.fn(),
   setRepeat: vi.fn(),
+  setRef: vi.fn(),
 }
 
-const renderDef = (definition: Parameters<typeof CommandRenderer>[0]['definition']) =>
+const renderDef = (
+  definition: Parameters<typeof CommandRenderer>[0]['definition'],
+  value = EMPTY_VALUE,
+) =>
   render(
-    <CommandRenderer definition={definition} value={EMPTY_VALUE} ctx={ctx} actions={actions} />,
+    <CommandRenderer
+      definition={definition}
+      value={value}
+      ctx={ctx}
+      actions={actions}
+      catalogue={commands}
+    />,
   )
 
 describe('the renderer walks a definition and nothing else', () => {
@@ -50,9 +60,33 @@ describe('the renderer walks a definition and nothing else', () => {
     // CommandRenderer, the schema would be the thing that is wrong.
     renderDef(EXECUTE)
     expect(screen.getByText('execute')).toBeDefined()
-    expect(screen.getByText('run')).toBeDefined()
     expect(screen.getByText('+ add')).toBeDefined()
-    expect(screen.getByText('embedded command')).toBeDefined()
+    // The run clause is optional and unselected, so the form offers it rather than
+    // asserting it: no `run` keyword and no command picker until it is chosen.
+    expect(screen.getByText('— none —')).toBeDefined()
+    expect(screen.queryByLabelText('command')).toBeNull()
+  })
+
+  test('choosing the run clause reveals the command picker', () => {
+    renderDef(EXECUTE, { ...EMPTY_VALUE, choices: { '/2': 0 } })
+    // Twice over: the option that names the clause, and the keyword now that it
+    // applies. getAllByText, because both are legitimately the word `run`.
+    expect(screen.getAllByText('run').length).toBeGreaterThan(1)
+    expect(screen.getByLabelText('command')).toBeDefined()
+  })
+
+  test('an embedded command renders inline, by the same walk', () => {
+    // The Ref's whole point: /give's own editors appear inside /execute, and nothing
+    // in this file learned that /give exists.
+    renderDef(EXECUTE, {
+      ...EMPTY_VALUE,
+      choices: { '/2': 0 },
+      refs: { '/2/|0/1': 'vanilla:give' },
+    })
+    expect(screen.getByText('give')).toBeDefined()
+    for (const name of ['targets', 'item', 'count']) {
+      expect(screen.getAllByText(name, { exact: false }).length).toBeGreaterThan(0)
+    }
   })
 
   test('renders //generate — a flagset and a variadic tail', () => {

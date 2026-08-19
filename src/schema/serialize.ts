@@ -1,9 +1,11 @@
 import type { SerializeContext } from '../data/versions/types'
-import { lookupArgumentType } from './argument-types'
+import { argumentOptions, lookupArgumentType } from './argument-types'
 import {
   branch,
   child,
+  choiceSelection,
   instance,
+  NO_BRANCH,
   repeatCount,
   ROOT,
   type ChoiceSelections,
@@ -83,7 +85,7 @@ function serializeNode(
       // what to display. Reading the raw value alone meant an untouched field showed
       // '@p' while the output said '/give' — the form and the command disagreeing
       // about what the command is, which is the one thing this panel must not do.
-      const raw = value.args[path] ?? type.defaultValue(node.typeOptions ?? {})
+      const raw = value.args[path] ?? type.defaultValue(argumentOptions(node))
       const text = type.serialize(raw, ctx)
       // An unfilled *required* argument becomes a visible placeholder rather than an
       // empty string. Empty was the one shape that could not be shown honestly: at the
@@ -95,20 +97,24 @@ function serializeNode(
     }
 
     case 'sequence': {
-      const parts = node.nodes.map((n, i) =>
-        serializeNode(n, child(path, i), value, ctx, options, depth),
-      )
-      // Trailing empties are dropped, which is how an unfilled optional tail
-      // disappears: `/give @p stone` rather than `/give @p stone `. Only optional
-      // arguments can be empty here now — a required one carries its placeholder — so
-      // this no longer swallows a gap that mattered, and the doubled space a middle
-      // gap used to leave is gone with it.
-      while (parts.length > 0 && parts[parts.length - 1] === '') parts.pop()
-      return parts.join(' ').trim()
+      // Every empty part is dropped, not only the trailing ones. An unfilled optional
+      // tail disappearing is what gives `/give @p stone` rather than `/give @p stone `;
+      // dropping middle empties too is what stops an unselected optional clause from
+      // leaving a doubled space behind it, which is not a visible gap — just malformed
+      // text that reads as valid. A gap that *should* be visible is never empty by the
+      // time it arrives here: a required argument carries its `<name>` placeholder and
+      // a required Ref its `<command>`.
+      const parts = node.nodes
+        .map((n, i) => serializeNode(n, child(path, i), value, ctx, options, depth))
+        .filter((part) => part !== '')
+      return parts.join(' ')
     }
 
     case 'choice': {
-      const selected = value.choices[path] ?? 0
+      const selected = choiceSelection(value.choices, path, node)
+      // An optional clause with nothing selected contributes nothing — no keyword, no
+      // separator. This is the whole reason ChoiceNode carries `optional`.
+      if (selected === NO_BRANCH) return ''
       const chosen = node.nodes[selected]
       if (!chosen) return ''
       return serializeNode(chosen, branch(path, selected), value, ctx, options, depth)
@@ -132,13 +138,15 @@ function serializeNode(
 
     case 'ref': {
       const id = node.definitionId === REF_ANY ? value.refs[path] : node.definitionId
-      if (!id || !options.resolve) return ''
-      const target = options.resolve(id)
-      if (!target) return ''
+      const target = id && options.resolve ? options.resolve(id) : undefined
+      // A Ref that is reached at all is required — what is optional is the clause that
+      // introduces it. So an unpicked one is a visible gap rather than nothing, for the
+      // same reason an unfilled required argument is: `/execute as @a run` reads as a
+      // finished command and is not one.
+      if (!target) return '<command>'
       // Depth decrements only here. A Ref is the only node that can reach a
       // definition again, so it is the only place a cycle can be spent.
-      const inner = serializeNode(target.root, path, value, ctx, options, depth - 1)
-      return inner
+      return serializeNode(target.root, path, value, ctx, options, depth - 1)
     }
   }
 }

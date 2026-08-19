@@ -17,10 +17,14 @@ import type { CommandDefinition } from './types'
 /**
  * /execute — the acceptance case for the tree schema.
  *
- * Two things a flat argument list cannot express: clauses chain arbitrarily
- * (Brigadier `redirect: ["execute"]`, modelled as Repeat(Choice)), and `run` embeds
- * another whole command (a Ref). Abridged to four clauses; the shape is what is under
- * test, not the count.
+ * Three things a flat argument list cannot express: clauses chain arbitrarily
+ * (Brigadier `redirect: ["execute"]`, modelled as Repeat(Choice)); `run` embeds
+ * another whole command (a Ref); and the `run` clause may be skipped entirely, keyword
+ * included, because every `if`/`unless` leaf is executable on its own — a one-branch
+ * Choice with `optional` set, which is the only shape that drops the keyword with the
+ * command it introduces.
+ *
+ * Abridged to four clauses; the shape is what is under test, not the count.
  */
 export const EXECUTE: CommandDefinition = {
   id: 'vanilla:execute',
@@ -66,10 +70,16 @@ export const EXECUTE: CommandDefinition = {
         },
       },
       {
-        kind: 'sequence',
+        kind: 'choice',
+        optional: true,
         nodes: [
-          { kind: 'literal', token: 'run' },
-          { kind: 'ref', definitionId: '@any' },
+          {
+            kind: 'sequence',
+            nodes: [
+              { kind: 'literal', token: 'run' },
+              { kind: 'ref', definitionId: '@any' },
+            ],
+          },
         ],
       },
     ],

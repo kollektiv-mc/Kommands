@@ -1,4 +1,11 @@
-import type { ArgumentType, ArgumentTypeKey, Diagnostic, ErasedArgumentType } from '../types'
+import type {
+  ArgumentNode,
+  ArgumentOptions,
+  ArgumentType,
+  ArgumentTypeKey,
+  Diagnostic,
+  ErasedArgumentType,
+} from '../types'
 import { NumberEditor } from '../../components/editors/NumberEditor'
 import { ToggleEditor } from '../../components/editors/ToggleEditor'
 import { TextEditor } from '../../components/editors/TextEditor'
@@ -45,6 +52,25 @@ function defineArgumentType<T>(type: ArgumentType<T>): ErasedArgumentType {
 }
 
 const warn = (message: string): Diagnostic[] => [{ severity: 'warning', message }]
+
+/**
+ * The options an argument's editor, validator and default are handed.
+ *
+ * `optional` rides along with the authored typeOptions because a *default* has to know
+ * it. A default is a suggestion for a value the command needs; an optional argument
+ * does not need one, and seeding it anyway puts a value in the command the user never
+ * asked for — `/particle … 0 10 force @p`, where `@p` is a viewer list nobody chose.
+ * `numberType` already returned '' for exactly this reason and said so; the reasoning
+ * was never carried across to the selector, which is the only other seeded default.
+ *
+ * Both readers of a value — the serializer and ArgumentView — call this, so the form
+ * and the output cannot disagree about what an untouched field holds.
+ */
+export function argumentOptions(
+  node: Pick<ArgumentNode, 'typeOptions' | 'optional'>,
+): ArgumentOptions {
+  return node.optional ? { ...node.typeOptions, optional: true } : (node.typeOptions ?? {})
+}
 
 function numberType(key: ArgumentTypeKey, integral: boolean): ErasedArgumentType {
   return defineArgumentType<number | ''>({
@@ -103,7 +129,9 @@ const TYPES: ErasedArgumentType[] = [
       }
       return []
     },
-    defaultValue: (options) => selectorsFor(options)[0]?.token ?? '',
+    // Empty when the argument is optional, for the reason argumentOptions gives: a
+    // seeded '@p' in an argument the user may leave out is a viewer list nobody chose.
+    defaultValue: (options) => (options.optional ? '' : (selectorsFor(options)[0]?.token ?? '')),
   }),
   textType('string'),
   // The first two deep types. Everything about them is hand-authored — Brigadier

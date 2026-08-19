@@ -22,10 +22,17 @@ export const commandRoute = createRoute({
       loadRegistries(v1_21_1),
     ])
     const derived = commands[params.commandId]
-    return { definition: derived ? withUi(derived) : undefined, registries }
+    // The whole map travels on, not just the one definition: `/execute … run` embeds
+    // any other command, so the picker needs the list and the serializer needs to
+    // resolve what it picks. The map is already in hand — finding this definition
+    // required loading it — so this costs a reference, not a fetch.
+    const catalogue = Object.fromEntries(
+      Object.entries(commands).map(([id, command]) => [id, withUi(command)]),
+    )
+    return { definition: derived ? withUi(derived) : undefined, catalogue, registries }
   },
   component: () => {
-    const { definition, registries } = commandRoute.useLoaderData()
+    const { definition, catalogue, registries } = commandRoute.useLoaderData()
     const { commandId } = commandRoute.useParams()
 
     if (!definition) {
@@ -45,7 +52,12 @@ export const commandRoute = createRoute({
             </p>
           )}
         </section>
-        <CommandWorkbench definition={definition} version={v1_21_1} registries={registries} />
+        <CommandWorkbench
+          definition={definition}
+          version={v1_21_1}
+          registries={registries}
+          catalogue={catalogue}
+        />
       </div>
     )
   },

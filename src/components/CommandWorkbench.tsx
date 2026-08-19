@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { RegistryLookup, SerializeContext, VersionDefinition } from '../data/versions/types'
-import { CommandRenderer } from './CommandRenderer'
+import { CommandRenderer, type Catalogue } from './CommandRenderer'
 import { evaluateConstraints } from '../schema/constraints'
 import { EMPTY_VALUE, serializeCommand } from '../schema/serialize'
 import type { CommandDefinition } from '../schema/types'
@@ -18,17 +18,28 @@ export function CommandWorkbench({
   definition,
   version,
   registries,
+  catalogue = {},
 }: {
   definition: CommandDefinition
   version: VersionDefinition
   /** The target version's registries. Loaded by the route, so the chunk stays lazy. */
   registries: RegistryLookup
+  /**
+   * Every command a `@any` Ref may embed.
+   *
+   * Supplied by the route, which has already loaded the whole map to find this
+   * definition in it. Without it `/execute … run` has nothing to offer and nothing to
+   * serialize, which is what made it emit a dangling `run` in the app while passing
+   * its tests — the tests passed a resolver and the app did not.
+   */
+  catalogue?: Catalogue
 }) {
   const stored = useCommandStore((s) => s.value)
   const setArg = useCommandStore((s) => s.setArg)
   const setFlag = useCommandStore((s) => s.setFlag)
   const setChoice = useCommandStore((s) => s.setChoice)
   const setRepeat = useCommandStore((s) => s.setRepeat)
+  const setRef = useCommandStore((s) => s.setRef)
   const reset = useCommandStore((s) => s.reset)
 
   /**
@@ -53,7 +64,9 @@ export function CommandWorkbench({
     [version, registries],
   )
 
-  const output = serializeCommand(definition, value, ctx)
+  const resolve = useMemo(() => (id: string) => catalogue[id], [catalogue])
+
+  const output = serializeCommand(definition, value, ctx, { resolve })
   const warnings = evaluateConstraints(definition, value)
 
   return (
@@ -62,7 +75,8 @@ export function CommandWorkbench({
         definition={definition}
         value={value}
         ctx={ctx}
-        actions={{ setArg, setFlag, setChoice, setRepeat }}
+        actions={{ setArg, setFlag, setChoice, setRepeat, setRef }}
+        catalogue={catalogue}
       />
 
       <div className="border-hairline border-border-subtle bg-elevated rounded-panel flex flex-col gap-1 p-2">

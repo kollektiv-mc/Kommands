@@ -58,6 +58,12 @@ function recursesToRoot(node: BrigadierNode, root: string): boolean {
   return Object.values(node.children ?? {}).some((child) => recursesToRoot(child, root))
 }
 
+/** Whether this subtree contains any node the command may end on. */
+function isExecutable(node: BrigadierNode): boolean {
+  if (node.executable) return true
+  return Object.values(node.children ?? {}).some(isExecutable)
+}
+
 /**
  * Splice nested Sequences into their parent, and unwrap one-node ones.
  *
@@ -78,7 +84,11 @@ function flatten(node: Node): Node {
     }
     case 'choice': {
       const nodes = node.nodes.map(flatten)
-      return nodes.length === 1 ? nodes[0]! : { kind: 'choice', nodes }
+      // A one-branch Choice is redundant and gets unwrapped — unless it is optional,
+      // where the wrapper is the whole point: it is what says "this clause, or
+      // nothing", and unwrapping it would make the clause mandatory again.
+      if (nodes.length === 1 && !node.optional) return nodes[0]!
+      return { ...node, nodes }
     }
     case 'repeat':
       return { ...node, node: flatten(node.node) }
@@ -136,7 +146,13 @@ function deriveOne(
       min: 0,
       node: choiceOf(chaining, ctx, node.executable ?? false),
     })
-    const rest = branchesOf(tail, ctx, node.executable ?? false)
+    // The tail sits after zero or more clauses, so its optionality is decided by the
+    // clauses beside it rather than by the root above it. /execute's own root is not
+    // executable — `/execute` alone is not a command — but all 38 of its `if`/`unless`
+    // leaves are, so `/execute if block ~ ~ ~ stone` is finished and `run <command>` is
+    // a tail the user may skip. Reading the root's flag alone made `run` mandatory.
+    const tailIsSkippable = (node.executable ?? false) || chaining.some(([, c]) => isExecutable(c))
+    const rest = branchesOf(tail, ctx, tailIsSkippable)
     if (rest) parts.push(rest)
   } else {
     const rest = branchesOf(Object.entries(children), ctx, node.executable ?? false)
@@ -159,14 +175,27 @@ interface Ctx {
   gaps: DeriveResult['gaps']
 }
 
-/** One child continues the chain; several become a Choice. */
+/**
+ * One child continues the chain; several become a Choice.
+ *
+ * `afterExecutable` means the command may already have ended, so everything from here
+ * on is skippable. How that gets recorded depends on what the continuation starts
+ * with. An argument-led one says it with `ArgumentNode.optional` and needs no wrapper,
+ * which is why `/give @p stone` still derives as a flat sequence with an optional
+ * `count`. A keyword-led one has no argument to hang it on — `force|normal` after
+ * `/particle`'s count, `peaceful|easy|…` after `/difficulty` — and becomes a Choice
+ * with `optional` set, a single-branch one when there is only the one clause.
+ */
 function branchesOf(
   entries: [string, BrigadierNode][],
   ctx: Ctx,
   afterExecutable: boolean,
 ): Node | undefined {
   if (entries.length === 0) return undefined
-  if (entries.length === 1) return nodeFor(entries[0]![0], entries[0]![1], ctx, afterExecutable)
+  const skippableKeyword = afterExecutable && entries[0]![1].type === 'literal'
+  if (entries.length === 1 && !skippableKeyword) {
+    return nodeFor(entries[0]![0], entries[0]![1], ctx, afterExecutable)
+  }
   return choiceOf(entries, ctx, afterExecutable)
 }
 
@@ -174,7 +203,8 @@ function choiceOf(entries: [string, BrigadierNode][], ctx: Ctx, afterExecutable:
   const nodes = entries
     .map(([name, child]) => nodeFor(name, child, ctx, afterExecutable))
     .filter((n): n is Node => n !== undefined)
-  return nodes.length === 1 ? nodes[0]! : { kind: 'choice', nodes }
+  if (nodes.length === 1 && !afterExecutable) return nodes[0]!
+  return afterExecutable ? { kind: 'choice', nodes, optional: true } : { kind: 'choice', nodes }
 }
 
 function nodeFor(

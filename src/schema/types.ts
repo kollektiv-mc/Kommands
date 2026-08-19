@@ -118,6 +118,17 @@ export interface SequenceNode {
 export interface ChoiceNode {
   kind: 'choice'
   nodes: Node[]
+  /**
+   * Whether *no* branch is also legal.
+   *
+   * Brigadier marks a node `executable` when the command may end there, and the
+   * continuation is often literal-led — `/particle … <count>` is a whole command, and
+   * `force|normal` is a tail the user may skip. `optional` on ArgumentNode cannot say
+   * that, because the thing being skipped is a keyword rather than a value. Without
+   * it a Choice has no empty state and falls back to its first branch, so every
+   * `/difficulty` emitted `/difficulty easy` and every `/particle` ended in `force`.
+   */
+  optional?: boolean
 }
 
 /** Child may appear multiple times. This is how Brigadier `redirect` is represented. */
@@ -145,7 +156,16 @@ export interface FlagSetNode {
 /** Any command in the same dialect and version. The renderer offers a picker. */
 export const REF_ANY = '@any'
 
-/** Embeds another command definition. This is /execute … run <command>. */
+/**
+ * Embeds another command definition. This is /execute … run <command>.
+ *
+ * A Ref carries no `optional` of its own. Every Ref vanilla has is introduced by a
+ * keyword — `run` — and dropping the command while keeping the keyword emits
+ * `/execute … run`, which is worse than either alternative. What is optional is the
+ * whole clause, keyword included, and that is a Choice with `optional` set. A Ref
+ * reached but left unchosen is therefore always required, and serialises as a
+ * `<command>` placeholder the way a required argument does.
+ */
 export interface RefNode {
   kind: 'ref'
   definitionId: string | typeof REF_ANY

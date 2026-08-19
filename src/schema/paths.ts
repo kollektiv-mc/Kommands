@@ -31,11 +31,40 @@ export function pathsForName(root: Node, name: string, counts: RepeatCounts): Pa
 /** How many instances each Repeat currently has. Absent means `min`, or zero. */
 export type RepeatCounts = Readonly<Record<Path, number>>
 
-/** Which branch each Choice has selected. Absent means the first. */
+/**
+ * Which branch each Choice has selected.
+ *
+ * Absent does not mean the same thing for every Choice, which is the point of
+ * `choiceSelection` rather than a bare lookup: a required Choice must apply one of its
+ * branches, so absent means the first; an optional one may apply none, and that is the
+ * state a fresh command starts in.
+ */
 export type ChoiceSelections = Readonly<Record<Path, number>>
+
+/** No branch of an optional Choice applies. */
+export const NO_BRANCH = -1
 
 export function repeatCount(counts: RepeatCounts, path: Path, node: { min?: number }): number {
   return counts[path] ?? node.min ?? 0
+}
+
+/**
+ * Which branch of a Choice applies, or NO_BRANCH.
+ *
+ * An out-of-range selection resolves the same way an absent one does. Selections are
+ * keyed by path and definitions are data, so a stored index can outlive the branch it
+ * pointed at — switching a Ref's target, or regenerating a skeleton with fewer
+ * branches, both leave one behind.
+ */
+export function choiceSelection(
+  selections: ChoiceSelections,
+  path: Path,
+  node: { nodes: unknown[]; optional?: boolean },
+): number {
+  const fallback = node.optional ? NO_BRANCH : 0
+  const selected = selections[path] ?? fallback
+  if (selected === NO_BRANCH) return node.optional ? NO_BRANCH : 0
+  return selected >= 0 && selected < node.nodes.length ? selected : fallback
 }
 
 /**
