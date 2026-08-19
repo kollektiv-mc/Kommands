@@ -2,14 +2,20 @@ import { readFileSync } from 'node:fs'
 import { render, screen } from '@testing-library/react'
 import { expect, test, describe, vi } from 'vitest'
 import { CommandRenderer } from './CommandRenderer'
-import { EXECUTE, GENERATE, GIVE } from '../schema/fixtures'
+import commandsPayload from '../data/generated/1.21.1/commands.json'
+import { EXECUTE, GENERATE } from '../schema/fixtures'
 import { EMPTY_VALUE } from '../schema/serialize'
 import { v1_21_1 } from '../data/versions/1.21.1'
+import { NO_REGISTRIES } from '../data/versions/registry'
 import type { SerializeContext } from '../data/versions/types'
+import type { CommandDefinition } from '../schema/types'
+
+const commands = commandsPayload.commands as unknown as Record<string, CommandDefinition>
+const GIVE = commands['vanilla:give']!
 
 const ctx: SerializeContext = {
   traits: v1_21_1.traits,
-  registries: { entries: () => [], has: () => true },
+  registries: NO_REGISTRIES,
 }
 
 const actions = {

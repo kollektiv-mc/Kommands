@@ -2,7 +2,7 @@ import type { SerializeContext } from '../data/versions/types'
 import { lookupArgumentType } from '../schema/argument-types'
 import { branch, child, instance, repeatCount, ROOT, type Path } from '../schema/paths'
 import type { CommandValue } from '../schema/serialize'
-import type { CommandDefinition, Diagnostic, Node } from '../schema/types'
+import type { CommandDefinition, Diagnostic, Node, UiMetadata } from '../schema/types'
 import { LABEL, WARNING } from './editors/fieldStyles'
 
 /**
@@ -31,7 +31,14 @@ interface CommandRendererProps {
 export function CommandRenderer({ definition, value, ctx, actions }: CommandRendererProps) {
   return (
     <div className="flex flex-col gap-2">
-      <NodeView node={definition.root} path={ROOT} value={value} ctx={ctx} actions={actions} />
+      <NodeView
+        node={definition.root}
+        path={ROOT}
+        value={value}
+        ctx={ctx}
+        actions={actions}
+        ui={definition.ui}
+      />
     </div>
   )
 }
@@ -42,19 +49,33 @@ interface NodeViewProps {
   value: CommandValue
   ctx: SerializeContext
   actions: Actions
+  /**
+   * Authored presentation for the whole definition.
+   *
+   * Threaded rather than looked up, so this component still knows nothing about
+   * which command it is rendering — it is handed the labels along with the tree.
+   */
+  ui?: UiMetadata
 }
 
-function NodeView({ node, path, value, ctx, actions }: NodeViewProps) {
+function NodeView({ node, path, value, ctx, actions, ui }: NodeViewProps) {
   switch (node.kind) {
     case 'literal':
-      return <span className="text-text-muted text-1xs font-mono">{node.token}</span>
+      // pt-4 clears the label above a sibling editor, so a keyword lines up with the
+      // fields it introduces rather than with their labels.
+      return <span className="text-text-muted text-1xs pt-4 font-mono">{node.token}</span>
 
     case 'argument':
-      return <ArgumentView node={node} path={path} value={value} actions={actions} />
+      return (
+        <ArgumentView node={node} path={path} value={value} ctx={ctx} actions={actions} ui={ui} />
+      )
 
     case 'sequence':
       return (
-        <div className="flex flex-wrap items-end gap-2">
+        // Top-aligned, not bottom-aligned: a sequence mixes one-line editors with
+        // deep ones that are many lines tall, and aligning on the bottom edge leaves
+        // the short ones floating halfway down the row with nothing to line up with.
+        <div className="flex flex-wrap items-start gap-2">
           {node.nodes.map((n, i) => (
             <NodeView
               key={i}
@@ -63,6 +84,7 @@ function NodeView({ node, path, value, ctx, actions }: NodeViewProps) {
               value={value}
               ctx={ctx}
               actions={actions}
+              ui={ui}
             />
           ))}
         </div>
@@ -92,6 +114,7 @@ function NodeView({ node, path, value, ctx, actions }: NodeViewProps) {
               value={value}
               ctx={ctx}
               actions={actions}
+              ui={ui}
             />
           )}
         </div>
@@ -110,6 +133,7 @@ function NodeView({ node, path, value, ctx, actions }: NodeViewProps) {
               value={value}
               ctx={ctx}
               actions={actions}
+              ui={ui}
             />
           ))}
           <div className="flex gap-2">
@@ -172,33 +196,46 @@ interface ArgumentViewProps {
   node: Extract<Node, { kind: 'argument' }>
   path: Path
   value: CommandValue
+  ctx: SerializeContext
   actions: Actions
+  ui?: UiMetadata
 }
 
-function ArgumentView({ node, path, value, actions }: ArgumentViewProps) {
+function ArgumentView({ node, path, value, ctx, actions, ui }: ArgumentViewProps) {
   const type = lookupArgumentType(node.type)
   const options = node.typeOptions ?? {}
   const current = value.args[path] ?? type.defaultValue(options)
-  const diagnostics: readonly Diagnostic[] = type.validate(current, options)
+  const diagnostics: readonly Diagnostic[] = type.validate(current, options, ctx)
   const Editor = type.editor
+  // The Brigadier name is the fallback, not the absence of a label. A derived
+  // definition with no authored metadata still renders something addressable.
+  const presentation = ui?.arguments?.[node.name]
 
+  // Help and warnings sit outside the label, not inside it. A wrapping label
+  // contributes all of its text to the accessible name of the control it wraps, so
+  // help text inside one produces a field announced as "Recipients Who receives the
+  // item." — and a warning would append itself to that as the user typed.
   return (
-    <label className="flex flex-col gap-1">
-      <span className={LABEL}>
-        {node.name}
-        {node.optional && <span className="text-text-faint"> optional</span>}
-      </span>
-      <Editor
-        value={current}
-        onChange={(next) => actions.setArg(path, next)}
-        options={options}
-        diagnostics={diagnostics}
-      />
+    <div className="flex flex-col gap-1">
+      <label className="flex flex-col gap-1">
+        <span className={LABEL}>
+          {presentation?.label ?? node.name}
+          {node.optional && <span className="text-text-faint"> optional</span>}
+        </span>
+        <Editor
+          value={current}
+          onChange={(next) => actions.setArg(path, next)}
+          options={options}
+          diagnostics={diagnostics}
+          ctx={ctx}
+        />
+      </label>
+      {presentation?.help && <span className="text-text-faint text-3xs">{presentation.help}</span>}
       {diagnostics.map((d, i) => (
         <span key={i} className={WARNING}>
           {d.message}
         </span>
       ))}
-    </label>
+    </div>
   )
 }

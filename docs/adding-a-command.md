@@ -15,8 +15,10 @@ Schema reference: [`command-schema.md`](command-schema.md).
 | WorldEdit or any non-vanilla command           | **B — author a definition**                                |
 | Vanilla command needing a temporary override   | **B**, with `dialect: 'vanilla'`, `provenance: 'authored'` |
 
-All 83 vanilla commands are already derived into
-`src/data/generated/<version>/commands.json`. Path A is usually just wiring.
+All 78 vanilla commands are already derived into
+`src/data/generated/<version>/commands.json`, with the five alias invocations
+(`/tell`, `/w`, `/tm`, `/tp`, `/xp`) carried on the `aliases` of the command they
+alias. Path A is usually just wiring.
 
 ---
 
@@ -38,11 +40,18 @@ the editor (below).
 argument grouping, help text. Derivation cannot produce these; Brigadier has no
 human-facing strings.
 
-**4. Add a route** so the command is reachable.
+**4. Check the route.** There is nothing to add: `/c/$commandId` resolves any
+definition in the generated set, so `/c/vanilla:give` works the moment the skeleton
+exists. A command only needs a route entry of its own if it needs a page that is not
+the workbench — and if it does, that is a finding about the design rather than a step
+in this list.
 
 **5. Add fixtures.** At minimum one expected output string per supported version,
 in `<command>.test.ts`. Copy the style of the canonical examples in
-[`minecraft-versions.md`](minecraft-versions.md).
+[`minecraft-versions.md`](minecraft-versions.md) — and if the shape you are asserting
+is not already one of them, verify it against a primary source and add a provenance
+row there first. A fixture carries its evidence; an unverified one just records what
+the code happened to do.
 
 **6. Run `/suite-kit:health`.**
 

@@ -1,46 +1,18 @@
 import type { CommandDefinition } from './types'
 
 /**
- * Hand-written definitions used to exercise the schema before the deriver exists.
+ * Hand-written definitions the deriver cannot supply.
  *
  * These are transcribed from docs/command-schema.md § Worked examples, deliberately
  * without simplification: the point is to find out whether the documented schema can
  * express them, so an "improvement" made while copying would hide the answer.
  *
- * `/give` is replaced by the derived skeleton in #4. `/execute` stays useful past
- * that as the case that decides whether the tree schema was necessary.
+ * `/give` used to live here and is gone — the derived skeleton is the real thing now,
+ * and tests read it from src/data/generated so they assert the artefact rather than a
+ * transcription of it. `/execute` stays as the case that decides whether the tree
+ * schema was necessary, and `//generate` as the only definition exercising flags, a
+ * variadic tail and a constraint until the WorldEdit dialect lands.
  */
-
-export const GIVE: CommandDefinition = {
-  id: 'vanilla:give',
-  label: '/give',
-  dialect: 'vanilla',
-  provenance: 'authored',
-  versions: { min: '1.21.1' },
-  root: {
-    kind: 'sequence',
-    nodes: [
-      { kind: 'literal', token: 'give' },
-      {
-        kind: 'argument',
-        name: 'targets',
-        type: 'entity_selector',
-        typeOptions: { type: 'players', amount: 'multiple' },
-      },
-      // item_stack has no editor until #7, so the parser table's `deep` kind sends it
-      // to the raw_text fallback. That degradation is the documented behaviour, and
-      // this fixture is where it is visible.
-      { kind: 'argument', name: 'item', type: 'item_stack' },
-      {
-        kind: 'argument',
-        name: 'count',
-        type: 'integer',
-        typeOptions: { min: 1 },
-        optional: true,
-      },
-    ],
-  },
-}
 
 /**
  * /execute — the acceptance case for the tree schema.

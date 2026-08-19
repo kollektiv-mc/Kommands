@@ -14,7 +14,9 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check-bundle": "tsx scripts/check-bundle.ts",
     "gen:commands": "tsx scripts/derive-commands.ts",
+    "gen:diff": "tsx scripts/gen-diff.ts",
     "gen:tokens": "tsx scripts/gen-tokens.ts",
     "gen": "pnpm gen:commands && pnpm gen:tokens"
   },

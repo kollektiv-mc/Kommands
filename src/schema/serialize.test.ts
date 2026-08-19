@@ -1,13 +1,20 @@
 import { describe, expect, test } from 'vitest'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import type { SerializeContext, VersionTraits } from '../data/versions/types'
-import { EXECUTE, GENERATE, GIVE } from './fixtures'
+import commandsPayload from '../data/generated/1.21.1/commands.json'
+import { EXECUTE, GENERATE } from './fixtures'
+import { NO_REGISTRIES } from '../data/versions/registry'
+import type { CommandDefinition } from './types'
 import { serializeCommand, type CommandValue } from './serialize'
 import { evaluateConstraints } from './constraints'
-import { serializeTextComponent } from './text-component'
+import { serializeTextComponent, textComponentField } from './text-component'
+import { writeSnbt } from './snbt'
 
-const noRegistries = { entries: () => [], has: () => true }
-const ctxFor = (traits: VersionTraits): SerializeContext => ({ traits, registries: noRegistries })
+const commands = commandsPayload.commands as unknown as Record<string, CommandDefinition>
+/** The derived skeleton, so a Ref resolves to the real thing rather than a stand-in. */
+const GIVE = commands['vanilla:give']!
+
+const ctxFor = (traits: VersionTraits): SerializeContext => ({ traits, registries: NO_REGISTRIES })
 const ctx = ctxFor(v1_21_1.traits)
 
 const value = (over: Partial<CommandValue> = {}): CommandValue => ({
@@ -19,65 +26,131 @@ const value = (over: Partial<CommandValue> = {}): CommandValue => ({
   ...over,
 })
 
-describe('/give — the shallow spine, end to end', () => {
-  // Paths, not names: '' is the root sequence, /1 its second child. See paths.ts for
-  // why values are keyed this way rather than by argument name.
-  const targets = '/1'
-  const item = '/2'
-  const count = '/3'
+describe('a sequence, and what an unfilled argument does to it', () => {
+  // A local definition rather than a real command: what is under test is the walk,
+  // and /give's own output is asserted byte-for-byte against the canonical fixtures
+  // in argument-types/item-stack.test.ts, using the derived skeleton.
+  const SEQ: CommandDefinition = {
+    id: 'vanilla:seq',
+    label: '/seq',
+    dialect: 'vanilla',
+    provenance: 'authored',
+    versions: { min: '1.21.1' },
+    root: {
+      kind: 'sequence',
+      nodes: [
+        { kind: 'literal', token: 'seq' },
+        {
+          kind: 'argument',
+          name: 'who',
+          type: 'entity_selector',
+          typeOptions: { type: 'players' },
+        },
+        { kind: 'argument', name: 'note', type: 'string' },
+        {
+          kind: 'argument',
+          name: 'count',
+          type: 'integer',
+          typeOptions: { min: 1 },
+          optional: true,
+        },
+      ],
+    },
+  }
 
   test('serializes every filled argument in order', () => {
-    const out = serializeCommand(
-      GIVE,
-      value({ args: { [targets]: '@p', [item]: 'minecraft:netherite_sword', [count]: 1 } }),
-      ctx,
-    )
-    expect(out).toBe('/give @p minecraft:netherite_sword 1')
+    const out = serializeCommand(SEQ, value({ args: { '/1': '@p', '/2': 'hello', '/3': 1 } }), ctx)
+    expect(out).toBe('/seq @p hello 1')
   })
 
   test('an unfilled optional tail disappears rather than trailing a space', () => {
-    const out = serializeCommand(
-      GIVE,
-      value({ args: { [targets]: '@a', [item]: 'minecraft:stone' } }),
-      ctx,
-    )
-    expect(out).toBe('/give @a minecraft:stone')
+    const out = serializeCommand(SEQ, value({ args: { '/1': '@a', '/2': 'hello' } }), ctx)
+    expect(out).toBe('/seq @a hello')
   })
 
-  test('item_stack degrades to raw_text until #7, rather than breaking', () => {
-    // The parser table marks item_stack `deep`; no editor is registered for it yet, so
-    // the registry hands back the raw_text fallback. The documented degradation, and
-    // the reason a command with an unimplemented deep type still generates.
-    const out = serializeCommand(
-      GIVE,
-      value({ args: { [targets]: '@s', [item]: 'minecraft:stone[custom_name=x]' } }),
-      ctx,
+  test('a deep type with no editor still degrades to a text field', () => {
+    // The documented degradation, and the reason a command with an unimplemented deep
+    // type still generates. nbt_path stands in for the 151 arguments still there.
+    const withPath: CommandDefinition = {
+      ...SEQ,
+      root: {
+        kind: 'sequence',
+        nodes: [
+          { kind: 'literal', token: 'seq' },
+          { kind: 'argument', name: 'path', type: 'nbt_path' },
+        ],
+      },
+    }
+    expect(serializeCommand(withPath, value({ args: { '/1': 'Inventory[0].id' } }), ctx)).toBe(
+      '/seq Inventory[0].id',
     )
-    expect(out).toBe('/give @s minecraft:stone[custom_name=x]')
   })
 })
 
 describe('serializers branch on traits, never on a version', () => {
   const component = { text: 'Server restarting', color: 'red', bold: true }
 
-  test('1.21.1 emits a quoted JSON string', () => {
+  test('as a command argument, 1.21.1 emits bare JSON', () => {
+    // The canonical /tellraw fixture in docs/minecraft-versions.md. No surrounding
+    // quotes: the argument is a component, not a string that contains one.
     expect(serializeTextComponent(component, ctx)).toBe(
+      '{"text":"Server restarting","color":"red","bold":true}',
+    )
+  })
+
+  test('as a data-component field, the same value is a quoted string', () => {
+    // The distinction that produces a command which parses and does nothing if it is
+    // got wrong. custom_name is `#[until="1.21.5"] #[text_component] string`, so
+    // before 1.21.5 the field holds a *string* whose contents are the JSON.
+    expect(writeSnbt(textComponentField(component, ctx))).toBe(
       '\'{"text":"Server restarting","color":"red","bold":true}\'',
     )
   })
 
-  test('flipping only the trait switches the form to SNBT', () => {
-    // Nothing here names a version. The same value and the same function produce the
+  test('a quote or backslash in the text is escaped for the string it is wrapped in', () => {
+    const awkward = { text: "it's a \\ backslash" }
+    expect(writeSnbt(textComponentField(awkward, ctx))).toBe(
+      '\'{"text":"it\\\'s a \\\\\\\\ backslash"}\'',
+    )
+  })
+
+  test('flipping only the trait switches both forms to SNBT', () => {
+    // Nothing here names a version. The same value and the same functions produce the
     // 1.21.5 form because one flag changed — which is the whole claim the trait model
-    // makes, tested before 1.21.5 exists as a version.
+    // makes, tested before 1.21.5 exists as a version. The field form loses its quotes
+    // because from 1.21.5 the field holds the component itself.
     const future = ctxFor({ ...v1_21_1.traits, textComponentFormat: 'snbt' })
     expect(serializeTextComponent(component, future)).toBe(
+      '{text:"Server restarting",color:"red",bold:true}',
+    )
+    expect(writeSnbt(textComponentField(component, future))).toBe(
       '{text:"Server restarting",color:"red",bold:true}',
     )
   })
 
   test('a SerializeContext carries no version id to compare against', () => {
     expect(Object.keys(ctx).sort()).toEqual(['registries', 'traits'])
+  })
+})
+
+describe('the /tellraw canonical fixture', () => {
+  test('a message is written bare, not as a quoted string', () => {
+    // docs/minecraft-versions.md § Canonical 1.21.1 output. /tellraw's editor is #8's
+    // work, but the argument type and its serializer landed with #7 — so the fixture
+    // is assertable now, and asserting it is what keeps the argument form and the
+    // data-component form from being confused for each other later.
+    const TELLRAW = commands['vanilla:tellraw']!
+    const out = serializeCommand(
+      TELLRAW,
+      value({
+        args: {
+          '/1': '@a',
+          '/2': { text: 'Server restarting', color: 'red', bold: true },
+        },
+      }),
+      ctx,
+    )
+    expect(out).toBe('/tellraw @a {"text":"Server restarting","color":"red","bold":true}')
   })
 })
 
@@ -101,7 +174,11 @@ describe('/execute — the case that decides whether the tree was necessary', ()
       value({
         repeats: { '/1': 1 },
         choices: { '/1/#0': 0 },
-        args: { '/1/#0/|0/1': '@a', '/2/1/1': '@s', '/2/1/2': 'minecraft:stone' },
+        args: {
+          '/1/#0/|0/1': '@a',
+          '/2/1/1': '@s',
+          '/2/1/2': { id: 'stone', components: {} },
+        },
         refs: { '/2/1': 'vanilla:give' },
       }),
       ctx,
@@ -114,13 +191,17 @@ describe('/execute — the case that decides whether the tree was necessary', ()
     // command-schema.md forbids a Ref that reaches itself without passing a Repeat,
     // but a definition is data and data can be wrong. The cap turns a frozen tab into
     // truncated output — a bug report someone can act on.
-    const cyclic = {
-      ...GIVE,
+    const cyclic: CommandDefinition = {
+      id: 'vanilla:loop',
+      label: '/loop',
+      dialect: 'vanilla',
+      provenance: 'authored',
+      versions: { min: '1.21.1' },
       root: {
-        kind: 'sequence' as const,
+        kind: 'sequence',
         nodes: [
-          { kind: 'literal' as const, token: 'loop' },
-          { kind: 'ref' as const, definitionId: 'vanilla:give' },
+          { kind: 'literal', token: 'loop' },
+          { kind: 'ref', definitionId: 'vanilla:loop' },
         ],
       },
     }
