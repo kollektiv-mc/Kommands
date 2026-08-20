@@ -28,7 +28,7 @@ import type { CommandDefinition } from './types'
  * Choice with `optional` set, which is the only shape that drops the keyword with the
  * command it introduces.
  *
- * Abridged to four clauses; the shape is what is under test, not the count.
+ * Abridged to three clauses; the shape is what is under test, not the count.
  */
 export const EXECUTE: CommandDefinition = {
   id: 'vanilla:execute',

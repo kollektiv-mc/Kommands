@@ -10,7 +10,8 @@
  *
  * Every field is required. There is no inheritance, no defaults and no partials:
  * a version that omits a trait must fail `tsc`, not silently fall back to another
- * version's behaviour. `traits.test-d.ts` asserts that.
+ * version's behaviour. The `@ts-expect-error` assertions in `versions.test.ts` hold
+ * that line at typecheck time — easy to miss in a file named for runtime tests.
  *
  * These are flags, not an era enum, because the changes did not land together —
  * the enchantments restructure and the text-component move both landed at 1.21.5,

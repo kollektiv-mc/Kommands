@@ -102,7 +102,7 @@ Breadth, once the foundations are proven. Ordering here is not fixed.
 - More vanilla commands — skeletons already exist; each needs editors,
   presentation metadata, and a route
 - Additional deep argument types: `nbt_compound`, `block_state`, `loot_table`
-- **Version 2 support** — likely 1.21.5, which flips three trait flags. This is
+- **Version 2 support** — likely 1.21.5, which flips two trait flags. This is
   the real test of the version model: if it turns into a refactor, the trait
   design was wrong
 - More previews: entity placement, particle emitters, structure bounds

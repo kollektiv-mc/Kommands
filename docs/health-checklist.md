@@ -193,8 +193,8 @@ belongs here.
       Verify: `git diff` for the last command added — expect
       `src/data/authored/ui/` and a test. Nothing else.
 - [ ] Adding a Minecraft version touches only version data and generated files.
-      Adding 1.21.5 flips three trait flags; 1.21.2 flips none. Neither touches
-      serializer control flow.
+      Adding 1.21.5 flips two of the three trait flags; 1.21.2 flips none. Neither
+      touches serializer control flow.
 - [x] Routes are assembled from definitions rather than generated per command. A file
       per command reintroduces exactly the per-command cost
       [`architecture.md`](architecture.md) § The constraint rules out.
@@ -218,7 +218,7 @@ belongs here.
 ## 4. Performant
 
 - [ ] Registry files load on demand rather than in the entry chunk — 1.21.1 is
-      640 KB of registries and 230 KB of block states.
+      660 KB of registries and 260 KB of block states.
       Verify: `pnpm build`, then confirm neither lands in the entry chunk.
 - [ ] The command output panel recomputes only when a value it depends on changes,
       not on every keystroke anywhere in the tree.

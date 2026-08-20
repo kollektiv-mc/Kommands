@@ -96,7 +96,7 @@ export const myCommand: CommandDefinition = {
 exclusive flags are `kind: 'mutex'`. Constraints warn; they never block.
 
 **4. Reuse argument types.** Check the type registry before adding a new one —
-`entity_selector`, `block_pos`, `we_pattern` and the rest are shared across
+`entity_selector`, `item_stack`, `text_component` and the rest are shared across
 dialects. A new type is only warranted for genuinely new input semantics.
 
 **5. Register the definition** in the authored index.
@@ -116,7 +116,7 @@ Add to the argument-type registry:
   key: 'my_type',
   editor: MyTypeEditor,                    // React component
   serialize: (value, ctx) => string,       // ctx carries version traits
-  validate: (value, options) => Diagnostic[],
+  validate: (value, options, ctx) => Diagnostic[],   // ctx carries the registry
   defaultValue: (options) => unknown,
 }
 ```
@@ -128,9 +128,10 @@ Requirements:
 - **No hardcoded game values.** Read items, entities, and enchantments from the
   version registry passed in context.
 - **Validation warns.** Return diagnostics; never throw, never block output.
-- If the type maps to a Brigadier parser, register the mapping in
-  `scripts/derive-commands.ts` so future derivations bind it automatically instead
-  of falling back to `raw_text`.
+- If the type maps to a Brigadier parser, register the mapping in the `PARSERS`
+  table in `src/data/authored/parsers.ts` — the deriver imports it rather than
+  carrying its own — so future derivations bind it automatically instead of falling
+  back to `raw_text`.
 
 ---
 

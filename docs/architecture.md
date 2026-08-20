@@ -159,8 +159,9 @@ acceptance case.
 
 WorldEdit adds three further requirements, all visible in `//generate`:
 boolean **flags**, a **variadic** tail, and a **mutual-exclusion constraint**
-between the `-r`, `-o`, and `-c` origin modes. These are new node kinds, not a new
-schema.
+between the `-r`, `-o`, and `-c` origin modes. Only the first is a new node kind:
+`variadic` is a field on the existing `ArgumentNode` and the exclusion is a
+definition-level constraint outside the tree. All three extend the same schema.
 
 ---
 
@@ -171,10 +172,10 @@ Two independent axes — syntax traits and registry contents — specified in
 
 The design requirement is that adding 1.21.5 must be a new definition set plus an
 adapter, never a refactor. That holds because **serializers branch on traits, not
-version numbers**. Adding 1.21.5 flips three trait flags and adds a generated
-registry set; adding 1.21.2 flips **none** — the attribute rename that version
-carries is a registry change, not a syntax one. Neither touches serializer control
-flow.
+version numbers**. Adding 1.21.5 flips two of the three trait flags and adds a
+generated registry set; adding 1.21.2 flips **none** — the attribute rename that
+version carries is a registry change, not a syntax one. Neither touches serializer
+control flow.
 
 If a future version differs in a way no trait captures, the change is to add a
 trait and give every existing version an explicit value — still additive.
@@ -196,7 +197,7 @@ trait and give every existing version an explicit value — still additive.
 
 Nothing in this table is a literal inside a component. `/suite-kit:health` enforces it.
 
-Registry files are large — 640 KB for 1.21.1 registries, 230 KB for blocks — so they
+Registry files are large — 660 KB for 1.21.1 registries, 260 KB for blocks — so they
 are loaded on demand rather than bundled into the entry chunk.
 
 ---
@@ -248,7 +249,7 @@ values themselves live in `kollektiv/design/tokens.json`.
 | ----------------------- | --------------------------------- | ---------------------------------------------------------------------------------- |
 | Commands as data        | A page per command                | Command list is open-ended; per-page cost never falls                              |
 | Schema as node tree     | Flat argument list                | `/execute` recurses and embeds commands                                            |
-| One schema + `dialect`  | WorldEdit as sibling subsystem    | `//generate` needs no structure vanilla lacks, and shares all argument editors     |
+| One schema + `dialect`  | WorldEdit as sibling subsystem    | `//generate` needed one node kind and two argument types — no second schema        |
 | Derive skeletons only   | Derive everything                 | Brigadier has no semantics for `item_stack` or `component` — the parts that matter |
 | Emit every command      | Emit only the three in scope      | Same cost; makes future additions a routing decision                               |
 | Commit generated data   | Gitignore and generate on install | Reviewable version diffs, offline builds, no network in CI                         |
