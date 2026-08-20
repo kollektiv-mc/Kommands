@@ -212,6 +212,59 @@ describe('x, y and z are the inputs', () => {
   })
 })
 
+describe('rotate and swap write back to their arguments', () => {
+  // The only two functions in the language that take a parameter by reference —
+  // `Variable` rather than `double` in `Functions.java`. Both return 0, so they are
+  // called for their effect and the shape test comes after.
+  test('rotate turns the pair a quarter turn', () => {
+    // (1, 0) rotated by pi/2 is (0, 1). Compared loosely because cos(pi/2) is not
+    // exactly zero in floating point, which is the correct answer rather than a defect.
+    expect(at('rotate(x, y, pi/2); y', 1, 0, 0)).toBeCloseTo(1)
+    expect(at('rotate(x, y, pi/2); x', 1, 0, 0)).toBeCloseTo(0)
+  })
+
+  test('rotate is what tilts a shape, so it composes with one', () => {
+    // The reason it matters: a torus that is upright without it and tilted with it.
+    //
+    // The sample point has to sit *off* the axis being rotated about. (0.75, 0, 0) is on
+    // the rim but has y = z = 0, so turning the y/z pair leaves it exactly where it was
+    // and both forms agree — a test that would have passed against a rotate that did
+    // nothing at all. (0, 0.75, 0) is the same rim point a quarter turn round, and it
+    // moves to (0, 0, 0.75), which the upright torus does not contain.
+    const TORUS = '(0.75-sqrt(x^2+y^2))^2+z^2 < 0.25^2'
+    expect(at(TORUS, 0, 0.75, 0)).toBe(1)
+    expect(at(`rotate(y, z, pi/2); ${TORUS}`, 0, 0.75, 0)).toBe(0)
+  })
+
+  test('swap exchanges two variables', () => {
+    expect(at('swap(x, y); x', 1, 2, 0)).toBe(2)
+    expect(at('swap(x, y); y', 1, 2, 0)).toBe(1)
+  })
+
+  test('they work on variables the source made up, not just x/y/z', () => {
+    expect(at('a=3; b=4; swap(a, b); a*10+b')).toBe(43)
+  })
+})
+
+describe('the megabuf scratch store', () => {
+  check({
+    'megabuf(0, 7); megabuf(0)': 7,
+    'gmegabuf(3, 9); gmegabuf(3)': 9,
+    // Never written, so zero rather than undefined.
+    'megabuf(42)': 0,
+    // Upstream indexes with `(int) index`, so these are one cell and not two.
+    'megabuf(1, 5); megabuf(1.9)': 5,
+  })
+
+  test('closest finds the nearest stored point and returns its index', () => {
+    // Two points in the buffer, stride 3: (5,0,0) at index 0 and (-5,0,0) at index 3.
+    const buffer =
+      'megabuf(0,5); megabuf(1,0); megabuf(2,0); megabuf(3,-5); megabuf(4,0); megabuf(5,0); '
+    expect(at(`${buffer}closest(x,y,z,0,2,3)`, 4, 0, 0)).toBe(0)
+    expect(at(`${buffer}closest(x,y,z,0,2,3)`, -4, 0, 0)).toBe(3)
+  })
+})
+
 /**
  * Real `//generate` shapes, from `RealExpressionTest.java`.
  *
@@ -251,6 +304,21 @@ describe('the shapes people actually generate', () => {
       // The pair that pins the boundary: one ten-thousandth apart, either side of it.
       [0, 0, 0.32274, 0],
       [0, 0, 0.32275, 1],
+    ])
+  })
+
+  test('gyroid', () => {
+    // Named in #11 alongside sphere and torus. A triply-periodic minimal surface: it is
+    // the fixture that exercises six trigonometric calls per point, and the one where a
+    // precedence mistake shows as a plausible-looking but wrong lattice rather than as
+    // an obviously broken shape.
+    shape('sin(x*6)*cos(y*6)+sin(y*6)*cos(z*6)+sin(z*6)*cos(x*6) < 0.2', [
+      [0, 0, 0, 1],
+      [0.5, 0.5, 0.5, 1],
+      [-0.5, 0.5, -0.5, 1],
+      [0.3, 0, 0, 0],
+      [0.25, 0.25, 0, 0],
+      [0.2, 0.2, 0.2, 0],
     ])
   })
 

@@ -70,8 +70,16 @@ function rint(x: number): number {
 
 const RANDOM: Readonly<Record<string, BuiltIn>> = {
   random: { arity: 0, apply: () => Math.random() },
-  // randint(n) is an integer in [0, n).
-  randint: { arity: 1, apply: (a) => Math.floor(Math.random() * a[0]!) },
+  // `nextInt((int) Math.floor(max))` upstream, so the bound is floored *before* the
+  // draw, not after. randint(2.7) is 0 or 1 — never 2, which multiplying first would
+  // have allowed on 26% of draws.
+  randint: {
+    arity: 1,
+    apply: (a) => {
+      const bound = Math.floor(a[0]!)
+      return bound > 0 ? Math.floor(Math.random() * bound) : 0
+    },
+  },
 }
 
 export const BUILT_INS: Readonly<Record<string, BuiltIn>> = { ...MATH, ...RANDOM }
@@ -87,13 +95,20 @@ export const UNIMPLEMENTED: Readonly<Record<string, string>> = {
   query: 'reads blocks already in the world, which this preview does not have',
   queryAbs: 'reads blocks already in the world, which this preview does not have',
   queryRel: 'reads blocks already in the world, which this preview does not have',
-  getBlockType: 'reads blocks already in the world, which this preview does not have',
-  getBlockTypeAbs: 'reads blocks already in the world, which this preview does not have',
-  getBlockTypeRel: 'reads blocks already in the world, which this preview does not have',
   perlin: 'is not implemented yet — its noise has to be ported exactly, not approximated',
   voronoi: 'is not implemented yet — its noise has to be ported exactly, not approximated',
   ridgedmulti: 'is not implemented yet — its noise has to be ported exactly, not approximated',
 }
+
+/**
+ * `getBlockType`, `getBlockTypeAbs` and `getBlockTypeRel` are deliberately absent.
+ *
+ * They read as world-reading functions and were listed here as such, which was wrong:
+ * in `Functions.java` they are `ExpressionEnvironment` methods that `query` calls
+ * internally, and carry no `@ExpressionFunction`. An expression cannot call them, so
+ * "not a function" is the accurate diagnostic and saying "this preview has no world"
+ * would promise that the command works in game. It does not.
+ */
 
 /**
  * `n!`, matching WorldEdit's table.

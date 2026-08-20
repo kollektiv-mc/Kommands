@@ -53,13 +53,24 @@ This is the question that decides how large the tool is. Measured against
 exp log log10 ln round atan2 min max`
 - **Noise**: `perlin`, `voronoi`, `ridgedmulti`
 - **Randomness**: `random`, `randint`
-- **Persistent memory**: `megabuf`, `gmegabuf`, `getBufferItem`, `setBufferItem` —
-  scratch storage that survives between voxels and between invocations
-- **World reads**: `query`, `queryAbs`, `queryRel`, `getBlockType`, `getBlockTypeAbs`,
-  `getBlockTypeRel` — the expression can inspect **blocks that already exist**
+- **Persistent memory**: `megabuf`, `gmegabuf` — scratch storage indexed by an integer,
+  surviving between voxels; plus `closest`/`gclosest`, which scan it for the nearest of
+  a run of stored points
+- **Assignment through arguments**: `rotate(x, y, angle)` and `swap(x, y)`, the only two
+  functions that write back to what they are passed. `rotate` is how a shape is tilted
+- **World reads**: `query`, `queryAbs`, `queryRel` — the expression can inspect **blocks
+  that already exist**
 
 That last group is **out of scope**, with world masking, for the reasons below. A browser
 has no world to read, so these can be written but never shown.
+
+`getBlockType`, `getBlockTypeAbs` and `getBlockTypeRel` read like a fourth world-reading
+group and are not one: in `Functions.java` they are `ExpressionEnvironment` methods that
+`query` calls internally, carrying no `@ExpressionFunction`. An expression cannot call
+them. Likewise `getBufferItem`/`setBufferItem` are private helpers behind `megabuf`, not
+names the language exposes. All five are worth naming here precisely because they look
+callable — treating them as unavailable-but-real would tell someone their command works
+in game when it does not.
 
 ### That language is implemented here, and written rather than generated
 
@@ -295,7 +306,7 @@ discovery halfway through.
 
 Also out of scope, and recorded above rather than here because it is a decision rather
 than a limit: **world masking**, and with it the world-reading functions `query`,
-`queryAbs`, `queryRel` and the `getBlockType*` family.
+`queryAbs` and `queryRel`.
 
 ---
 

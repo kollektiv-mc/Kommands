@@ -63,6 +63,30 @@ describe('a source that parses but cannot be evaluated here', () => {
     expect(first).toContain('ported')
   })
 
+  test('getBlockType is a typo, not a world read', () => {
+    // It reads like one, and was listed as one. In `Functions.java` it is an
+    // `ExpressionEnvironment` method that `query` calls internally, with no
+    // `@ExpressionFunction` — so an expression cannot call it, and saying "this preview
+    // has no world" would promise the command works in game when it does not.
+    const [first] = messages('getBlockType(0,0,0)')
+    expect(first).toContain('not a function')
+    expect(first).not.toContain('world')
+  })
+
+  test('rotate given literals says they have to be variables', () => {
+    // Quietly rotating a copy and discarding it is the failure this prevents: a formula
+    // that looks right, runs, and does nothing.
+    const [first] = messages('rotate(1, 2, pi/2)')
+    expect(first).toContain('variables')
+  })
+
+  test('a function that does exist is not reported at all', () => {
+    // The regression guard for the two above: rotate and swap were missing entirely, so
+    // every formula that tilted a shape was told it had a typo.
+    expect(messages('rotate(x, y, pi/4); x^2+y^2 < 1')).toEqual([])
+    expect(messages('swap(x, z); x')).toEqual([])
+  })
+
   test('and it still compiles, because the command itself is valid in game', () => {
     // This is the whole reason `ok` and `diagnostics` are separate. The user can copy a
     // perlin command and run it; we simply cannot draw it for them.

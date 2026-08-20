@@ -257,8 +257,67 @@ class Compiler {
     return (f) => (f.slots[slot] = apply(f.slots[slot]!, value(f)))
   }
 
+  /**
+   * `rotate(x, y, angle)` and `swap(x, y)`, the two functions that assign to their
+   * arguments.
+   *
+   * Upstream types those parameters as `Variable` rather than `double`, so passing
+   * anything that is not a variable is an error there too — this reports it rather than
+   * quietly rotating a copy. Both return 0, so `rotate(...)` is used for its effect and
+   * the shape test comes after it.
+   */
+  private mutating(node: Extract<Expr, { kind: 'call' }>): Eval | undefined {
+    if (node.name !== 'rotate' && node.name !== 'swap') return undefined
+
+    const wanted = node.name === 'rotate' ? 3 : 2
+    if (node.args.length !== wanted) {
+      this.issue(`${node.name} takes ${wanted} arguments, not ${node.args.length}.`, node.at)
+      return () => 0
+    }
+
+    const [first, second] = node.args
+    if (first?.kind !== 'name' || second?.kind !== 'name') {
+      this.issue(
+        `${node.name} writes to its first two arguments, so they have to be variables.`,
+        node.at,
+      )
+      return () => 0
+    }
+
+    const a = this.slotFor(first.name)
+    const b = this.slotFor(second.name)
+
+    if (node.name === 'swap') {
+      return (f) => {
+        const held = f.slots[a]!
+        f.slots[a] = f.slots[b]!
+        f.slots[b] = held
+        return 0
+      }
+    }
+
+    const angle = this.expr(node.args[2]!)
+    return (f) => {
+      const theta = angle(f)
+      const cos = Math.cos(theta)
+      const sin = Math.sin(theta)
+      const oldA = f.slots[a]!
+      const oldB = f.slots[b]!
+      f.slots[a] = oldA * cos - oldB * sin
+      f.slots[b] = oldA * sin + oldB * cos
+      return 0
+    }
+  }
+
   private call(node: Extract<Expr, { kind: 'call' }>): Eval {
     const args = node.args.map((arg) => this.expr(arg))
+
+    // rotate and swap take their first arguments **by reference** and write back to
+    // them, which nothing else in the language does. Compiling them like an ordinary
+    // call would evaluate `x` to a number, rotate that number, and discard it — a
+    // formula that silently did nothing rather than one that failed.
+    const mutating = this.mutating(node)
+    if (mutating) return mutating
 
     // megabuf and gmegabuf are the same store here. Upstream they differ in lifetime —
     // one per invocation, one shared across them — and this evaluator runs one
@@ -266,19 +325,59 @@ class Compiler {
     if (node.name === 'megabuf' || node.name === 'gmegabuf') {
       if (args.length === 1) {
         const index = args[0]!
-        return (f) => f.buffers.get(index(f)) ?? 0
+        return (f) => f.buffers.get(Math.trunc(index(f))) ?? 0
       }
       if (args.length === 2) {
         const index = args[0]!
         const value = args[1]!
         return (f) => {
           const stored = value(f)
-          f.buffers.set(index(f), stored)
+          // Upstream indexes with `(int) index`, so megabuf(1.5) and megabuf(1) are the
+          // same cell. Without the truncation they would be two, and a formula that
+          // computed its index would read back a zero it never wrote.
+          f.buffers.set(Math.trunc(index(f)), stored)
           return stored
         }
       }
       this.issue(`${node.name} takes an index, and optionally a value to store.`, node.at)
       return () => 0
+    }
+
+    // closest/gclosest scan that same buffer for the nearest of `count` stored points.
+    if (node.name === 'closest' || node.name === 'gclosest') {
+      if (args.length !== 6) {
+        this.issue(
+          `${node.name} takes 6 arguments — x, y, z, index, count and stride — not ${args.length}.`,
+          node.at,
+        )
+        return () => 0
+      }
+      const [px, py, pz, start, count, stride] = args as [Eval, Eval, Eval, Eval, Eval, Eval]
+      return (f) => {
+        const x = px(f)
+        const y = py(f)
+        const z = pz(f)
+        let index = Math.trunc(start(f))
+        const step = Math.trunc(stride(f))
+        const total = Math.trunc(count(f))
+        let best = -1
+        let bestDistance = Number.MAX_VALUE
+        for (let i = 0; i < total; i++) {
+          // Counted against the budget: `count` is an expression, so this loop is as
+          // able to run forever as a `while` is.
+          tick(f)
+          const dx = (f.buffers.get(index) ?? 0) - x
+          const dy = (f.buffers.get(index + 1) ?? 0) - y
+          const dz = (f.buffers.get(index + 2) ?? 0) - z
+          const distance = dx * dx + dy * dy + dz * dz
+          if (distance < bestDistance) {
+            bestDistance = distance
+            best = index
+          }
+          index += step
+        }
+        return best
+      }
     }
 
     const unavailable = UNIMPLEMENTED[node.name]
