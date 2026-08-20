@@ -147,15 +147,22 @@ belongs here.
       expect no matches.
 - [x] A `Ref` never resolves to its own definition without passing through a
       `Repeat`. Otherwise rendering does not terminate.
-- [ ] Tests exist and pass for the paths where a silent wrong answer is possible:
+- [x] Tests exist and pass for the paths where a silent wrong answer is possible:
       each serializer, the trait branches, the deriver's parser mapping, and the
-      WorldEdit expression evaluator's golden fixtures. Partly: all three trait
-      branches now have a branch site and a test, the parser table and the SNBT writer
-      are covered, the text-component grammar is asserted in both of its forms, and the
-      deriver is asserted through its committed artefact, the path model has its own
-      suite, and the WorldEdit pattern grammar is asserted against the rules read out
-      of `RandomPatternParser`. The evaluator does not exist yet, and it is the one
-      remaining place a silent wrong answer is likely rather than merely possible.
+      WorldEdit expression evaluator's golden fixtures. All three trait branches have
+      a branch site and a test, the parser table and the SNBT writer are covered, the
+      text-component grammar is asserted in both of its forms, the deriver is asserted
+      through its committed artefact, the path model has its own suite, and the
+      WorldEdit pattern grammar is asserted against the rules read out of
+      `RandomPatternParser`. The evaluator was the last of them, and the one where a
+      silent wrong answer was likely rather than merely possible, so its corpus is
+      **transcribed** from `ExpressionTest.java` and `RealExpressionTest.java` rather
+      than paraphrased: a case that disagrees with upstream is this implementation
+      being wrong, not the case. The four traps are why that distinction earns its
+      keep — `^` is power rather than xor, postfix `!` is factorial, `&&`/`||` return
+      an operand rather than a boolean, `~=` compares by ULPs — each one something an
+      implementation written from intuition gets wrong while passing everything else.
+      Verify: `pnpm test`.
 
 ## 3. Scalable / future-proof
 
@@ -229,7 +236,7 @@ belongs here.
       This is the headless half of capping the evaluated volume.
 - [x] There is an agreed production bundle budget, checked in CI. 120 KB gzip on the
       entry chunk, via `pnpm check-bundle`, run by `.github/workflows/ci.yml` on every
-      push. Currently 103.2 KB. Konnekt's equivalent is 550 KB, and the gap is the
+      push. Currently 103.7 KB. Konnekt's equivalent is 550 KB, and the gap is the
       point: this app's data is lazy and Konnekt's is not.
       Verify: `pnpm build && pnpm check-bundle`.
 
@@ -317,7 +324,7 @@ it should be stable between runs.
 **P2 — The expression evaluator ships in the entry chunk, for every command**
 
 - Wiring `we_expression`'s validator to the real evaluator moved the entry chunk from
-  98.4 KB to 103.2 KB gzip. That is inside the 120 KB budget with 16.8 KB spare, and it
+  98.4 KB to 103.7 KB gzip. That is inside the 120 KB budget with 16.3 KB spare, and it
   is the price of the field telling the truth as you type — but the cost is paid by
   someone who only ever opens `/give`. The cause is structural rather than local: the
   argument-type registry in `argument-types/index.ts` is one eagerly-constructed object,

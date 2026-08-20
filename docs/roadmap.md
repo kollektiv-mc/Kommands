@@ -36,13 +36,16 @@ Its exit criterion — `/give` producing every canonical output exactly — is m
 
 - **WorldEdit expression evaluator** — `src/worldedit/expression/`, standalone and
   headless. Lexer, precedence-climbing parser, and a compiler to a closure tree; the
-  full grammar, the 22 maths built-ins, and a per-point step budget so a `while` loop
-  cannot hang the tab. Specified by WorldEdit's own test suite rather than by
-  description: `ExpressionTest.java` and `RealExpressionTest.java` are ported as 104
-  cases, including the four traps (`^` is power, postfix `!` is factorial, `&&`/`||`
-  return an operand rather than a boolean, `~=` compares by ULPs) and the real shapes
-  with their per-point expectations. World reads and noise parse and then say honestly
-  that they are out of scope, rather than being faked.
+  full grammar, the built-in library — the maths names, `rotate` and `swap`, which take
+  their arguments by reference, and `closest`/`gclosest` — and a per-point step budget
+  so a `while` loop cannot hang the tab. Specified by WorldEdit's own test suite rather
+  than by description: `ExpressionTest.java` and `RealExpressionTest.java` are
+  transcribed rather than paraphrased, inside a 117-case suite that covers the four
+  traps (`^` is power, postfix `!` is factorial, `&&`/`||` return an operand rather
+  than a boolean, `~=` compares by ULPs) and the real shapes with their per-point
+  expectations. World reads and the three noise functions parse and then say honestly
+  that the preview cannot draw them, rather than being faked; `getBlockType*` are not
+  functions at all, and say that instead.
 - Scaffold the app: Vite, React, TypeScript strict, router, Tailwind v4, Vitest
 - `pnpm gen:tokens` → `src/styles/tokens.css` from the vendored
   `tokens.source.json`, with the full named scale so no component ever needs a
