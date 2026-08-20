@@ -74,6 +74,7 @@ Each fact lives in exactly one file. This file links; it does not restate.
 | `docs/adding-a-command.md`   | Adding a command definition                                        |
 | `docs/adding-a-version.md`   | Adding a Minecraft version                                         |
 | `docs/adding-a-preview.md`   | Adding a 3D preview module                                         |
+| `docs/generate-editor.md`    | What `//generate` can express, and the shape of its 3D editor      |
 | `docs/design-tokens.md`      | The token pipeline and the full token set                          |
 | `docs/roadmap.md`            | Now / Next / Later                                                 |
 | `docs/health-checklist.md`   | The quality yardstick, and what is currently open against it       |
