@@ -197,7 +197,7 @@ interface ArgumentType {
   key: ArgumentTypeKey
   editor: ComponentType<EditorProps> // React editor
   serialize: (value, ctx: SerializeContext) => string
-  validate: (value, options) => Diagnostic[] // warnings, never hard failures
+  validate: (value, options, ctx: SerializeContext) => Diagnostic[] // warnings only
   defaultValue: (options) => unknown
 }
 ```

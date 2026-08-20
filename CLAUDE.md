@@ -5,7 +5,7 @@ Minecraft Java Edition command generator. React web app. Target version **1.21.1
 ## Stack
 
 Vite · React 19 · TypeScript (strict) · TanStack Router · Zustand · Tailwind v4 ·
-Vitest · ESLint · Prettier · Three.js (lazy-loaded per route).
+Vitest · ESLint · Prettier.
 Package manager: **pnpm**.
 
 ## Commands
@@ -26,8 +26,12 @@ Package manager: **pnpm**.
 | `pnpm check-bundle` | Entry-chunk gzip budget                                      |
 | `pnpm gen`          | Both generators                                              |
 
-Run `/suite-kit:health` before calling any task done. It runs lint, typecheck, and
-tests, and greps for the two things this codebase forbids (below).
+Three.js is **not a dependency yet**. It is planned for the lazy-loaded 3D previews,
+which are still open work — see `docs/adding-a-preview.md` and `docs/roadmap.md`.
+
+Run `/suite-kit:health` before calling any task done. It runs lint, typecheck, tests,
+format and the entry-chunk bundle budget, and greps for the three things this codebase
+forbids (below).
 
 ## Conventions
 
@@ -85,10 +89,11 @@ before writing or changing any serializer.
 
 ## Definition of done
 
-Run `/suite-kit:health`. It runs lint, typecheck, tests and format, plus this
-repo's invariant greps and its generated-file check, driven by
-`.claude/suite.json`, and reports a table. **A skipped check is not a passing
-one** — the report says so, and most of the value is in that distinction.
+Run `/suite-kit:health`. It runs lint, typecheck, tests, format and the bundle
+budget, plus this repo's three invariant greps and both of its generated-file
+checks, driven by `.claude/suite.json`, and reports a table. **A skipped check is
+not a passing one** — the report says so, and most of the value is in that
+distinction.
 
 Then sanity-check the area you touched against the four pillars in
 `docs/health-checklist.md` (Clean / Correct / Scalable / Performant), and confirm

@@ -8,8 +8,13 @@ import { compileExpression } from './index'
  * language — there is no written one — so these are transcribed rather than invented, and
  * a case that disagrees with upstream is this implementation being wrong, not the case.
  *
- * The world-reading cases are the only ones left behind: they are out of scope with world
- * masking. See docs/generate-editor.md § Masking.
+ * The world-reading cases are the only ones left behind, and deliberately: they are out
+ * of scope with world masking. See docs/generate-editor.md § Masking.
+ *
+ * That sentence was untrue once and is worth the warning. `~`, `<<` and `>>` were live
+ * code with no test whatsoever, and four `RealExpressionTest` shapes were missing, while
+ * this comment claimed the port was otherwise complete. A scope note is a claim like any
+ * other; it needs checking against the thing it describes.
  */
 
 /** Compile and evaluate at a point, failing loudly if the source did not compile. */
@@ -42,9 +47,45 @@ describe('arithmetic and precedence', () => {
     expect(at('2**10')).toBe(1024)
   })
 
-  test('^ is right-associative and binds tighter than a unary minus on its left', () => {
-    expect(at('2^3^2')).toBe(512) // 2^(3^2), not (2^3)^2 = 64
-    expect(at('-2^2')).toBe(-4) // -(2^2), not (-2)^2 = 4
+  test('^ is left-associative, and every prefix operator binds tighter than it', () => {
+    // Both halves are the reverse of mathematical convention, and both were wrong here
+    // until the grammar was read instead of assumed. `powerExpression` is left-recursive
+    // with no <assoc=right>, and BOTH its operands are typed `unaryExpression` — a rule
+    // that sits below it and cannot climb back except through parentheses. So the two
+    // "obvious" readings are not merely unselected, they are underivable.
+    expect(at('2^3^2')).toBe(64) // (2^3)^2, not 2^(3^2) = 512
+    expect(at('2^(3^2)')).toBe(512) // the parenthesised form is the only route to 512
+    expect(at('-2^2')).toBe(4) // (-2)^2, not -(2^2) = -4
+    expect(at('~2^2')).toBe(9) // (~2)^2 = (-3)^2; `~` is below `^` for the same reason
+    expect(at('2^-1')).toBe(0.5) // but the *right* operand may still be unary
+  })
+})
+
+/**
+ * `~` and the shifts were implemented and had no test whatsoever until this was noticed.
+ * Upstream's `testComplement` and `testShift`, transcribed — including its own comment,
+ * because "it drops the decimal!" is the whole content of four of the eleven cases.
+ */
+describe('~ is integer complement, and truncates first', () => {
+  check({
+    '~0': -1,
+    '~1': -2,
+    '~-1': 0,
+    '~-2': 1,
+    // ~0.1, ~0.5 and ~1.9 are ~0, ~0 and ~1 — toward zero, not toward -infinity.
+    '~0.1': -1,
+    '~0.5': -1,
+    '~1.9': -2,
+  })
+})
+
+describe('<< and >> shift as integers', () => {
+  check({
+    '1<<4': 16,
+    // Both operands are truncated, so this is 1<<4 and not 2<<4.
+    '1.1<<4.1': 16,
+    '16>>2': 4,
+    '16.9>>2.1': 4,
   })
 })
 
@@ -53,6 +94,13 @@ describe('min and max take any number of arguments', () => {
     'min(1, 2)': 1,
     'max(1, 2)': 2,
     'max(1, 2, 3, 4, 5)': 5,
+  })
+})
+
+describe('the maths built-ins are the platform ones', () => {
+  check({
+    'sin(5)': Math.sin(5),
+    'atan2(3, 4)': Math.atan2(3, 4),
   })
 })
 
@@ -127,6 +175,9 @@ describe('postfix ! is factorial', () => {
     '2.9!': 2,
     // Negative is zero rather than an error, which is upstream's choice.
     '(-1)!': 0,
+    // Past 170 the result leaves a double, and upstream returns infinity rather than
+    // erroring. This is the arm of the table that the smaller cases never reach.
+    '2000!': Number.POSITIVE_INFINITY,
   })
 })
 
@@ -328,6 +379,57 @@ describe('the shapes people actually generate', () => {
       [0, 1, -1, 0],
       [-0.5, 1, 0, 1],
     ])
+  })
+
+  test('sine wave', () => {
+    // Six points, in pairs one hundred-thousandth apart, straddling the surface.
+    shape('sin(x*5)/2<y', [
+      [1, -0.47947, 0, 0],
+      [1, -0.47946, 0, 1],
+      [2, -0.27202, 0, 0],
+      [2, -0.27201, 0, 1],
+      [3, 0.32513, 0, 0],
+      [3, 0.32515, 0, 1],
+    ])
+  })
+
+  test('radial cosine', () => {
+    shape('cos(sqrt(x^2+z^2)*5)/2<y', [
+      [0, 0.5, 0, 0],
+      [0, 0.51, 0, 1],
+      [Math.PI / 5, -0.5, 0, 0],
+      [Math.PI / 5, -0.49, 0, 1],
+      [Math.PI / 10, 0, 0, 0],
+      [Math.PI / 10, 0.1, 0, 1],
+    ])
+  })
+
+  test('circular hyperboloid', () => {
+    // The one upstream shape that leads with a negated power. It is written `-(z^2/12)`
+    // with the parentheses, which is why it reads the same under either associativity —
+    // and is a fair hint that upstream knows `-z^2/12` would not mean what it looks like.
+    shape('-(z^2/12)+(y^2/4)-(x^2/12)>-0.03', [
+      [0, 0, 0, 1],
+      [0, 1, 0, 1],
+      [0, 1, 1, 1],
+      [1, 1, 1, 1],
+      [0, 0, 1, 0],
+      [1, 0, 1, 0],
+    ])
+  })
+
+  test('rainbow egg walks data through all sixteen values', () => {
+    const source = 'data=(32+y*16+1)%16; y^2/9+x^2/6*(1/(1-0.4*y))+z^2/6*(1/(1-0.4*y))<0.08'
+    const result = compileExpression(source)
+    if (!result.ok) throw new Error('did not compile')
+    // Fifteen samples up the axis of the egg, each one data step apart.
+    for (let i = 0; i < 15; i++) {
+      const y = i / 16 - 0.5
+      expect(result.expression.evaluate(0, y, 0) > 0 ? 1 : 0, `filled at y=${y}`).toBe(1)
+      expect(Math.floor(result.expression.slot('data')), `data at y=${y}`).toBe((i + 9) % 16)
+    }
+    // And one point outside it.
+    expect(result.expression.evaluate(0, 1, 0) > 0 ? 1 : 0).toBe(0)
   })
 
   test('rainbow torus sets data as well as placing blocks', () => {

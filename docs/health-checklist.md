@@ -28,16 +28,19 @@ Every check below that a machine can run is declared in
 which reports them as a table:
 
 ```bash
-pnpm lint            # eslint src scripts
-pnpm typecheck       # tsc --noEmit
-pnpm test            # vitest run
-pnpm format:check    # prettier --check .
+pnpm lint                        # eslint src scripts
+pnpm typecheck                   # tsc --noEmit
+pnpm test                        # vitest run
+pnpm format:check                # prettier --check .
+pnpm build && pnpm check-bundle  # entry-chunk gzip budget
 ```
 
-Plus three `invariants` — greps that must find nothing — and one `generated` entry:
-`pnpm gen:tokens` followed by a clean-diff check on `src/styles/tokens.css`. A
-non-empty diff means the generated file was hand-edited (the next run reverts it) or
-`tokens.source.json` was refreshed without regenerating.
+Plus three `invariants` — greps that must find nothing — and two `generated` entries:
+`pnpm gen:commands` followed by a clean-diff check on `src/data/generated`, and
+`pnpm gen:tokens` followed by the same check on `src/styles/tokens.css`. A non-empty
+diff means the generated file was hand-edited (the next run reverts it) or its input —
+the pinned mcmeta tag, or `tokens.source.json` — was refreshed without regenerating.
+Only the first declares `requiresNetwork`, and only for a cold `.cache/mcmeta`.
 
 Where the plugin is not installed — CI, a cloud container, an unattended agent —
 [`.claude/suite-check.py`](../.claude/suite-check.py) reads the same manifest and runs
@@ -79,8 +82,10 @@ decision made once in a session is invisible to CI and to the next session.
       Verify: `grep -rnE '(duration|delay)-\[[0-9.]+m?s\]|ease-\[' src` — every match
       must be a documented one-off, not a near-miss of an existing token.
 - [x] Generated output is never hand-edited. `src/styles/tokens.css` carries a
-      DO-NOT-EDIT header and a clean-diff check; `src/data/generated/**` will carry
-      the same. See [`.claude/rules/generated-data.md`](../.claude/rules/generated-data.md).
+      DO-NOT-EDIT header, and both it and `src/data/generated/**` carry a clean-diff
+      check — one `generated` entry each in `.claude/suite.json`, so a hand edit fails
+      the gate rather than surviving until the next regeneration reverts it.
+      See [`.claude/rules/generated-data.md`](../.claude/rules/generated-data.md).
 - [x] No committed build artifacts — `.gitignore` covers `dist/`, `node_modules/`,
       and caches, and deliberately does **not** cover `src/data/generated/`,
       `tokens.source.json`, or `src/styles/tokens.css`.
@@ -147,15 +152,22 @@ belongs here.
       expect no matches.
 - [x] A `Ref` never resolves to its own definition without passing through a
       `Repeat`. Otherwise rendering does not terminate.
-- [ ] Tests exist and pass for the paths where a silent wrong answer is possible:
+- [x] Tests exist and pass for the paths where a silent wrong answer is possible:
       each serializer, the trait branches, the deriver's parser mapping, and the
-      WorldEdit expression evaluator's golden fixtures. Partly: all three trait
-      branches now have a branch site and a test, the parser table and the SNBT writer
-      are covered, the text-component grammar is asserted in both of its forms, and the
-      deriver is asserted through its committed artefact, the path model has its own
-      suite, and the WorldEdit pattern grammar is asserted against the rules read out
-      of `RandomPatternParser`. The evaluator does not exist yet, and it is the one
-      remaining place a silent wrong answer is likely rather than merely possible.
+      WorldEdit expression evaluator's golden fixtures. All three trait branches have
+      a branch site and a test, the parser table and the SNBT writer are covered, the
+      text-component grammar is asserted in both of its forms, the deriver is asserted
+      through its committed artefact, the path model has its own suite, and the
+      WorldEdit pattern grammar is asserted against the rules read out of
+      `RandomPatternParser`. The evaluator was the last of them, and the one where a
+      silent wrong answer was likely rather than merely possible, so its corpus is
+      **transcribed** from `ExpressionTest.java` and `RealExpressionTest.java` rather
+      than paraphrased: a case that disagrees with upstream is this implementation
+      being wrong, not the case. The four traps are why that distinction earns its
+      keep — `^` is power rather than xor, postfix `!` is factorial, `&&`/`||` return
+      an operand rather than a boolean, `~=` compares by ULPs — each one something an
+      implementation written from intuition gets wrong while passing everything else.
+      Verify: `pnpm test`.
 
 ## 3. Scalable / future-proof
 
@@ -181,8 +193,8 @@ belongs here.
       Verify: `git diff` for the last command added — expect
       `src/data/authored/ui/` and a test. Nothing else.
 - [ ] Adding a Minecraft version touches only version data and generated files.
-      Adding 1.21.5 flips three trait flags; 1.21.2 flips none. Neither touches
-      serializer control flow.
+      Adding 1.21.5 flips two of the three trait flags; 1.21.2 flips none. Neither
+      touches serializer control flow.
 - [x] Routes are assembled from definitions rather than generated per command. A file
       per command reintroduces exactly the per-command cost
       [`architecture.md`](architecture.md) § The constraint rules out.
@@ -206,7 +218,7 @@ belongs here.
 ## 4. Performant
 
 - [ ] Registry files load on demand rather than in the entry chunk — 1.21.1 is
-      640 KB of registries and 230 KB of block states.
+      660 KB of registries and 260 KB of block states.
       Verify: `pnpm build`, then confirm neither lands in the entry chunk.
 - [ ] The command output panel recomputes only when a value it depends on changes,
       not on every keystroke anywhere in the tree.
@@ -229,7 +241,7 @@ belongs here.
       This is the headless half of capping the evaluated volume.
 - [x] There is an agreed production bundle budget, checked in CI. 120 KB gzip on the
       entry chunk, via `pnpm check-bundle`, run by `.github/workflows/ci.yml` on every
-      push. Currently 103.2 KB. Konnekt's equivalent is 550 KB, and the gap is the
+      push. Currently 103.7 KB. Konnekt's equivalent is 550 KB, and the gap is the
       point: this app's data is lazy and Konnekt's is not.
       Verify: `pnpm build && pnpm check-bundle`.
 
@@ -301,6 +313,20 @@ it should be stable between runs.
   interaction. The decision is where instance identity lives.
   [#33](https://github.com/kollektiv-mc/Kommands/issues/33).
 
+**P2 — `^` associativity is pinned here and by nothing upstream**
+
+- `^` is **left**-associative and binds looser than every prefix operator, so `2^3^2` is
+  64 and `-2^2` is 4 — both the reverse of ordinary convention, and both wrong here until
+  the grammar was read rather than assumed. The fix is safe because it is not a judgement
+  call: `powerExpression`'s operands are typed `unaryExpression`, which cannot climb back
+  to `powerExpression` except through parentheses, so the other readings are _underivable_
+  rather than merely unselected. But upstream has no test pinning either — every `^` in
+  `ExpressionTest`/`RealExpressionTest` has an atomic or parenthesised base, and the one
+  negative exponent is written `^(-2)`. So this reimplementation is now stricter than its
+  reference, and an upstream regression would not be caught by upstream. The trap is worth
+  naming for anyone porting a formula from Python, Haskell or calculator notation, where
+  both answers differ.
+
 **P2 — `perlin`, `voronoi` and `ridgedmulti` are diagnosed rather than evaluated**
 
 - The evaluator covers the language except its three noise functions, which come from
@@ -317,13 +343,13 @@ it should be stable between runs.
 **P2 — The expression evaluator ships in the entry chunk, for every command**
 
 - Wiring `we_expression`'s validator to the real evaluator moved the entry chunk from
-  98.4 KB to 103.2 KB gzip. That is inside the 120 KB budget with 16.8 KB spare, and it
+  98.4 KB to 103.7 KB gzip. That is inside the 120 KB budget with 16.3 KB spare, and it
   is the price of the field telling the truth as you type — but the cost is paid by
   someone who only ever opens `/give`. The cause is structural rather than local: the
   argument-type registry in `argument-types/index.ts` is one eagerly-constructed object,
   so every type's validator, editor and serializer is statically reachable from every
-  route. Making one lazy means an async validator, which changes the contract for all
-  fifteen types. The right time to decide is when the preview lands and the same module
+  route. Making one lazy means an async validator, which changes the contract for
+  every type in the registry. The right time to decide is when the preview lands and the same module
   is wanted lazily by a canvas — splitting the whole `we_expression` type, editor
   included, is a cleaner cut than special-casing its validator.
 
