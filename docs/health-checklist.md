@@ -301,6 +301,19 @@ it should be stable between runs.
   interaction. The decision is where instance identity lives.
   [#33](https://github.com/kollektiv-mc/Kommands/issues/33).
 
+**P2 — `perlin`, `voronoi` and `ridgedmulti` are diagnosed rather than evaluated**
+
+- The evaluator covers the language except its three noise functions, which come from
+  `jlibnoise` (`worldedit-core/build.gradle.kts:38`) and have to be ported exactly — an
+  approximation would draw a shape the command does not produce, which is worse than
+  drawing nothing. Upstream has no tests for them either, so the port has to be checked
+  against the Java by reading it rather than by running a corpus. Today they parse,
+  compile, and report honestly that the preview cannot draw them, so the command still
+  generates and copies. The right time to do the port is once the preview exists and the
+  difference between right and nearly-right is visible on screen. This outlives
+  [#11](https://github.com/kollektiv-mc/Kommands/issues/11), which the evaluator
+  otherwise closes.
+
 **P2 — The expression evaluator ships in the entry chunk, for every command**
 
 - Wiring `we_expression`'s validator to the real evaluator moved the entry chunk from
