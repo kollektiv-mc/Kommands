@@ -38,3 +38,24 @@ export function catalogueList(
 ): CommandDefinition[] {
   return Object.values(catalogue).sort((a, b) => a.label.localeCompare(b.label))
 }
+
+/**
+ * The commands a definition's `@any` Refs may embed.
+ *
+ * `docs/command-schema.md` says `'@any'` means any command **in the same dialect** and
+ * version, and that is not a formality: `/execute … run` hands its tail to the vanilla
+ * command dispatcher, so offering `//generate` there produces
+ * `/execute run //generate …` — a command that reads fine and cannot run.
+ *
+ * Filtered once, where the catalogue is handed to a command, rather than at each of
+ * the two places that consume it. The picker and the serializer then cannot disagree
+ * about what is embeddable, because they are looking at the same set.
+ */
+export function embeddableIn(
+  catalogue: Readonly<Record<string, CommandDefinition>>,
+  host: CommandDefinition,
+): Readonly<Record<string, CommandDefinition>> {
+  return Object.fromEntries(
+    Object.entries(catalogue).filter(([, command]) => command.dialect === host.dialect),
+  )
+}

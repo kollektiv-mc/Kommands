@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { catalogueList, loadCatalogue } from './catalogue'
+import { catalogueList, embeddableIn, loadCatalogue } from './catalogue'
 import { authoredCommands } from './authored/commands'
 import { loadCommands } from './loadGenerated'
 import { v1_21_1 } from './versions/1.21.1'
@@ -36,12 +36,33 @@ describe('the catalogue merges two sources into one kind of thing', () => {
     expect(catalogue['worldedit:generate']!.ui?.arguments?.pattern?.label).toBe('Blocks')
   })
 
-  test('the list is ordered for display and leads with the WorldEdit slashes', () => {
+  test('the list holds everything, in label order', () => {
     const list = catalogueList(catalogue)
     expect(list).toHaveLength(Object.keys(catalogue).length)
-    expect(list.map((d) => d.label)).toEqual(
-      [...list.map((d) => d.label)].sort((a, b) => a.localeCompare(b)),
-    )
+    const labels = list.map((d) => d.label)
+    expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b)))
+  })
+})
+
+describe('what a @any Ref may embed', () => {
+  // command-schema.md: '@any' means any command in the same *dialect* and version.
+  // Not a formality — `/execute … run` hands its tail to the vanilla dispatcher, so
+  // offering `//generate` there produced `/execute run //generate …`, which reads fine
+  // and cannot run.
+  test('a vanilla command may embed vanilla commands only', () => {
+    const embeddable = embeddableIn(catalogue, catalogue['vanilla:execute']!)
+    expect(embeddable['vanilla:give']).toBeDefined()
+    expect(embeddable['worldedit:generate']).toBeUndefined()
+    expect(Object.values(embeddable).every((d) => d.dialect === 'vanilla')).toBe(true)
+  })
+
+  test('a WorldEdit command may embed WorldEdit commands only', () => {
+    const embeddable = embeddableIn(catalogue, catalogue['worldedit:generate']!)
+    expect(Object.keys(embeddable)).toEqual(['worldedit:generate'])
+  })
+
+  test('a command may embed itself — the depth cap is what stops recursion, not this', () => {
+    expect(embeddableIn(catalogue, catalogue['vanilla:execute']!)['vanilla:execute']).toBeDefined()
   })
 })
 

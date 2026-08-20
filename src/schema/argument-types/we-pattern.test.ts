@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { v1_21_1 } from '../../data/versions/1.21.1'
 import { makeRegistryLookup } from '../../data/versions/registry'
 import type { SerializeContext } from '../../data/versions/types'
-import { serializePattern, validatePattern, type PatternValue } from './we-pattern'
+import { isKnownBlock, serializePattern, validatePattern, type PatternValue } from './we-pattern'
 import { validateExpression } from './we-expression'
 
 const ctx: SerializeContext = {
@@ -101,5 +101,29 @@ describe('validating a WorldEdit expression', () => {
 
   test('operators that look like brackets are not brackets', () => {
     expect(validateExpression('x < 1 && y > 2')).toEqual([])
+  })
+})
+
+describe('the editor and the validator ask the same question', () => {
+  // They did not. The field marked `minecraft:stone` invalid — it asked the registry
+  // for the namespaced id, which registries do not hold — while validatePattern beside
+  // it stripped the namespace and said nothing. A red field with no warning is worse
+  // than either alone: the user cannot tell what is wrong because nothing is.
+  test('a namespaced id is known to both', () => {
+    expect(isKnownBlock('minecraft:stone', ctx)).toBe(true)
+    expect(validatePattern(pattern(['minecraft:stone', ''], ['dirt', '']), ctx)).toEqual([])
+  })
+
+  test('whitespace does not make a real block unknown', () => {
+    expect(isKnownBlock('  stone  ', ctx)).toBe(true)
+  })
+
+  test('an empty field is not marked wrong — it is unfinished, not invalid', () => {
+    expect(isKnownBlock('', ctx)).toBe(true)
+  })
+
+  test('a genuine typo is unknown to both', () => {
+    expect(isKnownBlock('stnoe', ctx)).toBe(false)
+    expect(validatePattern(pattern(['stnoe', ''], ['dirt', '']), ctx)).toHaveLength(1)
   })
 })

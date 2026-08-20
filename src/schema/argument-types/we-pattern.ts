@@ -32,6 +32,21 @@ export const PATTERN_REGISTRY = 'block'
 
 const warn = (message: string): Diagnostic => ({ severity: 'warning', message })
 
+/**
+ * Whether an id names a block in this version.
+ *
+ * Registries hold ids bare, and WorldEdit accepts a namespaced one, so the namespace
+ * is stripped before the lookup. Exported because the editor asks the same question to
+ * decide whether to mark the field — asking it differently is how a legitimate
+ * namespaced id came to be outlined in red while the validator beside it said nothing.
+ */
+export function isKnownBlock(id: string, ctx: SerializeContext): boolean {
+  const trimmed = id.trim()
+  if (trimmed === '') return true
+  const bare = trimmed.startsWith(':') ? trimmed : trimmed.split(':').pop()!
+  return ctx.registries.has(PATTERN_REGISTRY, bare)
+}
+
 /** Entries with an actual block in them. A half-added row is not part of the pattern. */
 const filled = (value: PatternValue): readonly PatternEntry[] =>
   value.entries.filter((entry) => entry.block.trim() !== '')
@@ -57,13 +72,7 @@ export function validatePattern(value: PatternValue, ctx: SerializeContext): Dia
   const out: Diagnostic[] = []
 
   for (const { block } of entries) {
-    const id = block.trim()
-    // Bare ids only against the registry: it holds them bare, and a namespaced id is
-    // legitimate WorldEdit input that this check has no opinion about.
-    const bare = id.startsWith(':') ? id : id.split(':').pop()!
-    if (!ctx.registries.has(PATTERN_REGISTRY, bare)) {
-      out.push(warn(`${id} is not a block in this version.`))
-    }
+    if (!isKnownBlock(block, ctx)) out.push(warn(`${block.trim()} is not a block in this version.`))
   }
 
   if (entries.length === 1 && entries[0]!.weight !== '') {

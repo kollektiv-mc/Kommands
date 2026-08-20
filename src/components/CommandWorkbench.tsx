@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { RegistryLookup, SerializeContext, VersionDefinition } from '../data/versions/types'
 import { CommandRenderer, type Catalogue } from './CommandRenderer'
+import { embeddableIn } from '../data/catalogue'
 import { evaluateConstraints } from '../schema/constraints'
 import { EMPTY_VALUE, serializeCommand } from '../schema/serialize'
 import type { CommandDefinition } from '../schema/types'
@@ -65,7 +66,10 @@ export function CommandWorkbench({
     [version, registries],
   )
 
-  const resolve = useMemo(() => (id: string) => catalogue[id], [catalogue])
+  // What this command may embed, rather than everything that exists. Filtered here so
+  // the picker and the serializer read the same set and cannot disagree.
+  const embeddable = useMemo(() => embeddableIn(catalogue, definition), [catalogue, definition])
+  const resolve = useMemo(() => (id: string) => embeddable[id], [embeddable])
 
   const output = serializeCommand(definition, value, ctx, { resolve })
   const warnings = evaluateConstraints(definition, value)
@@ -77,7 +81,7 @@ export function CommandWorkbench({
         value={value}
         ctx={ctx}
         actions={{ setArg, setFlag, setChoice, setRepeat, reorderRepeat, setRef }}
-        catalogue={catalogue}
+        catalogue={embeddable}
       />
 
       <div className="border-hairline border-border-subtle bg-elevated rounded-panel flex flex-col gap-1 p-2">

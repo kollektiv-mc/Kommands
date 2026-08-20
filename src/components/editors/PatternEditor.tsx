@@ -1,5 +1,6 @@
 import type { SerializeContext } from '../../data/versions/types'
 import {
+  isKnownBlock,
   PATTERN_REGISTRY,
   type PatternEntry,
   type PatternValue,
@@ -60,7 +61,7 @@ export function PatternEditor({ value, onChange, ctx }: PatternEditorProps) {
             value={row.block}
             entries={entries}
             ariaLabel={`Block ${index + 1}`}
-            invalid={row.block !== '' && !ctx.registries.has(PATTERN_REGISTRY, row.block)}
+            invalid={!isKnownBlock(row.block, ctx)}
             onChange={(next) => replace(index, { block: next })}
           />
           <button
