@@ -15,7 +15,6 @@ Completing the acceptance set. Each of these stresses part of the schema that
   rather than the stack of rows it is now. The current chain UI is a placeholder that
   proved the data layer end to end; it is not the intended design, and #33 (stable
   instance identity) is its prerequisite
-- WorldEdit `we_mask` editor
 - **WorldEdit expression evaluator** — standalone, fixture-tested. The largest
   single piece of work in the roadmap and a prerequisite for any shape preview.
   Not derivable from any data source.

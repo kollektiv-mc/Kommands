@@ -230,7 +230,6 @@ policy — see [`architecture.md`](architecture.md).
 | `nbt_compound`   | `minecraft:nbt_compound_tag` | Structured NBT editor               |
 | `block_state`    | `minecraft:block_state`      | Block picker + state properties     |
 | `we_pattern`     | — (WorldEdit)                | Pattern builder                     |
-| `we_mask`        | — (WorldEdit)                | Mask builder                        |
 | `we_expression`  | — (WorldEdit)                | Expression editor                   |
 
 **Fallback** — `raw_text`, a plain text field. Bound automatically when derivation

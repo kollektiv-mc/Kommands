@@ -58,8 +58,8 @@ exp log log10 ln round atan2 min max`
 - **World reads**: `query`, `queryAbs`, `queryRel`, `getBlockType`, `getBlockTypeAbs`,
   `getBlockTypeRel` — the expression can inspect **blocks that already exist**
 
-That last group is the one with teeth. An expression that reads the world cannot be
-evaluated correctly by a browser that does not have the world. See _Limits_ below.
+That last group is **out of scope**, with world masking, for the reasons below. A browser
+has no world to read, so these can be written but never shown.
 
 ### Patterns are six grammars, not one
 
@@ -79,58 +79,33 @@ Weights are **relative chances, not percentages** — `50%stone,50%dirt` and
 `RandomPatternParser` returns null for a one-token input and the plain block parser
 does not understand `%`.
 
-### Masks are sixteen grammars, and they compose
-
-`extension/factory/parser/mask/`, combined by `MaskFactory.parseFromInput`:
-
-```java
-for (String component : input.split(" ", 0)) { … }
-return switch (masks.size()) { … default -> new MaskIntersection(masks); };
-```
-
-**Space-separated masks intersect.** So `#solid >air !##logs` means solid AND
-air-above AND not-a-log. Available: `#air #existing #solid #exposed #surface #fullcube
-#region #selection #sel #dregion #dsel #clipboard`, `##tag`, `^[state]`, `$biome`,
-`%noise`, `=expression`, `!negate`, and the offset masks `>` `<` `~`.
-
-Note `=expression` — a mask can itself be an expression, which is a second place the
-language appears.
-
-### Two kinds of masking, and only one of them is previewable
+### Masking means geometry masking, and nothing else
 
 "Put a torus inside a torus, but only where there is stone" is two different operations
-wearing one word, and the tool has to keep them apart.
+wearing one word. Only one of them is in scope.
 
 **Geometry masking** — torus ∩ torus — is about shapes the tool itself created. It is
-constructive solid geometry, it compiles to `&&`, it stays inside the one expression,
-and it is fully previewable. Nothing special is needed for it.
+constructive solid geometry: it compiles to `&&`, it stays inside the one expression, and
+it previews exactly. This is what the editor offers.
 
-**World masking** — "only where there is stone" — is about blocks already in a world the
-browser has never seen. Two routes, neither free:
+**World masking** — "only where there is stone" — is **ruled out**, and recorded here so
+it is not proposed again. It is about blocks already in a world the browser has never
+seen, and both routes to it are bad ones:
 
-1. **`//gmask <mask>`** — a **separate, stateful, global** command
-   (`GeneralCommands.java:389`). `//generate` itself takes no mask: its signature is
-   `pattern`, then the variadic `expression`, then the four switches. So a tool offering
-   world masks emits an _ordered pair_ of commands. In exchange it gets the whole mask
-   grammar above, on modern blocks.
-2. **`query()` inside the expression** — one command, no ordering problem, and a trap.
-   `query(x, y, z, type, data)` reads the world block and returns 1 on a match, `-1`
-   being a wildcard — but it works in **legacy numeric ids** through `LegacyMapper`, and
-   `WorldEditExpressionEnvironment.getLegacy` returns `-1` for anything without one.
-   Measured against the pinned 1.21.1 block registry:
+- `//gmask` is a **separate, stateful, global** command (`GeneralCommands.java:389`) —
+  `//generate` takes no mask of its own. A tool offering world masks would emit an
+  _ordered pair_ of commands, and could preview neither.
+- `query()` inside the expression avoids the second command and is worse. It works in
+  **legacy numeric ids** through `LegacyMapper`, and
+  `WorldEditExpressionEnvironment.getLegacy` returns `-1` for anything without one.
+  Measured against the pinned 1.21.1 block registry, it reaches **444 of 1060 block
+  types — 41.9%**. Everything from the 1.13 flattening onward is invisible to it:
+  deepslate, copper, blackstone, amethyst, calcite, tuff, mud, cherry, bamboo. A mask
+  built this way silently does nothing for most blocks anyone would name.
 
-   | Blocks                 |                 |
-   | ---------------------- | --------------: |
-   | Block types in 1.21.1  |            1060 |
-   | Reachable by legacy id | **444 (41.9%)** |
-   | Invisible to `query()` |             616 |
-
-   Everything from the 1.13 flattening onward is in that 616 — deepslate, copper,
-   blackstone, amethyst, calcite, tuff, mud, cherry, bamboo. A mask built this way
-   silently does nothing for more than half the blocks anyone would name.
-
-**So world masking is `//gmask`, and the tool emits two commands.** `query()` is worth
-knowing about and not worth building on.
+Neither is worth the tool it would cost, and a preview that cannot show what a mask does
+is not a preview. So the editor masks geometry against geometry, and the world-reading
+half of the expression language is out of scope with it.
 
 ---
 
@@ -262,35 +237,36 @@ it. That is Houdini's own model, and it is what makes the preview budget in
 [`health-checklist.md`](health-checklist.md) achievable at 64³ — 262,144 evaluations per
 input change is only affordable if most inputs do not touch most nodes.
 
-One consequence for the graph's vocabulary: **geometry masks and world masks are not the
-same kind of node.** A geometry mask is an ordinary combinator — previewable, compiled
-into the expression. A world mask is a promise about blocks the tool cannot see, and it
-leaves by a different door (`//gmask`, a second command). They should not look alike in
-the palette, because one of them the viewport can show and the other it can only
-describe.
+One consequence for the graph's vocabulary: because world masking is out, **every node in
+the palette is previewable**. There is no second class of node that the viewport can only
+describe rather than show, and that is worth protecting — a palette where some nodes
+render and others merely promise is a palette that has to explain itself.
 
 ---
 
 ## Limits worth knowing before building
 
-These are the places the tool cannot be faithful, and each needs a decision rather
-than a discovery halfway through.
+These are the places the tool cannot be faithful, and each needs a decision rather than a
+discovery halfway through.
 
-1. **World-reading expressions cannot be previewed.** `query`, `queryRel` and the
-   `getBlockType*` family read blocks that exist in a world the browser does not have.
-   Any expression using them can be _written_ but not _shown_. The preview has to say
-   so rather than render a confident lie.
-2. **Randomness is not reproducible.** `random`, `randint` and the noise functions
-   make the preview and the in-game result differ. Noise is seeded; `random` is not.
-3. **`megabuf`/`gmegabuf` carry state between invocations**, so an expression using
-   them is not a pure function of position and cannot be evaluated per-voxel in
-   isolation.
-4. **Material selection via `type`/`data` is legacy-only**, so shading through the
+1. **Randomness is not reproducible.** `random` and `randint` make the preview and the
+   in-game result differ. The noise functions are seeded and could be matched, but only
+   by porting `jlibnoise` exactly — see 4.
+2. **`megabuf`/`gmegabuf` carry state between invocations**, so an expression using them
+   is not a pure function of position and cannot be evaluated per-voxel in isolation.
+3. **Material selection via `type`/`data` is legacy-only**, so shading through the
    expression reaches only pre-flattening blocks. Patterns are the better channel.
-5. **Masking is a second command.** `//gmask` is global and stateful, so a tool
-   offering masks emits an ordered pair of commands, not one.
-6. **The evaluated volume must be capped and the cap surfaced.** A 64³ region is
-   262,144 evaluations per input change, and the expression language has loops.
+4. **Noise must be ported, not approximated.** `perlin`, `voronoi` and `ridgedmulti` come
+   from `jlibnoise` (`worldedit-core/build.gradle.kts:38`). An approximation would render
+   a shape the command does not produce, which is worse than rendering nothing. Until the
+   port exists these evaluate to a diagnostic.
+5. **The evaluated volume must be capped and the cap surfaced.** A 64³ region is 262,144
+   evaluations per input change, and the expression language has loops — so the evaluator
+   also needs a per-evaluation step budget, not just a volume cap.
+
+Also out of scope, and recorded above rather than here because it is a decision rather
+than a limit: **world masking**, and with it the world-reading functions `query`,
+`queryAbs`, `queryRel` and the `getBlockType*` family.
 
 ---
 
