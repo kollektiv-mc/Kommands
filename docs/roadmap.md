@@ -40,12 +40,12 @@ Its exit criterion — `/give` producing every canonical output exactly — is m
   their arguments by reference, and `closest`/`gclosest` — and a per-point step budget
   so a `while` loop cannot hang the tab. Specified by WorldEdit's own test suite rather
   than by description: `ExpressionTest.java` and `RealExpressionTest.java` are
-  transcribed rather than paraphrased, inside a 117-case suite that covers the four
-  traps (`^` is power, postfix `!` is factorial, `&&`/`||` return an operand rather
-  than a boolean, `~=` compares by ULPs) and the real shapes with their per-point
-  expectations. World reads and the three noise functions parse and then say honestly
-  that the preview cannot draw them, rather than being faked; `getBlockType*` are not
-  functions at all, and say that instead.
+  transcribed rather than paraphrased, inside a 135-case suite that covers the traps
+  (`^` is power, left-associative, and looser than a unary minus; postfix `!` is
+  factorial; `&&`/`||` return an operand rather than a boolean; `~=` compares by ULPs)
+  and the real shapes with their per-point expectations. World reads and the three
+  noise functions parse and then say honestly that the preview cannot draw them, rather
+  than being faked; `getBlockType*` are not functions at all, and say that instead.
 - Scaffold the app: Vite, React, TypeScript strict, router, Tailwind v4, Vitest
 - `pnpm gen:tokens` → `src/styles/tokens.css` from the vendored
   `tokens.source.json`, with the full named scale so no component ever needs a

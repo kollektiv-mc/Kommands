@@ -21,8 +21,8 @@ export interface ParseError {
 /**
  * Binary precedence, loosest first. Taken rule-for-rule from the grammar.
  *
- * `^` is missing on purpose — it is right-associative and binds tighter than unary minus
- * on its left, so it is handled in `unary`/`power` rather than here.
+ * `^` is missing on purpose — both its operands are unary expressions rather than the
+ * next level down, so it is handled in `power` rather than here.
  */
 const BINARY_LEVELS: readonly (readonly BinaryOperator[])[] = [
   ['==', '!=', '~='],
@@ -299,7 +299,7 @@ class Parser {
 
   private binary(level: number): Expr {
     const operators = BINARY_LEVELS[level]
-    if (!operators) return this.unary()
+    if (!operators) return this.power()
 
     let left = this.binary(level + 1)
     for (;;) {
@@ -320,20 +320,32 @@ class Parser {
     for (const op of ['-', '+', '!', '~'] as const) {
       if (this.eat(op)) return { kind: 'unary', op, operand: this.unary() }
     }
-    return this.power()
+    return this.postfix()
   }
 
   /**
-   * `^` / `**`, right-associative.
+   * `^` / `**`, **left**-associative — `2^3^2` is `(2^3)^2 = 64`, not 512.
    *
-   * The right operand goes back through `unary`, so `2^-1` parses. The left does not, so
-   * `-2^2` is `-(2^2)` — which is what the grammar says and what every calculator agrees
-   * on, and the opposite of what a naive left-recursive reading would produce.
+   * That is the reverse of ordinary mathematical convention, and it is not ANTLR's
+   * default associativity doing the work. The rule is
+   * `powerExpression : unaryExpression | left=powerExpression POWER right=unaryExpression`,
+   * with no `<assoc=right>` anywhere in the grammar — and because `right` is typed
+   * *unaryExpression* rather than *powerExpression*, and nothing under `unaryExpression`
+   * reaches back up except through `'(' expression ')'`, a right-nested tree is not
+   * derivable at all. `2^(3^2)` needs the parentheses it is written with.
+   *
+   * The same typing puts every prefix operator BELOW `^`, which is the half that bites:
+   * `-2^2` is `(-2)^2 = 4`, because `PlusMinusExpr`'s operand is also a unaryExpression
+   * and so cannot contain the power. `2^-1` still parses, for exactly that reason.
+   *
+   * Upstream has no test pinning either — every `^` in `ExpressionTest`/`RealExpressionTest`
+   * has an atomic or parenthesised base, and the one negative exponent is written `^(-2)`.
+   * This was wrong here until the grammar was read rather than assumed.
    */
   private power(): Expr {
-    const base = this.postfix()
-    if (!this.eat('^')) return base
-    return { kind: 'binary', op: '^', left: base, right: this.unary() }
+    let left = this.unary()
+    while (this.eat('^')) left = { kind: 'binary', op: '^', left, right: this.unary() }
+    return left
   }
 
   private postfix(): Expr {
