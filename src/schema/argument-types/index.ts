@@ -12,6 +12,8 @@ import { TextEditor } from '../../components/editors/TextEditor'
 import { SelectorEditor } from '../../components/editors/SelectorEditor'
 import { ItemStackEditor } from '../../components/editors/ItemStackEditor'
 import { TextComponentEditor } from '../../components/editors/TextComponentEditor'
+import { PatternEditor } from '../../components/editors/PatternEditor'
+import { ExpressionEditor } from '../../components/editors/ExpressionEditor'
 import { selectorsFor } from '../../data/authored/selectors'
 import {
   emptyTextComponent,
@@ -26,6 +28,8 @@ import {
   EMPTY_ITEM_STACK,
   type ItemStackValue,
 } from './item-stack'
+import { serializePattern, validatePattern, EMPTY_PATTERN, type PatternValue } from './we-pattern'
+import { validateExpression } from './we-expression'
 
 /**
  * The argument-type registry.
@@ -67,9 +71,14 @@ const warn = (message: string): Diagnostic[] => [{ severity: 'warning', message 
  * and the output cannot disagree about what an untouched field holds.
  */
 export function argumentOptions(
-  node: Pick<ArgumentNode, 'typeOptions' | 'optional'>,
+  node: Pick<ArgumentNode, 'typeOptions' | 'optional' | 'variadic'>,
 ): ArgumentOptions {
-  return node.optional ? { ...node.typeOptions, optional: true } : (node.typeOptions ?? {})
+  if (!node.optional && !node.variadic) return node.typeOptions ?? {}
+  return {
+    ...node.typeOptions,
+    ...(node.optional ? { optional: true } : {}),
+    ...(node.variadic ? { variadic: true } : {}),
+  }
 }
 
 function numberType(key: ArgumentTypeKey, integral: boolean): ErasedArgumentType {
@@ -151,6 +160,27 @@ const TYPES: ErasedArgumentType[] = [
       isEmptyTextComponent(value) ? '' : serializeTextComponent(value, ctx),
     validate: validateTextComponent,
     defaultValue: emptyTextComponent,
+  }),
+  // WorldEdit's two. Neither comes from a Brigadier parser — there is no mcmeta for a
+  // plugin — so both are authored end to end, and they are the evidence that `dialect`
+  // is a field rather than a subsystem: they register here beside the vanilla types
+  // and are reached by the same renderer.
+  defineArgumentType<PatternValue>({
+    key: 'we_pattern',
+    editor: PatternEditor,
+    serialize: serializePattern,
+    validate: (value, _options, ctx) => validatePattern(value, ctx),
+    defaultValue: () => EMPTY_PATTERN,
+  }),
+  defineArgumentType<string>({
+    key: 'we_expression',
+    editor: ExpressionEditor,
+    // Emitted as typed, spaces and all. That is only sound because the argument is
+    // variadic and last: it takes every remaining token, so there is nothing after it
+    // for a space to be mistaken for a separator between.
+    serialize: (value) => value.trim(),
+    validate: (value) => validateExpression(value),
+    defaultValue: () => '',
   }),
   // The fallback a deep parser binds to before its editor exists. Its presence is
   // what lets derivation degrade a command to a text field instead of failing.

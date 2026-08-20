@@ -11,9 +11,7 @@ no `TODO.md`.
 Completing the acceptance set. Each of these stresses part of the schema that
 `/give` does not.
 
-- **`//generate`** — first WorldEdit definition; exercises `flagset`, variadic
-  arguments, and `mutex` constraints
-- WorldEdit `we_pattern` and `we_mask` editors
+- WorldEdit `we_mask` editor
 - **WorldEdit expression evaluator** — standalone, fixture-tested. The largest
   single piece of work in the roadmap and a prerequisite for any shape preview.
   Not derivable from any data source.
@@ -22,9 +20,8 @@ Completing the acceptance set. Each of these stresses part of the schema that
 - **`worldedit/shape` preview** for `//generate`
 
 Exit criterion: all four commands in the schema's acceptance set generate correct
-output, and one 3D preview is live. Three of the four are done; `//generate` is the
-one left, and it is the only acceptance case that touches `flagset`, a variadic tail
-and a `mutex` constraint — all three still unexercised outside a fixture.
+output, and one 3D preview is live. **All four commands are done.** What remains is
+the preview half, whose long pole is the expression evaluator rather than the canvas.
 
 ## Done
 
@@ -57,6 +54,11 @@ Then two more commands, both of which were meant to stress the schema and did:
 - **`/execute`** — `repeat`, `choice` and `ref` end to end: a reorderable clause chain
   and a command picker that renders the chosen command inline through the same walk
 
+Then the last of the acceptance set:
+
+- **`//generate`** — the first command with no derived skeleton at all: another
+  dialect, a `flagset`, a variadic tail, and a `mutex` between its three origin modes
+
 `/execute` is the one that paid for itself. It found that `optional` lived only on
 `ArgumentNode`, so a clause led by a **keyword** — `/particle`'s `force|normal`,
 `/difficulty`'s `peaceful|easy|normal|hard` — had nowhere to record that it could be
@@ -65,6 +67,14 @@ clauses across 22 commands were emitting a token nobody chose. That is the accep
 set doing its job: the finding was a gap in the schema, not a command needing
 special-casing, and `ChoiceNode.optional` closed it without the renderer learning a
 single command's name.
+
+`//generate` was the cheap one, which is the result that matters. It needed **no new
+node kind and no second schema** — `flagset`, `variadic` and `mutex` were already
+there — so the whole of it was a definition, two argument types, and a catalogue that
+merges authored definitions with derived ones. `dialect` stayed a field. It did
+surface two things worth naming: `variadic` had been declared and read by nothing,
+working only because `raw_text` passes spaces through; and the command page applied
+vanilla's slash rule to a WorldEdit alias and printed `///gen`.
 
 ## Later
 

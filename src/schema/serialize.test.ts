@@ -2,10 +2,11 @@ import { describe, expect, test } from 'vitest'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import type { SerializeContext, VersionTraits } from '../data/versions/types'
 import commandsPayload from '../data/generated/1.21.1/commands.json'
-import { EXECUTE, GENERATE } from './fixtures'
+import { EXECUTE } from './fixtures'
+import { generate as GENERATE } from '../data/authored/commands/worldedit/generate'
 import { NO_REGISTRIES } from '../data/versions/registry'
 import type { CommandDefinition, Node } from './types'
-import { serializeCommand, type CommandValue } from './serialize'
+import { aliasNames, serializeCommand, type CommandValue } from './serialize'
 import { evaluateConstraints } from './constraints'
 import { serializeTextComponent, textComponentField, type TextComponent } from './text-component'
 import { writeSnbt } from './snbt'
@@ -273,22 +274,73 @@ describe('/execute — the case that decides whether the tree was necessary', ()
 })
 
 describe('//generate — flags, variadic tail, mutex', () => {
+  // The authored definition itself, not a transcription of it. `//generate` is the
+  // first command with no derived skeleton behind it, so this file asserting the real
+  // thing is the only way a change to it is caught.
+  const pattern = (...entries: Array<[string, number | '']>) => ({
+    entries: entries.map(([block, weight]) => ({ block, weight })),
+  })
+
   test('flags serialise as one combined token', () => {
     const out = serializeCommand(
       GENERATE,
       value({
         flags: { '/1/-h': true, '/1/-r': true },
-        args: { '/2': '50%stone,50%dirt', '/3': 'x^2+y^2+z^2 < 1' },
+        args: {
+          '/2': pattern(['stone', 50], ['dirt', 50]),
+          '/3': 'x^2+y^2+z^2 < 1',
+        },
       }),
       ctx,
     )
     expect(out).toBe('//generate -hr 50%stone,50%dirt x^2+y^2+z^2 < 1')
   })
 
+  test('the expression keeps its spaces, which is what variadic buys it', () => {
+    // WorldEdit takes the expression as List<String> and rejoins it with spaces, so
+    // the tail is one argument however many tokens it looks like. Any node after it
+    // would be tokens this one had already swallowed — asserted structurally in
+    // fixtures, and visible here as an argument whose value simply contains spaces.
+    const out = serializeCommand(
+      GENERATE,
+      value({
+        args: { '/2': pattern(['stone', '']), '/3': '  y > sin(x * 8) * 0.2  ' },
+      }),
+      ctx,
+    )
+    expect(out).toBe('//generate stone y > sin(x * 8) * 0.2')
+  })
+
+  test('a single block is written bare, because a lone weight does not parse', () => {
+    // WorldEdit's RandomPatternParser returns null for a one-token pattern and hands
+    // it to the plain block parser, which does not understand `50%`. So a weight on a
+    // single entry is not a preference, it is a parse error — dropped, and warned about.
+    const single = value({ args: { '/2': pattern(['stone', 50]), '/3': 'y < 1' } })
+    expect(serializeCommand(GENERATE, single, ctx)).toBe('//generate stone y < 1')
+  })
+
+  test('unweighted entries mix with weighted ones', () => {
+    // An entry without a weight counts as 1 in WorldEdit, so mixing is legal and the
+    // serializer must not invent a weight for the bare one.
+    const out = serializeCommand(
+      GENERATE,
+      value({
+        args: { '/2': pattern(['stone', 3], ['dirt', '']), '/3': 'y < 1' },
+      }),
+      ctx,
+    )
+    expect(out).toBe('//generate 3%stone,dirt y < 1')
+  })
+
   test('a violated mutex warns and still produces output', () => {
     const v = value({ flags: { '/1/-r': true, '/1/-o': true } })
     const diagnostics = evaluateConstraints(GENERATE, v)
-    expect(diagnostics).toEqual([{ severity: 'warning', message: 'Choose one origin mode.' }])
+    expect(diagnostics).toEqual([
+      {
+        severity: 'warning',
+        message: 'Only one origin mode applies. WorldEdit takes -r first, then -o, then -c.',
+      },
+    ])
     // The point of "warns, never blocks": the command is still generated.
     // The two required arguments show as placeholders rather than as nothing: this
     // command is incomplete, and the output says so instead of looking finished.
@@ -297,6 +349,14 @@ describe('//generate — flags, variadic tail, mutex', () => {
 
   test('one origin mode is not a violation', () => {
     expect(evaluateConstraints(GENERATE, value({ flags: { '/1/-o': true } }))).toEqual([])
+  })
+
+  test('the dialect decides the slashes, and it is the only thing that does', () => {
+    // A vanilla command is a bare literal that serializeCommand prefixes with '/'; a
+    // WorldEdit token carries its own. That is the whole of what `dialect` changes,
+    // and the reason it is a field rather than a subsystem.
+    expect(GENERATE.dialect).toBe('worldedit')
+    expect(serializeCommand(GENERATE, value({}), ctx).startsWith('//generate')).toBe(true)
   })
 })
 
@@ -355,5 +415,22 @@ describe('the canonical /execute fixture', () => {
       ctx,
     )
     expect(out).toBe('/particle minecraft:flame 0 10 force')
+  })
+})
+
+describe('the dialect decides the slashes, everywhere and not just in the output', () => {
+  test('a vanilla alias is bare in storage and slashed on screen', () => {
+    // mcmeta stores them bare, so the prefix is applied on the way out.
+    expect(aliasNames(commands['vanilla:experience']!)).toEqual(['/xp'])
+  })
+
+  test('a WorldEdit alias already carries its slashes and does not get another', () => {
+    // The bug this pins: the command page prefixed every alias with '/', which is right
+    // for a bare vanilla one and turned '//gen' into '///gen'.
+    expect(aliasNames(GENERATE)).toEqual(['//gen', '//g'])
+  })
+
+  test('a command with no aliases lists none', () => {
+    expect(aliasNames(commands['vanilla:give']!)).toEqual([])
   })
 })

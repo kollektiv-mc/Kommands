@@ -356,3 +356,8 @@ field rather than a subsystem boundary.
 4. Validation warns; it never blocks output.
 5. A `RefNode` must not resolve to its own definition without passing through a
    `RepeatNode` — otherwise rendering does not terminate.
+6. Nothing may follow a `variadic` argument, and one may not sit inside a `Repeat`.
+   A variadic argument consumes every remaining token, so a node after it is
+   unreachable rather than merely unlikely — the form would draw a field that cannot
+   affect the command. `definitionProblems` in `src/schema/invariants.ts` checks 6
+   against every definition in the catalogue.

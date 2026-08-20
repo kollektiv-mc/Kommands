@@ -152,8 +152,10 @@ belongs here.
       WorldEdit expression evaluator's golden fixtures. Partly: all three trait
       branches now have a branch site and a test, the parser table and the SNBT writer
       are covered, the text-component grammar is asserted in both of its forms, and the
-      deriver is asserted through its committed artefact. The evaluator does not exist
-      yet.
+      deriver is asserted through its committed artefact, the path model has its own
+      suite, and the WorldEdit pattern grammar is asserted against the rules read out
+      of `RandomPatternParser`. The evaluator does not exist yet, and it is the one
+      remaining place a silent wrong answer is likely rather than merely possible.
 
 ## 3. Scalable / future-proof
 
@@ -169,9 +171,13 @@ belongs here.
       field (`ChoiceNode.optional`), a deriver branch, and the Ref rendering #9 had
       deferred. That is the claim behaving correctly rather than failing — `/execute`
       is in the acceptance set precisely because it stresses the schema, and what it
-      found was a gap in the schema rather than a command needing special-casing. The
-      renderer still branches on node kind alone. The first command added _after_
-      this one is the real test.
+      found was a gap in the schema rather than a command needing special-casing.
+      `//generate` is the closest thing to a clean test so far, and came nearer to
+      holding: no new node kind, no second schema, no renderer change — a definition,
+      two argument types, and one merge. Two argument types is more than the claim
+      allows, but [`architecture.md`](architecture.md) buckets authored editors that
+      way by design, the same allowance `/give` took for `item_stack`. The renderer
+      still branches on node kind alone.
       Verify: `git diff` for the last command added — expect
       `src/data/authored/ui/` and a test. Nothing else.
 - [ ] Adding a Minecraft version touches only version data and generated files.
@@ -260,14 +266,16 @@ it should be stable between runs.
   a decision worth making before #10 and #12, not after.
   [#29](https://github.com/kollektiv-mc/Kommands/issues/29).
 
-**P2 — Three schema fields are documented and read by nothing**
+**P2 — Two schema fields are documented and read by nothing**
 
-- `ArgumentNode.variadic`, `ArgumentNode.default` and `RepeatNode.max` exist in the
-  type and in `command-schema.md`, and no code in `src/` reads any of them. A
-  documented field with no behaviour reads as a guarantee, which is worse than an
-  absent one. `variadic` blocks #10, whose `we_expression` tail would otherwise ship
-  working by accident — `raw_text` passes any string through, so the field appears to
-  function without ever being consulted.
+- `ArgumentNode.default` and `RepeatNode.max` exist in the type and in
+  `command-schema.md`, and no code in `src/` reads either. A documented field with no
+  behaviour reads as a guarantee, which is worse than an absent one. `variadic` was the
+  third and is now real: it reaches the editor through `argumentOptions`, and invariant
+  6 — nothing may follow a variadic argument — is checked against every definition in
+  the catalogue. `CommandDefinition.versions` has since joined the list: the catalogue
+  merges without consulting it, because with one version a range check would be
+  untestable code standing in for a decision nobody has had to make yet.
   [#30](https://github.com/kollektiv-mc/Kommands/issues/30).
 
 **P2 — `gen:diff` can pin to a branch**

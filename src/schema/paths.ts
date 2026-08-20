@@ -56,6 +56,25 @@ export function reindexInstances<T>(
   return next
 }
 
+/**
+ * Every key at or below `path` removed.
+ *
+ * The subtree guard, and the counterpart of the one CommandWorkbench applies when the
+ * whole command changes. Its reasoning holds one level down too: a path means nothing
+ * outside the definition it was built against, and a Ref's subtree *is* another
+ * definition. Leaving `/give`'s item where `/particle` reads a position does not
+ * produce a wrong command, it produces no command — the serializer is handed a value
+ * of a shape its type never makes, and throws, taking the output panel with it.
+ */
+export function clearSubtree<T>(table: Readonly<Record<Path, T>>, path: Path): Record<Path, T> {
+  const next: Record<Path, T> = {}
+  for (const [key, held] of Object.entries(table)) {
+    if (key === path || key.startsWith(`${path}/`)) continue
+    next[key] = held
+  }
+  return next
+}
+
 /** Every path at which an argument called `name` currently sits. */
 export function pathsForName(root: Node, name: string, counts: RepeatCounts): Path[] {
   const found: Path[] = []

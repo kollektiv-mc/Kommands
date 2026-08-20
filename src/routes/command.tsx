@@ -1,8 +1,9 @@
 import { createRoute } from '@tanstack/react-router'
 import { rootRoute } from './root'
 import { CommandWorkbench } from '../components/CommandWorkbench'
-import { loadCommands, loadRegistries } from '../data/loadGenerated'
-import { withUi } from '../data/authored/ui'
+import { loadRegistries } from '../data/loadGenerated'
+import { loadCatalogue } from '../data/catalogue'
+import { aliasNames } from '../schema/serialize'
 import { v1_21_1 } from '../data/versions/1.21.1'
 
 // The component is inline, matching root.tsx: a route file that exported both a
@@ -17,19 +18,15 @@ export const commandRoute = createRoute({
   // commands.json nor registries.json reaches the entry chunk. TanStack Router awaits
   // this before rendering, so the component never sees half-loaded data.
   loader: async ({ params }) => {
-    const [commands, registries] = await Promise.all([
-      loadCommands(v1_21_1),
+    const [catalogue, registries] = await Promise.all([
+      loadCatalogue(v1_21_1),
       loadRegistries(v1_21_1),
     ])
-    const derived = commands[params.commandId]
     // The whole map travels on, not just the one definition: `/execute … run` embeds
     // any other command, so the picker needs the list and the serializer needs to
     // resolve what it picks. The map is already in hand — finding this definition
     // required loading it — so this costs a reference, not a fetch.
-    const catalogue = Object.fromEntries(
-      Object.entries(commands).map(([id, command]) => [id, withUi(command)]),
-    )
-    return { definition: derived ? withUi(derived) : undefined, catalogue, registries }
+    return { definition: catalogue[params.commandId], catalogue, registries }
   },
   component: () => {
     const { definition, catalogue, registries } = commandRoute.useLoaderData()
@@ -48,7 +45,7 @@ export const commandRoute = createRoute({
           )}
           {definition.aliases && definition.aliases.length > 0 && (
             <p className="text-text-muted text-2xs mt-1 font-mono">
-              {`also /${definition.aliases.join(', /')}`}
+              {`also ${aliasNames(definition).join(', ')}`}
             </p>
           )}
         </section>

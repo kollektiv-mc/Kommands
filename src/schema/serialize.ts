@@ -58,11 +58,35 @@ export function serializeCommand(
 ): string {
   const depth = options.maxDepth ?? DEFAULT_MAX_DEPTH
   const body = serializeNode(definition.root, ROOT, value, ctx, options, depth)
-  // WorldEdit tokens carry their own slashes ('//generate'); vanilla literals are
-  // bare, so the prefix is added here. This branches on dialect, which is a schema
-  // field — not on a command id.
-  const prefix = definition.dialect === 'vanilla' ? '/' : ''
-  return body === '' ? '' : prefix + body
+  return body === '' ? '' : dialectPrefix(definition.dialect) + body
+}
+
+/**
+ * The slash a dialect's tokens are written with.
+ *
+ * WorldEdit tokens carry their own — `//generate` is the literal — while vanilla
+ * literals are bare and take one here. Branching on dialect is fine; it is a schema
+ * field, not a command id.
+ *
+ * Exported because the serializer is not the only reader. The command page prints a
+ * command's other names, and applying the vanilla rule to a WorldEdit alias produced
+ * `///gen`. One rule with two callers beats the same conditional written twice, which
+ * is how that happened.
+ */
+export function dialectPrefix(dialect: CommandDefinition['dialect']): string {
+  return dialect === 'vanilla' ? '/' : ''
+}
+
+/**
+ * A command's other names, as written.
+ *
+ * Aliases are stored the way their dialect stores its tokens — mcmeta gives vanilla's
+ * bare (`xp`), a WorldEdit definition writes its own with the slashes it has in game
+ * (`//gen`) — so the prefix is applied by the same rule the command name gets.
+ */
+export function aliasNames(definition: CommandDefinition): string[] {
+  const prefix = dialectPrefix(definition.dialect)
+  return (definition.aliases ?? []).map((alias) => `${prefix}${alias}`)
 }
 
 function serializeNode(

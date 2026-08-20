@@ -5,6 +5,7 @@ import { CommandWorkbench } from './CommandWorkbench'
 import commandsPayload from '../data/generated/1.21.1/commands.json'
 import { makeRegistryLookup } from '../data/versions/registry'
 import { withUi } from '../data/authored/ui'
+import { generate } from '../data/authored/commands/worldedit/generate'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import type { CommandDefinition } from '../schema/types'
 import { useCommandStore } from '../stores/useCommandStore'
@@ -216,4 +217,80 @@ test('reordering clauses reorders the command, and removing one takes its values
 
   await user.click(screen.getByLabelText('Remove clause 1'))
   expect(output()).toBe('/execute as @p')
+})
+
+test('building //generate in the editors, in a dialect nothing here knows about', async () => {
+  // The other end of the acceptance set. `//generate` has no derived skeleton, no
+  // Brigadier parser behind either of its argument types, and a different dialect —
+  // and it reaches the output panel through exactly the same workbench.
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={generate}
+      version={v1_21_1}
+      registries={makeRegistryLookup({ block: ['stone', 'dirt'] })}
+    />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+
+  // Both arguments are required, so an untouched command shows its gaps.
+  expect(output()).toBe('//generate <pattern> <expression>')
+
+  await user.click(screen.getByLabelText('Hollow'))
+  await user.click(screen.getByLabelText('Raw coordinate origin'))
+  // One combined token, not `-h -r`.
+  expect(output()).toBe('//generate -hr <pattern> <expression>')
+
+  await user.click(screen.getByText('+ block'))
+  await user.type(screen.getByLabelText('Block 1'), 'stone')
+  expect(output()).toBe('//generate -hr stone <expression>')
+
+  await user.type(screen.getByLabelText('Expression'), 'x^2+y^2+z^2 < 1')
+  expect(output()).toBe('//generate -hr stone x^2+y^2+z^2 < 1')
+
+  // A second block turns the chance columns on, because now there is a mix.
+  await user.click(screen.getByText('+ block'))
+  await user.type(screen.getByLabelText('Block 2'), 'dirt')
+  await user.type(screen.getByLabelText('Chance for block 1'), '50')
+  await user.type(screen.getByLabelText('Chance for block 2'), '50')
+  expect(output()).toBe('//generate -hr 50%stone,50%dirt x^2+y^2+z^2 < 1')
+})
+
+test('the origin-mode mutex warns and the command still generates', async () => {
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench definition={generate} version={v1_21_1} registries={registries} />,
+  )
+  await user.click(screen.getByLabelText('Raw coordinate origin'))
+  await user.click(screen.getByLabelText('Placement origin'))
+
+  expect(screen.getByText(/Only one origin mode applies/)).toBeDefined()
+  // Warns, never blocks. WorldEdit accepts all three and silently takes -r, so the
+  // command is real and the warning says which one wins rather than refusing it.
+  expect(container.querySelector('code')?.textContent).toBe('//generate -ro <pattern> <expression>')
+})
+
+test('re-pointing an embedded command clears what the last one held', async () => {
+  // A crash, not a cosmetic problem: the embedded command's values are keyed below the
+  // Ref's path, so /give's item_stack sat exactly where /particle reads a position, and
+  // the serializer threw on a value of a shape its type never makes — taking the whole
+  // output panel down rather than producing a wrong command.
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={commands['vanilla:execute']!}
+      version={v1_21_1}
+      registries={registries}
+      catalogue={commands}
+    />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+
+  await user.selectOptions(screen.getAllByLabelText('Clause').at(-1)!, '0')
+  await user.selectOptions(screen.getByLabelText('command'), 'vanilla:give')
+  await user.type(screen.getByLabelText('Item'), 'stone')
+  expect(output()).toBe('/execute run give @p minecraft:stone')
+
+  await user.selectOptions(screen.getByLabelText('command'), 'vanilla:particle')
+  expect(output()).toBe('/execute run particle <name>')
 })

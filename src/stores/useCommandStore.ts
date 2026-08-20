@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { CommandValue } from '../schema/serialize'
 import { EMPTY_VALUE } from '../schema/serialize'
-import { reindexInstances, type Path } from '../schema/paths'
+import { clearSubtree, reindexInstances, type Path } from '../schema/paths'
 
 /**
  * The value tree for the command currently being edited.
@@ -26,6 +26,14 @@ interface CommandState {
    * added, in a clause the user did not fill in.
    */
   reorderRepeat: (path: Path, order: readonly number[]) => void
+  /**
+   * Point a `@any` Ref at a command, discarding whatever the last one held.
+   *
+   * The embedded command's values are keyed below this Ref's path, and those paths
+   * mean nothing to a different command — `/give`'s item sits exactly where
+   * `/particle` reads a position. Keeping them does not produce a wrong command; it
+   * hands a serializer a value of a shape its own type never makes.
+   */
   setRef: (path: Path, definitionId: string) => void
   reset: () => void
 }
@@ -55,6 +63,19 @@ export const useCommandStore = create<CommandState>((set) => ({
       },
     })),
   setRef: (path, definitionId) =>
-    set((s) => ({ value: { ...s.value, refs: { ...s.value.refs, [path]: definitionId } } })),
+    set((s) => {
+      // Re-picking the same command keeps everything filled in. Only a genuine change
+      // clears, so brushing the picker does not cost the user their work.
+      if (s.value.refs[path] === definitionId) return s
+      return {
+        value: {
+          args: clearSubtree(s.value.args, path),
+          flags: clearSubtree(s.value.flags, path),
+          choices: clearSubtree(s.value.choices, path),
+          repeats: clearSubtree(s.value.repeats, path),
+          refs: { ...clearSubtree(s.value.refs, path), [path]: definitionId },
+        },
+      }
+    }),
   reset: () => set({ value: EMPTY_VALUE }),
 }))

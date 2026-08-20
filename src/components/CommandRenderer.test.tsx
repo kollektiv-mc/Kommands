@@ -3,7 +3,8 @@ import { render, screen } from '@testing-library/react'
 import { expect, test, describe, vi } from 'vitest'
 import { CommandRenderer } from './CommandRenderer'
 import commandsPayload from '../data/generated/1.21.1/commands.json'
-import { EXECUTE, GENERATE } from '../schema/fixtures'
+import { EXECUTE } from '../schema/fixtures'
+import { generate as GENERATE } from '../data/authored/commands/worldedit/generate'
 import { EMPTY_VALUE } from '../schema/serialize'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import { NO_REGISTRIES } from '../data/versions/registry'
@@ -91,15 +92,25 @@ describe('the renderer walks a definition and nothing else', () => {
   })
 
   test('renders //generate — a flagset and a variadic tail', () => {
+    // The other half of the claim /execute made: a definition nobody derived, in
+    // another dialect, drawn by the same walk. Nothing in this file knows WorldEdit
+    // exists — it is the flagset node kind and the argument-type registry doing it.
     renderDef(GENERATE)
     expect(screen.getByText('//generate')).toBeDefined()
     for (const label of ['Hollow', 'Raw coordinate origin']) {
       expect(screen.getByText(label)).toBeDefined()
     }
-    // we_pattern and we_expression have no editors; both degrade to a text field
-    // rather than blanking the command.
-    expect(screen.getByText('pattern', { exact: false })).toBeDefined()
-    expect(screen.getByText('expression', { exact: false })).toBeDefined()
+    // Authored labels, from the definition's own ui metadata rather than the argument
+    // names — the presentation half of the same data.
+    expect(screen.getByText('Blocks')).toBeDefined()
+    expect(screen.getByText('Expression')).toBeDefined()
+  })
+
+  test('the pattern editor offers a weight only once there is something to weigh', () => {
+    // A weight on a single-entry pattern does not parse, so the column that would
+    // invite one is not drawn until a second block exists.
+    renderDef(GENERATE)
+    expect(screen.queryByLabelText('Chance for block 1')).toBeNull()
   })
 })
 
