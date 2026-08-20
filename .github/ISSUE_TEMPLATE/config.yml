@@ -1,0 +1,25 @@
+# The chooser shown at /issues/new/choose.
+#
+# Blank issues are off, so every route in goes through a form and a report arrives
+# with a Minecraft version and a command already attached instead of as one line of
+# prose. scripts/check-participation.sh in kollektiv checks that this stays true
+# across the suite.
+#
+# The generated-command link is here because it routes the single most common
+# non-issue: a command that is correct for a version other than the one Kommands
+# targets. docs/minecraft-versions.md is what answers that, and it answers it
+# faster than a triage round trip.
+blank_issues_enabled: false
+
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/kollektiv-mc/Kommands/security/advisories/new
+    about: Report it privately through GitHub. Please do not open a public issue for a security problem.
+
+  - name: Which Minecraft versions are supported
+    url: https://github.com/kollektiv-mc/Kommands/blob/main/docs/minecraft-versions.md
+    about: Kommands targets Java Edition 1.21.1. Syntax that differs in another version is usually this, not a bug.
+
+  - name: Something wrong in Konnekt
+    url: https://github.com/kollektiv-mc/Konnekt/issues/new/choose
+    about: The server dashboard is a separate app with a separate tracker.

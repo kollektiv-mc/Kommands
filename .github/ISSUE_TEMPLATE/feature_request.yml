@@ -1,0 +1,73 @@
+# Asks what you were trying to build before what to add. A request phrased only as
+# a solution throws away the command you were actually after, and the command is the
+# part that can be checked against the Brigadier tree - often it is already
+# expressible and the gap is the UI, which is a different fix.
+#
+# `command` is optional on purpose. "I do not know the syntax" is the whole reason
+# this app exists, and requiring it would filter out exactly the people it is for.
+name: Feature request
+description: Suggest a command, an argument, or something else Kommands should support
+title: '[Feature]: '
+labels: ['type:feature']
+
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to build?
+      description: |
+        The command or the situation, not the control you have in mind. This is the most useful
+        field on the form.
+      placeholder: |
+        I want a written book with clickable pages, and I end up hand-writing the SNBT every time
+        because I can never remember how text components nest.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like Kommands to do?
+      description: A rough sketch is fine, and so is "I do not know, but something".
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: The command you would write by hand today
+      description: Optional. If you know the syntax, it is the fastest way to say what you mean.
+      render: text
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part?
+      options:
+        - A generated command (/give, /tellraw, /execute, WorldEdit)
+        - The 3D preview
+        - Command definitions or registry data
+        - The interface itself
+        - Something else, or not sure
+    validations:
+      required: true
+
+  # >>> suite:priority. Vendored from kollektiv by scripts/sync-priority.sh. Edit it there.
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How urgent is this for you?
+      description: Your honest read. Triage may change it, and that is normal.
+      options:
+        - 'Blocking: I cannot use it and have no way around it'
+        - 'Significant: it costs me real time, but I can work around it'
+        - 'Minor: it would be nice, but it is not in my way'
+    validations:
+      required: true
+  # <<< suite:priority
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Links, screenshots from other tools, how you handle it today.
