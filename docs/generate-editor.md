@@ -96,13 +96,41 @@ air-above AND not-a-log. Available: `#air #existing #solid #exposed #surface #fu
 Note `=expression` — a mask can itself be an expression, which is a second place the
 language appears.
 
-### `//generate` does not take a mask
+### Two kinds of masking, and only one of them is previewable
 
-Its signature is `pattern` then a variadic `expression`, plus the four switches.
-Masking comes from `//gmask`, a **separate, stateful, global** command
-(`GeneralCommands.java:389`). This matters: masking is not part of the command being
-generated, so a tool that offers masking is generating _two_ commands with an ordering
-dependency between them.
+"Put a torus inside a torus, but only where there is stone" is two different operations
+wearing one word, and the tool has to keep them apart.
+
+**Geometry masking** — torus ∩ torus — is about shapes the tool itself created. It is
+constructive solid geometry, it compiles to `&&`, it stays inside the one expression,
+and it is fully previewable. Nothing special is needed for it.
+
+**World masking** — "only where there is stone" — is about blocks already in a world the
+browser has never seen. Two routes, neither free:
+
+1. **`//gmask <mask>`** — a **separate, stateful, global** command
+   (`GeneralCommands.java:389`). `//generate` itself takes no mask: its signature is
+   `pattern`, then the variadic `expression`, then the four switches. So a tool offering
+   world masks emits an _ordered pair_ of commands. In exchange it gets the whole mask
+   grammar above, on modern blocks.
+2. **`query()` inside the expression** — one command, no ordering problem, and a trap.
+   `query(x, y, z, type, data)` reads the world block and returns 1 on a match, `-1`
+   being a wildcard — but it works in **legacy numeric ids** through `LegacyMapper`, and
+   `WorldEditExpressionEnvironment.getLegacy` returns `-1` for anything without one.
+   Measured against the pinned 1.21.1 block registry:
+
+   | Blocks                 |                 |
+   | ---------------------- | --------------: |
+   | Block types in 1.21.1  |            1060 |
+   | Reachable by legacy id | **444 (41.9%)** |
+   | Invisible to `query()` |             616 |
+
+   Everything from the 1.13 flattening onward is in that 616 — deepslate, copper,
+   blackstone, amethyst, calcite, tuff, mud, cherry, bamboo. A mask built this way
+   silently does nothing for more than half the blocks anyone would name.
+
+**So world masking is `//gmask`, and the tool emits two commands.** `query()` is worth
+knowing about and not worth building on.
 
 ---
 
@@ -189,6 +217,57 @@ Two properties fall out for free, and both matter:
 - **Simplification is a pure function on the tree**, testable without a canvas and
   without a browser — the same way the WorldEdit expression evaluator is specified to
   be standalone and fixture-tested.
+
+---
+
+## The node graph is that decision, given a UI
+
+A Houdini-style procedural graph — nodes wired together, a 3D viewport beside them, the
+command updating live underneath — is **not an alternative to the operation tree. It is
+the operation tree with an interface.** Source nodes are primitives, filter nodes are
+transforms, merge nodes are the boolean combinators, and the terminal node is what gets
+compiled. Three views of one document: the graph edits it, the viewport evaluates it,
+the command serializes it. That is the same relationship this repo already has between a
+definition, a value tree and command text — see [`architecture.md`](architecture.md).
+
+Three things are worth being precise about before building it.
+
+**It is a DAG, not a chain.** A boolean node takes two inputs, so the wiring branches and
+re-merges. Houdini is the same — its merge nodes are n-ary. A strictly linear chain
+cannot express "torus A intersected with torus B" at all.
+
+**Shared outputs compile to variables, not to duplicated text.** This is what makes a
+graph — rather than a tree — safe to compile, and it is the finding that decides the
+whole question. The expression language has assignment, statement sequencing, and
+last-statement-as-result. WorldEdit's own tests pin it
+(`ExpressionTest.testAssignOps`):
+
+```java
+checkTestCase("a=2; a^=3; a", 8);   // sequence, assignment, last value is the result
+testCase("return 1; 0", 1);         // explicit return also works
+```
+
+So a node whose output feeds two consumers becomes one assignment and two references:
+
+```
+r = x^2+y^2+z^2; (r<1) && !(r<0.7)
+```
+
+Without that, a diamond in the graph would duplicate its shared subexpression on every
+path — the blow-up that made the scan-and-derive route fail, arriving by another door.
+
+**Live update should cook the dirty subgraph, not the whole graph.** A node graph makes
+the dependency edges explicit, so a parameter change only invalidates nodes downstream of
+it. That is Houdini's own model, and it is what makes the preview budget in
+[`health-checklist.md`](health-checklist.md) achievable at 64³ — 262,144 evaluations per
+input change is only affordable if most inputs do not touch most nodes.
+
+One consequence for the graph's vocabulary: **geometry masks and world masks are not the
+same kind of node.** A geometry mask is an ordinary combinator — previewable, compiled
+into the expression. A world mask is a promise about blocks the tool cannot see, and it
+leaves by a different door (`//gmask`, a second command). They should not look alike in
+the palette, because one of them the viewport can show and the other it can only
+describe.
 
 ---
 
