@@ -15,16 +15,18 @@ Completing the acceptance set. Each of these stresses part of the schema that
   rather than the stack of rows it is now. The current chain UI is a placeholder that
   proved the data layer end to end; it is not the intended design, and #33 (stable
   instance identity) is its prerequisite
-- **WorldEdit expression evaluator** — standalone, fixture-tested. The largest
-  single piece of work in the roadmap and a prerequisite for any shape preview.
-  Not derivable from any data source.
+- **The CSG graph** — the operation tree of
+  [`generate-editor.md`](generate-editor.md), and its compiler down to expression
+  text. Headless, like the evaluator, and the other half of what the node editor
+  needs before it has anything to draw.
 - Preview infrastructure: shared `<PreviewCanvas>`, module registry, build-time
   binding validation
 - **`worldedit/shape` preview** for `//generate`
 
 Exit criterion: all four commands in the schema's acceptance set generate correct
-output, and one 3D preview is live. **All four commands are done.** What remains is
-the preview half, whose long pole is the expression evaluator rather than the canvas.
+output, and one 3D preview is live. **All four commands are done**, and so is the
+evaluator that was the long pole. What remains is the preview half: a graph that
+produces expression text, and a canvas that draws what the evaluator returns.
 
 ## Done
 
@@ -32,6 +34,15 @@ Getting a single command generating correct 1.21.1 output end to end. The goal o
 this phase was to **prove the schema against real commands**, not to ship breadth.
 Its exit criterion — `/give` producing every canonical output exactly — is met.
 
+- **WorldEdit expression evaluator** — `src/worldedit/expression/`, standalone and
+  headless. Lexer, precedence-climbing parser, and a compiler to a closure tree; the
+  full grammar, the 22 maths built-ins, and a per-point step budget so a `while` loop
+  cannot hang the tab. Specified by WorldEdit's own test suite rather than by
+  description: `ExpressionTest.java` and `RealExpressionTest.java` are ported as 104
+  cases, including the four traps (`^` is power, postfix `!` is factorial, `&&`/`||`
+  return an operand rather than a boolean, `~=` compares by ULPs) and the real shapes
+  with their per-point expectations. World reads and noise parse and then say honestly
+  that they are out of scope, rather than being faked.
 - Scaffold the app: Vite, React, TypeScript strict, router, Tailwind v4, Vitest
 - `pnpm gen:tokens` → `src/styles/tokens.css` from the vendored
   `tokens.source.json`, with the full named scale so no component ever needs a

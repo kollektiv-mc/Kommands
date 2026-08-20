@@ -61,6 +61,35 @@ exp log log10 ln round atan2 min max`
 That last group is **out of scope**, with world masking, for the reasons below. A browser
 has no world to read, so these can be written but never shown.
 
+### That language is implemented here, and written rather than generated
+
+`src/worldedit/expression/` — lexer, parser, compiler, built-ins. Two decisions in it
+are worth recording, because both look wrong at first glance.
+
+**Written, not generated.** `Expression.g4` is target-neutral — no Java actions, no
+`@header` or `@members` — so `antlr4ng` could generate a parser from WorldEdit's own
+grammar. It was not used. A generated parser adds a runtime dependency to the entry
+chunk, still needs a visitor written by hand to reach a closure tree, and does not
+help with the part that is actually hard. 34 parser rules with textbook precedence is
+a precedence-climbing parser of a few hundred lines; the semantics below are the work.
+
+**Specified by upstream's tests, not by this document.** There is no written spec for
+this language. `ExpressionTest.java` and `RealExpressionTest.java` are it, and they are
+transcribed into `expression.test.ts` rather than paraphrased — a case that disagrees
+with upstream is this implementation being wrong. Four of them are traps that an
+implementation written from intuition fails while passing everything else:
+
+| Looks like                     | Actually                                                                          |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| `^` is xor                     | **exponentiation**, right-associative (`POWER : '^' \| '**'`)                     |
+| postfix `!` is negation        | **factorial**, from a 171-entry table, truncating its input                       |
+| `&&` and `\|\|` yield booleans | they yield an **operand** — `0 \|\| 5` is `5`, `2 \|\| 5` is `2`, `5 && 0` is `0` |
+| `~=` is a tolerance            | **units in the last place**, compared as integers                                 |
+
+The compiler emits a closure tree rather than an interpreter over the AST, because the
+consumer evaluates it 262,144 times per input change. See
+[`health-checklist.md`](health-checklist.md) § 4.
+
 ### Patterns are six grammars, not one
 
 `extension/factory/parser/pattern/`:

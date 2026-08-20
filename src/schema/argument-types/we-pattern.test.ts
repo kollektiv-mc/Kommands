@@ -80,27 +80,43 @@ describe('validating a WorldEdit pattern', () => {
   })
 })
 
-describe('validating a WorldEdit expression', () => {
-  test('a balanced expression is silent', () => {
+describe('the expression field reports what is actually wrong', () => {
+  // The grammar itself is tested in src/worldedit/expression — these are about the
+  // argument type being wired to it. Before it existed this validator balanced brackets
+  // and nothing else, so `2 +* 3` and `frobnicate(x)` both passed silently.
+
+  test('a valid expression is silent', () => {
     expect(validateExpression('(x^2+y^2+z^2) < 1')).toEqual([])
     expect(validateExpression('y < sin(x*8)*0.2')).toEqual([])
   })
 
-  test('an unclosed bracket warns', () => {
-    expect(validateExpression('sin(x*8')[0]?.message).toContain('unclosed')
+  test('an unbalanced bracket is still caught, as it always was', () => {
+    expect(validateExpression('sin(x*8')).toHaveLength(1)
+    expect(validateExpression('x*8)')).toHaveLength(1)
   })
 
-  test('closing something never opened warns', () => {
-    expect(validateExpression('x*8)')[0]?.message).toContain('never opened')
+  test('and now so is a malformed expression that balances perfectly', () => {
+    expect(validateExpression('2 +* 3')).toHaveLength(1)
   })
 
-  test('mismatched kinds are caught rather than counted', () => {
-    // A naive counter passes this: one opener, one closer. They are not a pair.
-    expect(validateExpression('(x]')).toHaveLength(1)
+  test('an unknown function is named', () => {
+    expect(validateExpression('frobnicate(x)')[0]?.message).toContain('frobnicate')
   })
 
   test('operators that look like brackets are not brackets', () => {
     expect(validateExpression('x < 1 && y > 2')).toEqual([])
+  })
+
+  test('an empty field says nothing, because it is unfinished rather than wrong', () => {
+    expect(validateExpression('')).toEqual([])
+  })
+
+  test('every diagnostic is a warning — this field never blocks the command', () => {
+    for (const source of ['sin(x*8', '2 +* 3', 'frobnicate(x)', 'perlin(x,y,z,1,1,1)']) {
+      for (const diagnostic of validateExpression(source)) {
+        expect(diagnostic.severity).toBe('warning')
+      }
+    }
   })
 })
 

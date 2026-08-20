@@ -270,6 +270,53 @@ test('the origin-mode mutex warns and the command still generates', async () => 
   expect(container.querySelector('code')?.textContent).toBe('//generate -ro <pattern> <expression>')
 })
 
+test('the expression field says what is wrong with the formula, and generates anyway', async () => {
+  // The acceptance case for the evaluator being wired to the field that ships. Before
+  // it, this field balanced brackets and stopped: `2 +* 3` was accepted in silence.
+  //
+  // Each of these still reaches the output panel. Validation warns and never blocks,
+  // and a half-typed formula is the normal state of a field someone is typing into.
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={generate}
+      version={v1_21_1}
+      registries={makeRegistryLookup({ block: ['stone'] })}
+    />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+  const field = screen.getByLabelText('Expression')
+
+  await user.click(screen.getByText('+ block'))
+  await user.type(screen.getByLabelText('Block 1'), 'stone')
+
+  await user.type(field, 'sin(x')
+  expect(screen.getByText(/Expected \) here/)).toBeDefined()
+  expect(output()).toBe('//generate stone sin(x')
+
+  await user.clear(field)
+  await user.type(field, '2 +* 3')
+  expect(screen.getByText(/cannot start a value/)).toBeDefined()
+  expect(output()).toBe('//generate stone 2 +* 3')
+
+  await user.clear(field)
+  await user.type(field, 'frobnicate(x)')
+  expect(screen.getByText('frobnicate is not a function.')).toBeDefined()
+  expect(output()).toBe('//generate stone frobnicate(x)')
+
+  // A formula this preview cannot draw is not a mistake in the formula. `perlin` is a
+  // real WorldEdit function; the diagnostic says so rather than calling it a typo.
+  await user.clear(field)
+  await user.type(field, 'perlin(x,y,z,1,1,1) > 0')
+  expect(screen.getByText(/perlin is not implemented yet/)).toBeDefined()
+
+  // And a formula that is simply correct says nothing at all.
+  await user.clear(field)
+  await user.type(field, 'x^2+y^2+z^2 < 1')
+  expect(screen.queryByText(/not a function|cannot start a value|Expected/)).toBeNull()
+  expect(output()).toBe('//generate stone x^2+y^2+z^2 < 1')
+})
+
 test('re-pointing an embedded command clears what the last one held', async () => {
   // A crash, not a cosmetic problem: the embedded command's values are keyed below the
   // Ref's path, so /give's item_stack sat exactly where /particle reads a position, and

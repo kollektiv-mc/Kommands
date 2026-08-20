@@ -216,12 +216,22 @@ belongs here.
       rather than freezing the tab.
 - [ ] Geometries and materials are disposed on unmount. A module that creates its own
       renderer produces a second WebGL context and leaks it.
-- [ ] The WorldEdit expression evaluator compiles to a closure tree rather than
+- [x] The WorldEdit expression evaluator compiles to a closure tree rather than
       walking the AST per voxel, and has been benchmarked before being wired to a
-      canvas.
-- [ ] There is an agreed production bundle budget, checked in CI. Konnekt runs a
-      550 KB gzip entry-chunk budget via `pnpm check-bundle`; Kommands has no
-      equivalent yet — see `Open backlog`.
+      canvas. `compile.ts` binds every operand at compile time; `evaluate` dispatches
+      on nothing. A 64³ torus is 262,144 evaluations in ~56 ms, the heaviest fixture
+      (a gyroid) ~196 ms, and `evaluate.test.ts` holds a 400 ms floor so the next
+      change fails loudly rather than quietly costing 10×.
+      Verify: `pnpm vitest bench src/worldedit/expression`.
+- [x] A compiled expression carries a **step budget** and stops with a diagnostic. The
+      language has `while` and `for`, so a formula that does not terminate is a thing
+      a user can type; without the guard it hangs the tab rather than the evaluation.
+      This is the headless half of capping the evaluated volume.
+- [x] There is an agreed production bundle budget, checked in CI. 120 KB gzip on the
+      entry chunk, via `pnpm check-bundle`, run by `.github/workflows/ci.yml` on every
+      push. Currently 103.2 KB. Konnekt's equivalent is 550 KB, and the gap is the
+      point: this app's data is lazy and Konnekt's is not.
+      Verify: `pnpm build && pnpm check-bundle`.
 
 ---
 
@@ -290,6 +300,19 @@ it should be stable between runs.
   node editor, where per-node local state is the norm and reorder is the primary
   interaction. The decision is where instance identity lives.
   [#33](https://github.com/kollektiv-mc/Kommands/issues/33).
+
+**P2 — The expression evaluator ships in the entry chunk, for every command**
+
+- Wiring `we_expression`'s validator to the real evaluator moved the entry chunk from
+  98.4 KB to 103.2 KB gzip. That is inside the 120 KB budget with 16.8 KB spare, and it
+  is the price of the field telling the truth as you type — but the cost is paid by
+  someone who only ever opens `/give`. The cause is structural rather than local: the
+  argument-type registry in `argument-types/index.ts` is one eagerly-constructed object,
+  so every type's validator, editor and serializer is statically reachable from every
+  route. Making one lazy means an async validator, which changes the contract for all
+  fifteen types. The right time to decide is when the preview lands and the same module
+  is wanted lazily by a canvas — splitting the whole `we_expression` type, editor
+  included, is a cleaner cut than special-casing its validator.
 
 **P2 — `gen:diff` can pin to a branch**
 
