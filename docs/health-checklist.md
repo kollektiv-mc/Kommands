@@ -278,6 +278,19 @@ it should be stable between runs.
   untestable code standing in for a decision nobody has had to make yet.
   [#30](https://github.com/kollektiv-mc/Kommands/issues/30).
 
+**P1 — A reordered clause takes its values but not its component state**
+
+- Repeat instances are addressed by index and rendered with `key={i}`, so
+  `reindexInstances` moves every stored value while React hands the same mounted
+  components new props. An editor holding internal state — `ItemStackEditor`'s
+  component dropdown is one — keeps it at the old position, and focus is bound to a
+  DOM slot rather than to a clause. Latent today, because `/execute`'s Repeat is the
+  only one in the catalogue and none of its clauses uses such an editor. It stops
+  being latent the moment the `/execute` editor becomes the intended lock-in-place
+  node editor, where per-node local state is the norm and reorder is the primary
+  interaction. The decision is where instance identity lives.
+  [#33](https://github.com/kollektiv-mc/Kommands/issues/33).
+
 **P2 — `gen:diff` can pin to a branch**
 
 - Every path that feeds the build pins by mcmeta tag, and a test asserts it. `gen-diff`
