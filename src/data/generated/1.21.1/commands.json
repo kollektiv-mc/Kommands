@@ -483,7 +483,8 @@
                 "kind": "literal",
                 "token": "players"
               }
-            ]
+            ],
+            "optional": true
           }
         ]
       },
@@ -875,7 +876,8 @@
                                         "kind": "literal",
                                         "token": "normal"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               },
@@ -901,7 +903,8 @@
                                         "kind": "literal",
                                         "token": "normal"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               },
@@ -927,11 +930,13 @@
                                         "kind": "literal",
                                         "token": "normal"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               }
-                            ]
+                            ],
+                            "optional": true
                           }
                         ]
                       },
@@ -983,7 +988,8 @@
                                         "kind": "literal",
                                         "token": "normal"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               },
@@ -1009,7 +1015,8 @@
                                         "kind": "literal",
                                         "token": "normal"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               },
@@ -1035,11 +1042,13 @@
                                         "kind": "literal",
                                         "token": "normal"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               }
-                            ]
+                            ],
+                            "optional": true
                           }
                         ]
                       }
@@ -1111,7 +1120,8 @@
                                         "kind": "literal",
                                         "token": "normal"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               },
@@ -1137,7 +1147,8 @@
                                         "kind": "literal",
                                         "token": "normal"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               },
@@ -1163,11 +1174,13 @@
                                         "kind": "literal",
                                         "token": "normal"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               }
-                            ]
+                            ],
+                            "optional": true
                           }
                         ]
                       },
@@ -1219,7 +1232,8 @@
                                         "kind": "literal",
                                         "token": "normal"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               },
@@ -1245,7 +1259,8 @@
                                         "kind": "literal",
                                         "token": "normal"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               },
@@ -1271,11 +1286,13 @@
                                         "kind": "literal",
                                         "token": "normal"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               }
-                            ]
+                            ],
+                            "optional": true
                           }
                         ]
                       }
@@ -1365,22 +1382,34 @@
                     }
                   },
                   {
-                    "kind": "literal",
-                    "token": "from"
-                  },
-                  {
-                    "kind": "argument",
-                    "name": "cause",
-                    "optional": true,
-                    "type": "entity_selector",
-                    "typeOptions": {
-                      "amount": "single",
-                      "type": "entities"
-                    }
+                    "kind": "choice",
+                    "nodes": [
+                      {
+                        "kind": "sequence",
+                        "nodes": [
+                          {
+                            "kind": "literal",
+                            "token": "from"
+                          },
+                          {
+                            "kind": "argument",
+                            "name": "cause",
+                            "optional": true,
+                            "type": "entity_selector",
+                            "typeOptions": {
+                              "amount": "single",
+                              "type": "entities"
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "optional": true
                   }
                 ]
               }
-            ]
+            ],
+            "optional": true
           }
         ]
       },
@@ -5156,7 +5185,8 @@
                         "kind": "literal",
                         "token": "last"
                       }
-                    ]
+                    ],
+                    "optional": true
                   }
                 ]
               },
@@ -5178,7 +5208,8 @@
                         "kind": "literal",
                         "token": "enabled"
                       }
-                    ]
+                    ],
+                    "optional": true
                   }
                 ]
               }
@@ -5312,7 +5343,8 @@
                 "kind": "literal",
                 "token": "peaceful"
               }
-            ]
+            ],
+            "optional": true
           }
         ]
       },
@@ -5446,7 +5478,8 @@
                           }
                         ]
                       }
-                    ]
+                    ],
+                    "optional": true
                   }
                 ]
               }
@@ -7507,12 +7540,23 @@
             }
           },
           {
-            "kind": "literal",
-            "token": "run"
-          },
-          {
-            "definitionId": "@any",
-            "kind": "ref"
+            "kind": "choice",
+            "nodes": [
+              {
+                "kind": "sequence",
+                "nodes": [
+                  {
+                    "kind": "literal",
+                    "token": "run"
+                  },
+                  {
+                    "definitionId": "@any",
+                    "kind": "ref"
+                  }
+                ]
+              }
+            ],
+            "optional": true
           }
         ]
       },
@@ -7570,7 +7614,8 @@
                         "kind": "literal",
                         "token": "points"
                       }
-                    ]
+                    ],
+                    "optional": true
                   }
                 ]
               },
@@ -7640,7 +7685,8 @@
                         "kind": "literal",
                         "token": "points"
                       }
-                    ]
+                    ],
+                    "optional": true
                   }
                 ]
               }
@@ -7713,7 +7759,8 @@
                   }
                 ]
               }
-            ]
+            ],
+            "optional": true
           }
         ]
       },
@@ -7752,17 +7799,28 @@
             }
           },
           {
-            "kind": "literal",
-            "token": "replace"
-          },
-          {
-            "kind": "argument",
-            "name": "filter",
-            "optional": true,
-            "type": "resource_location",
-            "typeOptions": {
-              "registry": "minecraft:worldgen/biome"
-            }
+            "kind": "choice",
+            "nodes": [
+              {
+                "kind": "sequence",
+                "nodes": [
+                  {
+                    "kind": "literal",
+                    "token": "replace"
+                  },
+                  {
+                    "kind": "argument",
+                    "name": "filter",
+                    "optional": true,
+                    "type": "resource_location",
+                    "typeOptions": {
+                      "registry": "minecraft:worldgen/biome"
+                    }
+                  }
+                ]
+              }
+            ],
+            "optional": true
           }
         ]
       },
@@ -7965,11 +8023,13 @@
                           }
                         ]
                       }
-                    ]
+                    ],
+                    "optional": true
                   }
                 ]
               }
-            ]
+            ],
+            "optional": true
           }
         ]
       },
@@ -9314,8 +9374,14 @@
             "token": "list"
           },
           {
-            "kind": "literal",
-            "token": "uuids"
+            "kind": "choice",
+            "nodes": [
+              {
+                "kind": "literal",
+                "token": "uuids"
+              }
+            ],
+            "optional": true
           }
         ]
       },
@@ -9465,7 +9531,8 @@
                                 "optional": true,
                                 "type": "item_stack"
                               }
-                            ]
+                            ],
+                            "optional": true
                           }
                         ]
                       },
@@ -9530,7 +9597,8 @@
                                 "optional": true,
                                 "type": "item_stack"
                               }
-                            ]
+                            ],
+                            "optional": true
                           }
                         ]
                       }
@@ -9587,7 +9655,8 @@
                                 "optional": true,
                                 "type": "item_stack"
                               }
-                            ]
+                            ],
+                            "optional": true
                           }
                         ]
                       },
@@ -9652,7 +9721,8 @@
                                 "optional": true,
                                 "type": "item_stack"
                               }
-                            ]
+                            ],
+                            "optional": true
                           }
                         ]
                       }
@@ -9738,7 +9808,8 @@
                                                 "optional": true,
                                                 "type": "item_stack"
                                               }
-                                            ]
+                                            ],
+                                            "optional": true
                                           }
                                         ]
                                       },
@@ -9803,7 +9874,8 @@
                                                 "optional": true,
                                                 "type": "item_stack"
                                               }
-                                            ]
+                                            ],
+                                            "optional": true
                                           }
                                         ]
                                       }
@@ -9845,7 +9917,8 @@
                                         "optional": true,
                                         "type": "item_stack"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               },
@@ -9910,7 +9983,8 @@
                                         "optional": true,
                                         "type": "item_stack"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               }
@@ -9990,7 +10064,8 @@
                                                 "optional": true,
                                                 "type": "item_stack"
                                               }
-                                            ]
+                                            ],
+                                            "optional": true
                                           }
                                         ]
                                       },
@@ -10055,7 +10130,8 @@
                                                 "optional": true,
                                                 "type": "item_stack"
                                               }
-                                            ]
+                                            ],
+                                            "optional": true
                                           }
                                         ]
                                       }
@@ -10097,7 +10173,8 @@
                                         "optional": true,
                                         "type": "item_stack"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               },
@@ -10162,7 +10239,8 @@
                                         "optional": true,
                                         "type": "item_stack"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               }
@@ -10223,7 +10301,8 @@
                                 "optional": true,
                                 "type": "item_stack"
                               }
-                            ]
+                            ],
+                            "optional": true
                           }
                         ]
                       },
@@ -10288,7 +10367,8 @@
                                 "optional": true,
                                 "type": "item_stack"
                               }
-                            ]
+                            ],
+                            "optional": true
                           }
                         ]
                       }
@@ -10523,7 +10603,8 @@
                   }
                 ]
               }
-            ]
+            ],
+            "optional": true
           }
         ]
       },
@@ -11276,7 +11357,8 @@
                   }
                 ]
               }
-            ]
+            ],
+            "optional": true
           }
         ]
       },
@@ -11668,8 +11750,14 @@
             "token": "save-all"
           },
           {
-            "kind": "literal",
-            "token": "flush"
+            "kind": "choice",
+            "nodes": [
+              {
+                "kind": "literal",
+                "token": "flush"
+              }
+            ],
+            "optional": true
           }
         ]
       },
@@ -11789,7 +11877,8 @@
                         "kind": "literal",
                         "token": "replace"
                       }
-                    ]
+                    ],
+                    "optional": true
                   }
                 ]
               }
@@ -11945,7 +12034,8 @@
                                           }
                                         ]
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               },
@@ -12148,7 +12238,8 @@
                                           }
                                         ]
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               }
@@ -12400,7 +12491,8 @@
                 "kind": "literal",
                 "token": "replace"
               }
-            ]
+            ],
+            "optional": true
           }
         ]
       },
@@ -12835,7 +12927,8 @@
                   }
                 ]
               }
-            ]
+            ],
+            "optional": true
           }
         ]
       },
@@ -13407,7 +13500,8 @@
                                         "optional": true,
                                         "type": "vec3"
                                       }
-                                    ]
+                                    ],
+                                    "optional": true
                                   }
                                 ]
                               },
@@ -13417,7 +13511,8 @@
                                 "optional": true,
                                 "type": "rotation"
                               }
-                            ]
+                            ],
+                            "optional": true
                           }
                         ]
                       }
@@ -13555,7 +13650,8 @@
                           "min": 1
                         }
                       }
-                    ]
+                    ],
+                    "optional": true
                   }
                 ]
               },
@@ -13886,7 +13982,8 @@
                   }
                 ]
               }
-            ]
+            ],
+            "optional": true
           }
         ]
       },

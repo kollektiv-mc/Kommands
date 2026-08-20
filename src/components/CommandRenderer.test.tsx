@@ -3,7 +3,8 @@ import { render, screen } from '@testing-library/react'
 import { expect, test, describe, vi } from 'vitest'
 import { CommandRenderer } from './CommandRenderer'
 import commandsPayload from '../data/generated/1.21.1/commands.json'
-import { EXECUTE, GENERATE } from '../schema/fixtures'
+import { EXECUTE } from '../schema/fixtures'
+import { generate as GENERATE } from '../data/authored/commands/worldedit/generate'
 import { EMPTY_VALUE } from '../schema/serialize'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import { NO_REGISTRIES } from '../data/versions/registry'
@@ -23,11 +24,22 @@ const actions = {
   setFlag: vi.fn(),
   setChoice: vi.fn(),
   setRepeat: vi.fn(),
+  reorderRepeat: vi.fn(),
+  setRef: vi.fn(),
 }
 
-const renderDef = (definition: Parameters<typeof CommandRenderer>[0]['definition']) =>
+const renderDef = (
+  definition: Parameters<typeof CommandRenderer>[0]['definition'],
+  value = EMPTY_VALUE,
+) =>
   render(
-    <CommandRenderer definition={definition} value={EMPTY_VALUE} ctx={ctx} actions={actions} />,
+    <CommandRenderer
+      definition={definition}
+      value={value}
+      ctx={ctx}
+      actions={actions}
+      catalogue={commands}
+    />,
   )
 
 describe('the renderer walks a definition and nothing else', () => {
@@ -50,21 +62,55 @@ describe('the renderer walks a definition and nothing else', () => {
     // CommandRenderer, the schema would be the thing that is wrong.
     renderDef(EXECUTE)
     expect(screen.getByText('execute')).toBeDefined()
-    expect(screen.getByText('run')).toBeDefined()
     expect(screen.getByText('+ add')).toBeDefined()
-    expect(screen.getByText('embedded command')).toBeDefined()
+    // The run clause is optional and unselected, so the form offers it rather than
+    // asserting it: no `run` keyword and no command picker until it is chosen.
+    expect(screen.getByText('— none —')).toBeDefined()
+    expect(screen.queryByLabelText('command')).toBeNull()
+  })
+
+  test('choosing the run clause reveals the command picker', () => {
+    renderDef(EXECUTE, { ...EMPTY_VALUE, choices: { '/2': 0 } })
+    // Twice over: the option that names the clause, and the keyword now that it
+    // applies. getAllByText, because both are legitimately the word `run`.
+    expect(screen.getAllByText('run').length).toBeGreaterThan(1)
+    expect(screen.getByLabelText('command')).toBeDefined()
+  })
+
+  test('an embedded command renders inline, by the same walk', () => {
+    // The Ref's whole point: /give's own editors appear inside /execute, and nothing
+    // in this file learned that /give exists.
+    renderDef(EXECUTE, {
+      ...EMPTY_VALUE,
+      choices: { '/2': 0 },
+      refs: { '/2/|0/1': 'vanilla:give' },
+    })
+    expect(screen.getByText('give')).toBeDefined()
+    for (const name of ['targets', 'item', 'count']) {
+      expect(screen.getAllByText(name, { exact: false }).length).toBeGreaterThan(0)
+    }
   })
 
   test('renders //generate — a flagset and a variadic tail', () => {
+    // The other half of the claim /execute made: a definition nobody derived, in
+    // another dialect, drawn by the same walk. Nothing in this file knows WorldEdit
+    // exists — it is the flagset node kind and the argument-type registry doing it.
     renderDef(GENERATE)
     expect(screen.getByText('//generate')).toBeDefined()
     for (const label of ['Hollow', 'Raw coordinate origin']) {
       expect(screen.getByText(label)).toBeDefined()
     }
-    // we_pattern and we_expression have no editors; both degrade to a text field
-    // rather than blanking the command.
-    expect(screen.getByText('pattern', { exact: false })).toBeDefined()
-    expect(screen.getByText('expression', { exact: false })).toBeDefined()
+    // Authored labels, from the definition's own ui metadata rather than the argument
+    // names — the presentation half of the same data.
+    expect(screen.getByText('Blocks')).toBeDefined()
+    expect(screen.getByText('Expression')).toBeDefined()
+  })
+
+  test('the pattern editor offers a weight only once there is something to weigh', () => {
+    // A weight on a single-entry pattern does not parse, so the column that would
+    // invite one is not drawn until a second block exists.
+    renderDef(GENERATE)
+    expect(screen.queryByLabelText('Chance for block 1')).toBeNull()
   })
 })
 

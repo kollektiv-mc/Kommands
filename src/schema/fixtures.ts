@@ -9,18 +9,26 @@ import type { CommandDefinition } from './types'
  *
  * `/give` used to live here and is gone — the derived skeleton is the real thing now,
  * and tests read it from src/data/generated so they assert the artefact rather than a
- * transcription of it. `/execute` stays as the case that decides whether the tree
- * schema was necessary, and `//generate` as the only definition exercising flags, a
- * variadic tail and a constraint until the WorldEdit dialect lands.
+ * transcription of it. `//generate` has followed it out: the WorldEdit dialect landed,
+ * so the real definition lives in src/data/authored/commands and tests assert that
+ * instead of a copy that could drift from it.
+ *
+ * `/execute` stays, as the case that decides whether the tree schema was necessary. It
+ * is abridged where the derived skeleton is not, which is the point — the shape is
+ * under test here, and the full skeleton is asserted separately.
  */
 
 /**
  * /execute — the acceptance case for the tree schema.
  *
- * Two things a flat argument list cannot express: clauses chain arbitrarily
- * (Brigadier `redirect: ["execute"]`, modelled as Repeat(Choice)), and `run` embeds
- * another whole command (a Ref). Abridged to four clauses; the shape is what is under
- * test, not the count.
+ * Three things a flat argument list cannot express: clauses chain arbitrarily
+ * (Brigadier `redirect: ["execute"]`, modelled as Repeat(Choice)); `run` embeds
+ * another whole command (a Ref); and the `run` clause may be skipped entirely, keyword
+ * included, because every `if`/`unless` leaf is executable on its own — a one-branch
+ * Choice with `optional` set, which is the only shape that drops the keyword with the
+ * command it introduces.
+ *
+ * Abridged to four clauses; the shape is what is under test, not the count.
  */
 export const EXECUTE: CommandDefinition = {
   id: 'vanilla:execute',
@@ -66,46 +74,18 @@ export const EXECUTE: CommandDefinition = {
         },
       },
       {
-        kind: 'sequence',
+        kind: 'choice',
+        optional: true,
         nodes: [
-          { kind: 'literal', token: 'run' },
-          { kind: 'ref', definitionId: '@any' },
+          {
+            kind: 'sequence',
+            nodes: [
+              { kind: 'literal', token: 'run' },
+              { kind: 'ref', definitionId: '@any' },
+            ],
+          },
         ],
       },
     ],
   },
-}
-
-/**
- * //generate — flags, a variadic tail, and a mutex constraint.
- *
- * Included because those three are the node behaviours vanilla never uses. If any of
- * them needed a second schema, that would be a finding; this fixture is how it would
- * surface.
- */
-export const GENERATE: CommandDefinition = {
-  id: 'worldedit:generate',
-  label: '//generate',
-  dialect: 'worldedit',
-  provenance: 'authored',
-  versions: { min: '1.21.1' },
-  aliases: ['//gen', '//g'],
-  root: {
-    kind: 'sequence',
-    nodes: [
-      { kind: 'literal', token: '//generate' },
-      {
-        kind: 'flagset',
-        flags: [
-          { name: '-h', char: 'h', label: 'Hollow' },
-          { name: '-r', char: 'r', label: 'Raw coordinate origin' },
-          { name: '-o', char: 'o', label: 'Placement origin' },
-          { name: '-c', char: 'c', label: 'Selection centre origin' },
-        ],
-      },
-      { kind: 'argument', name: 'pattern', type: 'we_pattern' },
-      { kind: 'argument', name: 'expression', type: 'we_expression', variadic: true },
-    ],
-  },
-  constraints: [{ kind: 'mutex', targets: ['-r', '-o', '-c'], message: 'Choose one origin mode.' }],
 }

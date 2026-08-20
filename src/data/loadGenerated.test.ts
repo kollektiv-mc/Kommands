@@ -103,12 +103,21 @@ describe('the mcmeta quirk', () => {
   const refsIn = (id: string) =>
     allNodes(commands[id]!).filter((n): n is Extract<Node, { kind: 'ref' }> => n.kind === 'ref')
 
-  test('/execute chains clauses and ends in a command reference', () => {
+  test('/execute chains clauses and ends in a skippable command reference', () => {
     const root = commands['vanilla:execute']!.root
     expect(root.kind).toBe('sequence')
-    const kinds = (root as Extract<Node, { kind: 'sequence' }>).nodes.map((n) => n.kind)
-    expect(kinds).toEqual(['literal', 'repeat', 'literal', 'ref'])
+    const nodes = (root as Extract<Node, { kind: 'sequence' }>).nodes
+    expect(nodes.map((n) => n.kind)).toEqual(['literal', 'repeat', 'choice'])
     expect(refsIn('vanilla:execute')[0]?.definitionId).toBe('@any')
+
+    // The tail is a one-branch optional Choice, not a bare `run`+Ref pair. All 38 of
+    // /execute's if/unless leaves are executable, so the clause may be skipped keyword
+    // and all — and only a Choice can drop the keyword along with the command.
+    const tail = nodes[2] as Extract<Node, { kind: 'choice' }>
+    expect(tail.optional).toBe(true)
+    expect(tail.nodes).toHaveLength(1)
+    const clause = tail.nodes[0] as Extract<Node, { kind: 'sequence' }>
+    expect(clause.nodes.map((n) => n.kind)).toEqual(['literal', 'ref'])
   })
 
   test('/return has the same shape, and it is found by shape not by name', () => {

@@ -1,10 +1,19 @@
-import type { ArgumentType, ArgumentTypeKey, Diagnostic, ErasedArgumentType } from '../types'
+import type {
+  ArgumentNode,
+  ArgumentOptions,
+  ArgumentType,
+  ArgumentTypeKey,
+  Diagnostic,
+  ErasedArgumentType,
+} from '../types'
 import { NumberEditor } from '../../components/editors/NumberEditor'
 import { ToggleEditor } from '../../components/editors/ToggleEditor'
 import { TextEditor } from '../../components/editors/TextEditor'
 import { SelectorEditor } from '../../components/editors/SelectorEditor'
 import { ItemStackEditor } from '../../components/editors/ItemStackEditor'
 import { TextComponentEditor } from '../../components/editors/TextComponentEditor'
+import { PatternEditor } from '../../components/editors/PatternEditor'
+import { ExpressionEditor } from '../../components/editors/ExpressionEditor'
 import { selectorsFor } from '../../data/authored/selectors'
 import {
   emptyTextComponent,
@@ -19,6 +28,8 @@ import {
   EMPTY_ITEM_STACK,
   type ItemStackValue,
 } from './item-stack'
+import { serializePattern, validatePattern, EMPTY_PATTERN, type PatternValue } from './we-pattern'
+import { validateExpression } from './we-expression'
 
 /**
  * The argument-type registry.
@@ -45,6 +56,30 @@ function defineArgumentType<T>(type: ArgumentType<T>): ErasedArgumentType {
 }
 
 const warn = (message: string): Diagnostic[] => [{ severity: 'warning', message }]
+
+/**
+ * The options an argument's editor, validator and default are handed.
+ *
+ * `optional` rides along with the authored typeOptions because a *default* has to know
+ * it. A default is a suggestion for a value the command needs; an optional argument
+ * does not need one, and seeding it anyway puts a value in the command the user never
+ * asked for — `/particle … 0 10 force @p`, where `@p` is a viewer list nobody chose.
+ * `numberType` already returned '' for exactly this reason and said so; the reasoning
+ * was never carried across to the selector, which is the only other seeded default.
+ *
+ * Both readers of a value — the serializer and ArgumentView — call this, so the form
+ * and the output cannot disagree about what an untouched field holds.
+ */
+export function argumentOptions(
+  node: Pick<ArgumentNode, 'typeOptions' | 'optional' | 'variadic'>,
+): ArgumentOptions {
+  if (!node.optional && !node.variadic) return node.typeOptions ?? {}
+  return {
+    ...node.typeOptions,
+    ...(node.optional ? { optional: true } : {}),
+    ...(node.variadic ? { variadic: true } : {}),
+  }
+}
 
 function numberType(key: ArgumentTypeKey, integral: boolean): ErasedArgumentType {
   return defineArgumentType<number | ''>({
@@ -103,7 +138,9 @@ const TYPES: ErasedArgumentType[] = [
       }
       return []
     },
-    defaultValue: (options) => selectorsFor(options)[0]?.token ?? '',
+    // Empty when the argument is optional, for the reason argumentOptions gives: a
+    // seeded '@p' in an argument the user may leave out is a viewer list nobody chose.
+    defaultValue: (options) => (options.optional ? '' : (selectorsFor(options)[0]?.token ?? '')),
   }),
   textType('string'),
   // The first two deep types. Everything about them is hand-authored — Brigadier
@@ -123,6 +160,27 @@ const TYPES: ErasedArgumentType[] = [
       isEmptyTextComponent(value) ? '' : serializeTextComponent(value, ctx),
     validate: validateTextComponent,
     defaultValue: emptyTextComponent,
+  }),
+  // WorldEdit's two. Neither comes from a Brigadier parser — there is no mcmeta for a
+  // plugin — so both are authored end to end, and they are the evidence that `dialect`
+  // is a field rather than a subsystem: they register here beside the vanilla types
+  // and are reached by the same renderer.
+  defineArgumentType<PatternValue>({
+    key: 'we_pattern',
+    editor: PatternEditor,
+    serialize: serializePattern,
+    validate: (value, _options, ctx) => validatePattern(value, ctx),
+    defaultValue: () => EMPTY_PATTERN,
+  }),
+  defineArgumentType<string>({
+    key: 'we_expression',
+    editor: ExpressionEditor,
+    // Emitted as typed, spaces and all. That is only sound because the argument is
+    // variadic and last: it takes every remaining token, so there is nothing after it
+    // for a space to be mistaken for a separator between.
+    serialize: (value) => value.trim(),
+    validate: (value) => validateExpression(value),
+    defaultValue: () => '',
   }),
   // The fallback a deep parser binds to before its editor exists. Its presence is
   // what lets derivation degrade a command to a text field instead of failing.

@@ -5,6 +5,7 @@ import { CommandWorkbench } from './CommandWorkbench'
 import commandsPayload from '../data/generated/1.21.1/commands.json'
 import { makeRegistryLookup } from '../data/versions/registry'
 import { withUi } from '../data/authored/ui'
+import { generate } from '../data/authored/commands/worldedit/generate'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import type { CommandDefinition } from '../schema/types'
 import { useCommandStore } from '../stores/useCommandStore'
@@ -146,4 +147,197 @@ test('a command with nothing filled in says which argument is missing', async ()
     />,
   )
   expect(screen.getByText('/tellraw @p <message>')).toBeDefined()
+})
+
+test('driving /execute through the app, where the Ref was never wired', async () => {
+  // The regression this file exists to catch. Every serializer test passed a `resolve`
+  // callback of its own, and the workbench passed none — so `/execute` emitted a
+  // dangling `/execute  run` in the app while its unit tests were green. Rendering
+  // through the workbench is the only place that gap is visible.
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={withUi(commands['vanilla:execute']!)}
+      version={v1_21_1}
+      registries={registries}
+      catalogue={commands}
+    />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+
+  // Untouched: no dangling keyword, and no doubled space where the empty repeat sits.
+  expect(output()).toBe('/execute')
+
+  await user.click(screen.getByText('+ add'))
+  await user.selectOptions(screen.getAllByLabelText('Clause')[0]!, '2')
+  expect(output()).toBe('/execute as @p')
+
+  // The run clause is optional, so it appears only once chosen — and choosing it
+  // without choosing a command leaves a visible gap rather than a finished-looking
+  // command that does nothing.
+  await user.selectOptions(screen.getAllByLabelText('Clause').at(-1)!, '0')
+  expect(output()).toBe('/execute as @p run <command>')
+
+  await user.selectOptions(screen.getByLabelText('command'), 'vanilla:particle')
+  // /particle's optional tail contributes nothing, and its optional `viewers` seeds
+  // nothing: the two tokens that made the canonical fixture unproducible.
+  expect(output()).toBe('/execute as @p run particle <name>')
+})
+
+test('reordering clauses reorders the command, and removing one takes its values', async () => {
+  // `/execute as @a at @s` and `/execute at @s as @a` are different commands — the
+  // clauses apply in order — so reorder is not a convenience. And a removed clause
+  // must take its values with it: they used to stay behind under an index no longer
+  // rendered and reappear, filled in, in the next clause added.
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={commands['vanilla:execute']!}
+      version={v1_21_1}
+      registries={registries}
+      catalogue={commands}
+    />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+
+  await user.click(screen.getByText('+ add'))
+  await user.selectOptions(screen.getAllByLabelText('Clause')[0]!, '2')
+  await user.click(screen.getByText('+ add'))
+  await user.selectOptions(screen.getAllByLabelText('Clause')[1]!, '3')
+  expect(output()).toBe('/execute as @p at @p')
+
+  // Make the two clauses tell each other apart before moving them.
+  const second = screen.getAllByLabelText('targets')[1]!
+  await user.clear(second)
+  await user.type(second, '@s')
+  expect(output()).toBe('/execute as @p at @s')
+
+  await user.click(screen.getByLabelText('Move clause 2 earlier'))
+  expect(output()).toBe('/execute at @s as @p')
+
+  await user.click(screen.getByLabelText('Remove clause 1'))
+  expect(output()).toBe('/execute as @p')
+})
+
+test('building //generate in the editors, in a dialect nothing here knows about', async () => {
+  // The other end of the acceptance set. `//generate` has no derived skeleton, no
+  // Brigadier parser behind either of its argument types, and a different dialect —
+  // and it reaches the output panel through exactly the same workbench.
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={generate}
+      version={v1_21_1}
+      registries={makeRegistryLookup({ block: ['stone', 'dirt'] })}
+    />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+
+  // Both arguments are required, so an untouched command shows its gaps.
+  expect(output()).toBe('//generate <pattern> <expression>')
+
+  await user.click(screen.getByLabelText('Hollow'))
+  await user.click(screen.getByLabelText('Raw coordinate origin'))
+  // One combined token, not `-h -r`.
+  expect(output()).toBe('//generate -hr <pattern> <expression>')
+
+  await user.click(screen.getByText('+ block'))
+  await user.type(screen.getByLabelText('Block 1'), 'stone')
+  expect(output()).toBe('//generate -hr stone <expression>')
+
+  await user.type(screen.getByLabelText('Expression'), 'x^2+y^2+z^2 < 1')
+  expect(output()).toBe('//generate -hr stone x^2+y^2+z^2 < 1')
+
+  // A second block turns the chance columns on, because now there is a mix.
+  await user.click(screen.getByText('+ block'))
+  await user.type(screen.getByLabelText('Block 2'), 'dirt')
+  await user.type(screen.getByLabelText('Chance for block 1'), '50')
+  await user.type(screen.getByLabelText('Chance for block 2'), '50')
+  expect(output()).toBe('//generate -hr 50%stone,50%dirt x^2+y^2+z^2 < 1')
+})
+
+test('the origin-mode mutex warns and the command still generates', async () => {
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench definition={generate} version={v1_21_1} registries={registries} />,
+  )
+  await user.click(screen.getByLabelText('Raw coordinate origin'))
+  await user.click(screen.getByLabelText('Placement origin'))
+
+  expect(screen.getByText(/Only one origin mode applies/)).toBeDefined()
+  // Warns, never blocks. WorldEdit accepts all three and silently takes -r, so the
+  // command is real and the warning says which one wins rather than refusing it.
+  expect(container.querySelector('code')?.textContent).toBe('//generate -ro <pattern> <expression>')
+})
+
+test('the expression field says what is wrong with the formula, and generates anyway', async () => {
+  // The acceptance case for the evaluator being wired to the field that ships. Before
+  // it, this field balanced brackets and stopped: `2 +* 3` was accepted in silence.
+  //
+  // Each of these still reaches the output panel. Validation warns and never blocks,
+  // and a half-typed formula is the normal state of a field someone is typing into.
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={generate}
+      version={v1_21_1}
+      registries={makeRegistryLookup({ block: ['stone'] })}
+    />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+  const field = screen.getByLabelText('Expression')
+
+  await user.click(screen.getByText('+ block'))
+  await user.type(screen.getByLabelText('Block 1'), 'stone')
+
+  await user.type(field, 'sin(x')
+  expect(screen.getByText(/Expected \) here/)).toBeDefined()
+  expect(output()).toBe('//generate stone sin(x')
+
+  await user.clear(field)
+  await user.type(field, '2 +* 3')
+  expect(screen.getByText(/cannot start a value/)).toBeDefined()
+  expect(output()).toBe('//generate stone 2 +* 3')
+
+  await user.clear(field)
+  await user.type(field, 'frobnicate(x)')
+  expect(screen.getByText('frobnicate is not a function.')).toBeDefined()
+  expect(output()).toBe('//generate stone frobnicate(x)')
+
+  // A formula this preview cannot draw is not a mistake in the formula. `perlin` is a
+  // real WorldEdit function; the diagnostic says so rather than calling it a typo.
+  await user.clear(field)
+  await user.type(field, 'perlin(x,y,z,1,1,1) > 0')
+  expect(screen.getByText(/perlin is not implemented yet/)).toBeDefined()
+
+  // And a formula that is simply correct says nothing at all.
+  await user.clear(field)
+  await user.type(field, 'x^2+y^2+z^2 < 1')
+  expect(screen.queryByText(/not a function|cannot start a value|Expected/)).toBeNull()
+  expect(output()).toBe('//generate stone x^2+y^2+z^2 < 1')
+})
+
+test('re-pointing an embedded command clears what the last one held', async () => {
+  // A crash, not a cosmetic problem: the embedded command's values are keyed below the
+  // Ref's path, so /give's item_stack sat exactly where /particle reads a position, and
+  // the serializer threw on a value of a shape its type never makes — taking the whole
+  // output panel down rather than producing a wrong command.
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={commands['vanilla:execute']!}
+      version={v1_21_1}
+      registries={registries}
+      catalogue={commands}
+    />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+
+  await user.selectOptions(screen.getAllByLabelText('Clause').at(-1)!, '0')
+  await user.selectOptions(screen.getByLabelText('command'), 'vanilla:give')
+  await user.type(screen.getByLabelText('Item'), 'stone')
+  expect(output()).toBe('/execute run give @p minecraft:stone')
+
+  await user.selectOptions(screen.getByLabelText('command'), 'vanilla:particle')
+  expect(output()).toBe('/execute run particle <name>')
 })

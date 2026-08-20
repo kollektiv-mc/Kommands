@@ -106,8 +106,12 @@ belongs here.
       `/give` fails there too. All three `/tellraw` fixtures are asserted in
       `serialize.test.ts`, and separately from the `custom_name` form, because a
       component written as an argument is bare and the same component written into a
-      data-component field is a quoted string. Only `/execute`'s remains, with #9. These are regression fixtures: a serializer change
-      that breaks one is wrong, not the fixture.
+      data-component field is a quoted string. `/execute`'s is asserted there too,
+      against the derived skeletons of both `/execute` and `/particle`, so the embedded
+      command is the real one rather than a stand-in — and it is the fixture that found
+      the optional-clause gap, because until `ChoiceNode` could say "or none" it
+      generated two tokens too many. All eight now assert. These are regression
+      fixtures: a serializer change that breaks one is wrong, not the fixture.
       Verify: `pnpm test` — each must be an assertion, not a comment.
 - [x] Every fixture has been checked against a **primary source** —
       [minecraft.wiki](https://minecraft.wiki) or the pinned mcmeta data — not against
@@ -148,8 +152,10 @@ belongs here.
       WorldEdit expression evaluator's golden fixtures. Partly: all three trait
       branches now have a branch site and a test, the parser table and the SNBT writer
       are covered, the text-component grammar is asserted in both of its forms, and the
-      deriver is asserted through its committed artefact. The evaluator does not exist
-      yet.
+      deriver is asserted through its committed artefact, the path model has its own
+      suite, and the WorldEdit pattern grammar is asserted against the rules read out
+      of `RandomPatternParser`. The evaluator does not exist yet, and it is the one
+      remaining place a silent wrong answer is likely rather than merely possible.
 
 ## 3. Scalable / future-proof
 
@@ -161,7 +167,17 @@ belongs here.
       are the whole diff. `/give` itself is not the evidence — it brought the
       `item_stack` argument type with it, which
       [`architecture.md`](architecture.md) buckets as authored editor code by design.
-      The next command is the test of this claim.
+      `/execute` did **not** hold to this and was not expected to: it cost a schema
+      field (`ChoiceNode.optional`), a deriver branch, and the Ref rendering #9 had
+      deferred. That is the claim behaving correctly rather than failing — `/execute`
+      is in the acceptance set precisely because it stresses the schema, and what it
+      found was a gap in the schema rather than a command needing special-casing.
+      `//generate` is the closest thing to a clean test so far, and came nearer to
+      holding: no new node kind, no second schema, no renderer change — a definition,
+      two argument types, and one merge. Two argument types is more than the claim
+      allows, but [`architecture.md`](architecture.md) buckets authored editors that
+      way by design, the same allowance `/give` took for `item_stack`. The renderer
+      still branches on node kind alone.
       Verify: `git diff` for the last command added — expect
       `src/data/authored/ui/` and a test. Nothing else.
 - [ ] Adding a Minecraft version touches only version data and generated files.
@@ -200,12 +216,22 @@ belongs here.
       rather than freezing the tab.
 - [ ] Geometries and materials are disposed on unmount. A module that creates its own
       renderer produces a second WebGL context and leaks it.
-- [ ] The WorldEdit expression evaluator compiles to a closure tree rather than
+- [x] The WorldEdit expression evaluator compiles to a closure tree rather than
       walking the AST per voxel, and has been benchmarked before being wired to a
-      canvas.
-- [ ] There is an agreed production bundle budget, checked in CI. Konnekt runs a
-      550 KB gzip entry-chunk budget via `pnpm check-bundle`; Kommands has no
-      equivalent yet — see `Open backlog`.
+      canvas. `compile.ts` binds every operand at compile time; `evaluate` dispatches
+      on nothing. A 64³ torus is 262,144 evaluations in ~56 ms, the heaviest fixture
+      (a gyroid) ~196 ms, and `evaluate.test.ts` holds a 400 ms floor so the next
+      change fails loudly rather than quietly costing 10×.
+      Verify: `pnpm vitest bench src/worldedit/expression`.
+- [x] A compiled expression carries a **step budget** and stops with a diagnostic. The
+      language has `while` and `for`, so a formula that does not terminate is a thing
+      a user can type; without the guard it hangs the tab rather than the evaluation.
+      This is the headless half of capping the evaluated volume.
+- [x] There is an agreed production bundle budget, checked in CI. 120 KB gzip on the
+      entry chunk, via `pnpm check-bundle`, run by `.github/workflows/ci.yml` on every
+      push. Currently 103.2 KB. Konnekt's equivalent is 550 KB, and the gap is the
+      point: this app's data is lazy and Konnekt's is not.
+      Verify: `pnpm build && pnpm check-bundle`.
 
 ---
 
@@ -236,6 +262,79 @@ it should be stable between runs.
   model exists to prevent. `enchantments` is not affected: its own change rides
   `enchantmentsShape`, which already exists.
   [#26](https://github.com/kollektiv-mc/Kommands/issues/26).
+
+**P1 — Derived argument names are not unique, so nothing can address one**
+
+- `types.ts` promises a name is unique within a definition; 33 of 78 derived commands
+  break that, worst `/execute` with 36 argument nodes called `scale` and `/data` with
+  315 nodes over 13 names. Values are unaffected — they key by path, which is what
+  `paths.ts` was written for — but `pathsForName` resolves a name to _every_ path it
+  occupies, and that is the documented addressing scheme for `Constraint.targets` and
+  for preview `inputs`. Both are consumed by work that is next: a `mutex` on a derived
+  command, and the build-time input validation #12 puts in scope. Either disambiguate
+  during derivation or restate the invariant and make name-addressing path-scoped —
+  a decision worth making before #10 and #12, not after.
+  [#29](https://github.com/kollektiv-mc/Kommands/issues/29).
+
+**P2 — Two schema fields are documented and read by nothing**
+
+- `ArgumentNode.default` and `RepeatNode.max` exist in the type and in
+  `command-schema.md`, and no code in `src/` reads either. A documented field with no
+  behaviour reads as a guarantee, which is worse than an absent one. `variadic` was the
+  third and is now real: it reaches the editor through `argumentOptions`, and invariant
+  6 — nothing may follow a variadic argument — is checked against every definition in
+  the catalogue. `CommandDefinition.versions` has since joined the list: the catalogue
+  merges without consulting it, because with one version a range check would be
+  untestable code standing in for a decision nobody has had to make yet.
+  [#30](https://github.com/kollektiv-mc/Kommands/issues/30).
+
+**P1 — A reordered clause takes its values but not its component state**
+
+- Repeat instances are addressed by index and rendered with `key={i}`, so
+  `reindexInstances` moves every stored value while React hands the same mounted
+  components new props. An editor holding internal state — `ItemStackEditor`'s
+  component dropdown is one — keeps it at the old position, and focus is bound to a
+  DOM slot rather than to a clause. Latent today, because `/execute`'s Repeat is the
+  only one in the catalogue and none of its clauses uses such an editor. It stops
+  being latent the moment the `/execute` editor becomes the intended lock-in-place
+  node editor, where per-node local state is the norm and reorder is the primary
+  interaction. The decision is where instance identity lives.
+  [#33](https://github.com/kollektiv-mc/Kommands/issues/33).
+
+**P2 — `perlin`, `voronoi` and `ridgedmulti` are diagnosed rather than evaluated**
+
+- The evaluator covers the language except its three noise functions, which come from
+  `jlibnoise` (`worldedit-core/build.gradle.kts:38`) and have to be ported exactly — an
+  approximation would draw a shape the command does not produce, which is worse than
+  drawing nothing. Upstream has no tests for them either, so the port has to be checked
+  against the Java by reading it rather than by running a corpus. Today they parse,
+  compile, and report honestly that the preview cannot draw them, so the command still
+  generates and copies. The right time to do the port is once the preview exists and the
+  difference between right and nearly-right is visible on screen. This outlives
+  [#11](https://github.com/kollektiv-mc/Kommands/issues/11), which the evaluator
+  otherwise closes.
+
+**P2 — The expression evaluator ships in the entry chunk, for every command**
+
+- Wiring `we_expression`'s validator to the real evaluator moved the entry chunk from
+  98.4 KB to 103.2 KB gzip. That is inside the 120 KB budget with 16.8 KB spare, and it
+  is the price of the field telling the truth as you type — but the cost is paid by
+  someone who only ever opens `/give`. The cause is structural rather than local: the
+  argument-type registry in `argument-types/index.ts` is one eagerly-constructed object,
+  so every type's validator, editor and serializer is statically reachable from every
+  route. Making one lazy means an async validator, which changes the contract for all
+  fifteen types. The right time to decide is when the preview lands and the same module
+  is wanted lazily by a canvas — splitting the whole `we_expression` type, editor
+  included, is a cleaner cut than special-casing its validator.
+
+**P2 — `gen:diff` can pin to a branch**
+
+- Every path that feeds the build pins by mcmeta tag, and a test asserts it. `gen-diff`
+  passes an unrecognised argv string straight through as a ref, and `fetchSummary`
+  then caches it permanently, so one typo fetches a moving branch and freezes that
+  snapshot. Nothing shipped is wrong — `gen:diff` only reports — but the guarantee has
+  a hole, and the guard belongs in `fetchSummary`, which owns the cache.
+  [#31](https://github.com/kollektiv-mc/Kommands/issues/31).
 
 ---
 
