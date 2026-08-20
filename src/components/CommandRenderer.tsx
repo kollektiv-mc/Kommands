@@ -190,6 +190,17 @@ function NodeView({ node, path, value, ctx, actions, scope }: NodeViewProps) {
     }
 
     case 'repeat': {
+      // PROVISIONAL PRESENTATION. A Repeat is drawn as a stack of rows with move and
+      // remove buttons, and that is not the intended design — `/execute`'s clause chain
+      // is to become a node-based builder (see docs/roadmap.md § Now). These rows exist
+      // because the data layer needed proving end to end before the editor that will
+      // replace them is worth starting, and because a form is the cheapest thing that
+      // exercises add, remove and reorder against real values.
+      //
+      // What is *not* provisional is everything below this line that is not JSX: the
+      // permutation handed to `reorderRepeat`, the path remapping behind it, and the
+      // value tree it operates on. A node editor rebuilds the drawing and keeps all of
+      // it. Do not build further on the rows themselves.
       const count = repeatCount(value.repeats, path, node)
       const positions = Array.from({ length: count }, (_, i) => i)
       // Each control hands the store the order it wants, rather than an index and a

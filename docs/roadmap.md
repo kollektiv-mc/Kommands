@@ -11,6 +11,10 @@ no `TODO.md`.
 Completing the acceptance set. Each of these stresses part of the schema that
 `/give` does not.
 
+- **The `/execute` node editor** — the clause chain becomes a node-based builder
+  rather than the stack of rows it is now. The current chain UI is a placeholder that
+  proved the data layer end to end; it is not the intended design, and #33 (stable
+  instance identity) is its prerequisite
 - WorldEdit `we_mask` editor
 - **WorldEdit expression evaluator** — standalone, fixture-tested. The largest
   single piece of work in the roadmap and a prerequisite for any shape preview.
@@ -52,7 +56,9 @@ Then two more commands, both of which were meant to stress the schema and did:
 
 - **`/tellraw`** — the recursive `text_component` editor, and the `json-string` trait
 - **`/execute`** — `repeat`, `choice` and `ref` end to end: a reorderable clause chain
-  and a command picker that renders the chosen command inline through the same walk
+  and a command picker that renders the chosen command inline through the same walk.
+  The chain is drawn as rows, which is **provisional** — the intended editor is
+  node-based, and the rows exist to prove the data layer, not to settle the design
 
 Then the last of the acceptance set:
 
