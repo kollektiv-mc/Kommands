@@ -8,25 +8,24 @@ no `TODO.md`.
 
 ## Now
 
-Completing the acceptance set. Each of these stresses part of the schema that
-`/give` does not.
+The acceptance set is complete, and so is everything headless behind it. What is left
+in this phase is the part that has to run in a browser.
 
 - **The `/execute` node editor** — the clause chain becomes a node-based builder
   rather than the stack of rows it is now. The current chain UI is a placeholder that
   proved the data layer end to end; it is not the intended design, and #33 (stable
   instance identity) is its prerequisite
-- **The CSG graph** — the operation tree of
-  [`generate-editor.md`](generate-editor.md), and its compiler down to expression
-  text. Headless, like the evaluator, and the other half of what the node editor
-  needs before it has anything to draw.
 - Preview infrastructure: shared `<PreviewCanvas>`, module registry, build-time
-  binding validation
+  binding validation. The `inputs` half of that validation is done — invariant 7
+  checks every one against the definition — and the `accepts` half, which asserts
+  argument _types_, arrives with the registry
 - **`worldedit/shape` preview** for `//generate`
 
 Exit criterion: all four commands in the schema's acceptance set generate correct
-output, and one 3D preview is live. **All four commands are done**, and so is the
-evaluator that was the long pole. What remains is the preview half: a graph that
-produces expression text, and a canvas that draws what the evaluator returns.
+output, and one 3D preview is live. **All four commands are done**, so is the
+evaluator that was the long pole, and so is the graph that feeds it. What remains is
+the canvas: three.js, a shared `<PreviewCanvas>`, and a module that draws what the
+evaluator returns.
 
 ## Done
 
@@ -34,6 +33,26 @@ Getting a single command generating correct 1.21.1 output end to end. The goal o
 this phase was to **prove the schema against real commands**, not to ship breadth.
 Its exit criterion — `/give` producing every canonical output exactly — is met.
 
+- **The CSG graph and its compiler** — `src/worldedit/csg/`, headless like the
+  evaluator. The operation graph of [`generate-editor.md`](generate-editor.md), a
+  full palette in which every node is previewable, and a compiler down to expression
+  source. Three things in it were not the obvious answer. A primitive compiles against
+  three coordinate _expressions_ — a frame — so a transform changes the frame rather
+  than rewriting its subtree's text, and nothing ever assigns to `x`, `y` or `z`; a
+  consequence is that rotation compiles to a matrix and never to `rotate()`, which
+  writes back through its arguments. Sharing is keyed on the **emitted text**, not on
+  the node: the doc's own example is a sphere minus a _smaller_ sphere, two different
+  nodes, so node-level CSE finds nothing there. And every node's value is normalised
+  to a 0/1 predicate, because `&&` and `||` return an operand — without which union,
+  invert and subtract are all wrong on any graph containing a raw expression.
+  Checked against a second, deliberately naive implementation rather than against
+  expectations: 200 seeded graphs and 7 named ones, agreeing bit-exactly at 265 points
+  each. A twenty-operation sculpt compiles to **348 characters**, against a command
+  block's ~32,500 — the feasibility claim this whole design rests on, now measured.
+- **An AST printer for the expression language** — `expression/print.ts`, the inverse
+  of `parse.ts` and written from its ladder rather than from convention, because here
+  the two disagree. Round-tripped over the whole upstream corpus, which the extraction
+  of those cases into `corpus.ts` made available to a second suite.
 - **WorldEdit expression evaluator** — `src/worldedit/expression/`, standalone and
   headless. Lexer, precedence-climbing parser, and a compiler to a closure tree; the
   full grammar, the built-in library — the maths names, `rotate` and `swap`, which take

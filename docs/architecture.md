@@ -184,16 +184,17 @@ trait and give every existing version an explicit value — still additive.
 
 ## Where data lives
 
-| Category                                                                       | Source                                            | Loading                 |
-| ------------------------------------------------------------------------------ | ------------------------------------------------- | ----------------------- |
-| Items, entities, enchantments, effects, particles, attributes, potions, sounds | mcmeta → `src/data/generated/<v>/registries.json` | Lazy, per version       |
-| Block states                                                                   | mcmeta → `src/data/generated/<v>/blocks.json`     | Lazy, route-split       |
-| Command skeletons                                                              | Derived → `src/data/generated/<v>/commands.json`  | Lazy, per command route |
-| Version traits                                                                 | `src/data/versions/<v>.ts`                        | Static                  |
-| Selectors, colour codes, item components                                       | `src/data/authored/`                              | Static                  |
-| WorldEdit pattern blocks                                                       | The `block` registry, via `isKnownBlock`          | Lazy, with blocks       |
-| WorldEdit expression grammar and built-ins                                     | `src/worldedit/expression/`                       | Static (entry chunk)    |
-| Design tokens                                                                  | Generated → `src/styles/tokens.css`               | Global CSS              |
+| Category                                                                       | Source                                            | Loading                    |
+| ------------------------------------------------------------------------------ | ------------------------------------------------- | -------------------------- |
+| Items, entities, enchantments, effects, particles, attributes, potions, sounds | mcmeta → `src/data/generated/<v>/registries.json` | Lazy, per version          |
+| Block states                                                                   | mcmeta → `src/data/generated/<v>/blocks.json`     | Lazy, route-split          |
+| Command skeletons                                                              | Derived → `src/data/generated/<v>/commands.json`  | Lazy, per command route    |
+| Version traits                                                                 | `src/data/versions/<v>.ts`                        | Static                     |
+| Selectors, colour codes, item components                                       | `src/data/authored/`                              | Static                     |
+| WorldEdit pattern blocks                                                       | The `block` registry, via `isKnownBlock`          | Lazy, with blocks          |
+| WorldEdit expression grammar and built-ins                                     | `src/worldedit/expression/`                       | Static (entry chunk)       |
+| WorldEdit CSG vocabulary and its compiler                                      | `src/worldedit/csg/`                              | Not yet reached by a route |
+| Design tokens                                                                  | Generated → `src/styles/tokens.css`               | Global CSS                 |
 
 Nothing in this table is a literal inside a component. `/suite-kit:health` enforces it.
 

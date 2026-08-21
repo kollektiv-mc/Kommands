@@ -167,6 +167,18 @@ belongs here.
       keep — `^` is power rather than xor, postfix `!` is factorial, `&&`/`||` return
       an operand rather than a boolean, `~=` compares by ULPs — each one something an
       implementation written from intuition gets wrong while passing everything else.
+      The CSG compiler and the AST printer are the two since, and both are checked
+      against something rather than against expectations. The printer round-trips the
+      whole of that same corpus, so cases written to specify the language also specify
+      it. The compiler is checked against `reference.ts`, a second and deliberately
+      naive implementation that shares nothing with it — 200 seeded graphs and 7 named
+      ones, bit-exact at 265 points each, because the reference mirrors the emitted
+      arithmetic operator for operator rather than comparing within a tolerance that
+      would hide a boundary error. `simplify.ts` is checked the same way, before and
+      after, which is the only thing that catches a rewrite rule that is quietly wrong.
+      The named graphs are not decoration: dropping the coordinate frame from the
+      compiler's memo key — the exact bug its sharing design is about — leaves all 200
+      generated graphs passing, and only the fixture written for it fails.
       Verify: `pnpm test`.
 
 ## 3. Scalable / future-proof
