@@ -207,6 +207,12 @@ belongs here.
       [`.claude/rules/previews.md`](../.claude/rules/previews.md).
 - [ ] Preview `inputs` are validated at **build time** against real argument names
       and types, so a typo fails the build rather than rendering an empty canvas.
+      **Half done.** Invariant 7 covers the names: `definitionProblems` requires every
+      `inputs` entry to resolve to exactly one node, over the whole catalogue, and
+      reports the qualified selector to use when it does not. The _types_ half — a
+      module's `accepts` asserting the argument types it depends on, per
+      [`adding-a-preview.md`](adding-a-preview.md) — needs the preview registry and is
+      still open under #12. A box half-ticked is not ticked.
 - [ ] Dependencies are reasonably current, with nothing unmaintained and nothing
       duplicated doing the same job.
       Verify: `pnpm outdated`, and `pnpm why <pkg>` for anything suspected of being
@@ -274,19 +280,6 @@ it should be stable between runs.
   model exists to prevent. `enchantments` is not affected: its own change rides
   `enchantmentsShape`, which already exists.
   [#26](https://github.com/kollektiv-mc/Kommands/issues/26).
-
-**P1 — Derived argument names are not unique, so nothing can address one**
-
-- `types.ts` promises a name is unique within a definition; 33 of 78 derived commands
-  break that, worst `/execute` with 36 argument nodes called `scale` and `/data` with
-  315 nodes over 13 names. Values are unaffected — they key by path, which is what
-  `paths.ts` was written for — but `pathsForName` resolves a name to _every_ path it
-  occupies, and that is the documented addressing scheme for `Constraint.targets` and
-  for preview `inputs`. Both are consumed by work that is next: a `mutex` on a derived
-  command, and the build-time input validation #12 puts in scope. Either disambiguate
-  during derivation or restate the invariant and make name-addressing path-scoped —
-  a decision worth making before #10 and #12, not after.
-  [#29](https://github.com/kollektiv-mc/Kommands/issues/29).
 
 **P2 — Two schema fields are documented and read by nothing**
 

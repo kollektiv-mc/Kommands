@@ -138,7 +138,9 @@ Requirements:
 ## Checklist
 
 - [ ] Definition is data, not a bespoke component
-- [ ] Argument `name`s are unique within the definition
+- [ ] Every name a constraint or a preview addresses resolves to exactly one node —
+      `definitionProblems` checks it, and reports the qualified selector to use when it
+      does not
 - [ ] Cross-argument rules are `constraints`, not editor logic
 - [ ] No game values hardcoded outside `src/data/`
 - [ ] Serializers branch on traits, not version numbers

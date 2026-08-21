@@ -1,5 +1,5 @@
 import type { CommandValue } from './serialize'
-import { pathsForName } from './paths'
+import { pathsForTarget } from './addressing'
 import type { CommandDefinition, Constraint, Diagnostic } from './types'
 
 /**
@@ -49,16 +49,21 @@ function evaluate(
 /**
  * Whether a target — an argument name or a flag name like '-h' — carries a value.
  *
- * A name can resolve to several paths once it sits under a Repeat, so "set" means
- * set at any of them.
+ * One selector resolves to one *node*, which invariant 7 checks; that node can still
+ * occupy several *paths* once it sits under a Repeat, so "set" means set at any of
+ * them. That sentence used to have to cover both readings at once, which is why the
+ * ambiguity was invisible.
+ *
+ * Flags resolve through the same walk as arguments and carry which table to read.
+ * They used to be found by scanning every key in `value.flags` for one ending in the
+ * target — which matched nothing at all for a typo, and reported that as "the flag is
+ * not set" rather than as "there is no such flag".
  */
 function isSet(target: string, definition: CommandDefinition, value: CommandValue): boolean {
-  if (target.startsWith('-')) {
-    return Object.entries(value.flags).some(([path, on]) => on && path.endsWith(`/${target}`))
-  }
-  return pathsForName(definition.root, target, value.repeats).some((p) => {
-    const v = value.args[p]
-    return v !== undefined && v !== '' && v !== false
+  return pathsForTarget(definition.root, target, value.repeats).some(({ kind, path }) => {
+    if (kind === 'flag') return value.flags[path] === true
+    const held = value.args[path]
+    return held !== undefined && held !== '' && held !== false
   })
 }
 
@@ -67,9 +72,10 @@ function numericValue(
   definition: CommandDefinition,
   value: CommandValue,
 ): number | undefined {
-  for (const path of pathsForName(definition.root, target, value.repeats)) {
-    const v = value.args[path]
-    if (typeof v === 'number') return v
+  for (const { kind, path } of pathsForTarget(definition.root, target, value.repeats)) {
+    if (kind !== 'argument') continue
+    const held = value.args[path]
+    if (typeof held === 'number') return held
   }
   return undefined
 }
