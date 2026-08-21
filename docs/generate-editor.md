@@ -90,12 +90,12 @@ transcribed into `expression.test.ts` rather than paraphrased — a case that di
 with upstream is this implementation being wrong. Four of them are traps that an
 implementation written from intuition fails while passing everything else:
 
-| Looks like                     | Actually                                                                          |
-| ------------------------------ | --------------------------------------------------------------------------------- |
-| `^` is xor                     | **exponentiation**, right-associative (`POWER : '^' \| '**'`)                     |
-| postfix `!` is negation        | **factorial**, from a 171-entry table, truncating its input                       |
-| `&&` and `\|\|` yield booleans | they yield an **operand** — `0 \|\| 5` is `5`, `2 \|\| 5` is `2`, `5 && 0` is `0` |
-| `~=` is a tolerance            | **units in the last place**, compared as integers                                 |
+| Looks like                     | Actually                                                                                                       |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `^` is xor                     | **exponentiation**, **left**-associative and looser than every prefix operator — `2^3^2` is 64 and `-2^2` is 4 |
+| postfix `!` is negation        | **factorial**, from a 171-entry table, truncating its input                                                    |
+| `&&` and `\|\|` yield booleans | they yield an **operand** — `0 \|\| 5` is `5`, `2 \|\| 5` is `2`, `5 && 0` is `0`                              |
+| `~=` is a tolerance            | **units in the last place**, compared as integers                                                              |
 
 The compiler emits a closure tree rather than an interpreter over the AST, because the
 consumer evaluates it 262,144 times per input change. See
