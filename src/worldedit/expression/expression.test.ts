@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { compileExpression } from './index'
+import { SHAPE_CASES, SPEC_CASES } from './corpus'
 
 /**
  * The corpus is WorldEdit's own test suite, ported.
@@ -7,6 +8,12 @@ import { compileExpression } from './index'
  * `ExpressionTest.java` and `RealExpressionTest.java` are the specification for this
  * language — there is no written one — so these are transcribed rather than invented, and
  * a case that disagrees with upstream is this implementation being wrong, not the case.
+ *
+ * The cases themselves live in `corpus.ts`, because `print.test.ts` reads the same
+ * sources to check that printing an AST and parsing it back is the identity — and a test
+ * file cannot be imported for its data without re-running its `test` registrations. What
+ * stays here is everything that is an argument rather than a case: the traps, and why
+ * each group of them earns its keep.
  *
  * The world-reading cases are the only ones left behind, and deliberately: they are out
  * of scope with world masking. See docs/generate-editor.md § Masking.
@@ -26,20 +33,14 @@ const at = (source: string, x = 0, y = 0, z = 0): number => {
   return result.expression.evaluate(x, y, z)
 }
 
-const check = (cases: Record<string, number>): void => {
+const check = (cases: Readonly<Record<string, number>>): void => {
   for (const [source, expected] of Object.entries(cases)) {
     test(`${source} → ${expected}`, () => expect(at(source)).toBe(expected))
   }
 }
 
 describe('arithmetic and precedence', () => {
-  check({
-    '1 - 2 + 3': 2,
-    '2 + +4': 6,
-    '2 - -4': 6,
-    '2 * -4': -8,
-    '3+1': 4,
-  })
+  check(SPEC_CASES['arithmetic and precedence'])
 
   test('^ is exponentiation, not xor', () => {
     // The single most likely thing to get wrong by importing habits from C.
@@ -67,154 +68,61 @@ describe('arithmetic and precedence', () => {
  * because "it drops the decimal!" is the whole content of four of the eleven cases.
  */
 describe('~ is integer complement, and truncates first', () => {
-  check({
-    '~0': -1,
-    '~1': -2,
-    '~-1': 0,
-    '~-2': 1,
-    // ~0.1, ~0.5 and ~1.9 are ~0, ~0 and ~1 — toward zero, not toward -infinity.
-    '~0.1': -1,
-    '~0.5': -1,
-    '~1.9': -2,
-  })
+  check(SPEC_CASES['~ is integer complement, and truncates first'])
 })
 
 describe('<< and >> shift as integers', () => {
-  check({
-    '1<<4': 16,
-    // Both operands are truncated, so this is 1<<4 and not 2<<4.
-    '1.1<<4.1': 16,
-    '16>>2': 4,
-    '16.9>>2.1': 4,
-  })
+  check(SPEC_CASES['<< and >> shift as integers'])
 })
 
 describe('min and max take any number of arguments', () => {
-  check({
-    'min(1, 2)': 1,
-    'max(1, 2)': 2,
-    'max(1, 2, 3, 4, 5)': 5,
-  })
+  check(SPEC_CASES['min and max take any number of arguments'])
 })
 
 describe('the maths built-ins are the platform ones', () => {
-  check({
-    'sin(5)': Math.sin(5),
-    'atan2(3, 4)': Math.atan2(3, 4),
-  })
+  check(SPEC_CASES['the maths built-ins are the platform ones'])
 })
 
 describe('&& and || return an operand, not a boolean', () => {
   // The trap. A version normalising to 0/1 passes most of the suite and fails these four,
   // which is exactly why upstream wrote them.
-  check({
-    '0 || 5': 5,
-    '2 || 5': 2,
-    '2 && 5': 5,
-    '5 && 0': 0,
-  })
+  check(SPEC_CASES['&& and || return an operand, not a boolean'])
 })
 
 describe('the conditional operator, including nested', () => {
-  check({
-    'false ? 1 : 2': 2,
-    'true ? 1 : 2': 1,
-    'true ? true ? 1 : 2 : 3': 1,
-    'true ? false ? 1 : 2 : 3': 2,
-    'false ? true ? 1 : 2 : 3': 3,
-    'false ? false ? 1 : 2 : 3': 3,
-  })
+  check(SPEC_CASES['the conditional operator, including nested'])
 })
 
 describe('unary not treats any non-zero as true', () => {
-  check({ '!0': 1, '!1': 0, '!2': 0, '!-1': 0, '!-2': 0 })
+  check(SPEC_CASES['unary not treats any non-zero as true'])
 })
 
 describe('comparison', () => {
-  check({
-    '1>=0': 1,
-    '1>0': 1,
-    '0>=0': 1,
-    '0>0': 0,
-    '0<=1': 1,
-    '0<1': 1,
-    '0<=0': 1,
-    '0<0': 0,
-    '1>=2': 0,
-    '1>2': 0,
-    '0>=1': 0,
-    '0>1': 0,
-    '2<=1': 0,
-    '2<1': 0,
-    '1<=0': 0,
-    '1<0': 0,
-    '1==1': 1,
-    '0==1': 0,
-    '1==0': 0,
-    '1!=1': 0,
-    '0!=1': 1,
-    '1!=0': 1,
-    '1.1==1.1': 1,
-  })
+  check(SPEC_CASES.comparison)
 })
 
 describe('~= compares by units in the last place, not by a tolerance', () => {
-  check({
-    '1!=0.999999999': 1,
-    '1~=0.999999999': 1,
-    '1~=0.9': 0,
-  })
+  check(SPEC_CASES['~= compares by units in the last place, not by a tolerance'])
 })
 
 describe('postfix ! is factorial', () => {
-  check({
-    '0!': 1,
-    '1!': 1,
-    '2!': 2,
-    // Truncated, not rounded: 2! rather than 3!.
-    '2.9!': 2,
-    // Negative is zero rather than an error, which is upstream's choice.
-    '(-1)!': 0,
-    // Past 170 the result leaves a double, and upstream returns infinity rather than
-    // erroring. This is the arm of the table that the smaller cases never reach.
-    '2000!': Number.POSITIVE_INFINITY,
-  })
+  check(SPEC_CASES['postfix ! is factorial'])
 })
 
 describe('assignment, sequencing, and the last value as the result', () => {
-  check({
-    'a=2; a^=3; a': 8,
-    'a=2; a*=3; a': 6,
-    'a=2; a/=2; a': 1,
-    'a=2; a%=3; a': 2,
-    'a=2; a+=3; a': 5,
-    'a=2; a-=3; a': -1,
-  })
+  check(SPEC_CASES['assignment, sequencing, and the last value as the result'])
 })
 
 describe('increment and decrement, before and after', () => {
-  check({
-    'a=0; b=a++; a+b': 1,
-    'a=0; b=++a; a+b': 2,
-    'a=0; b=a--; a+b': -1,
-    'a=0; b=--a; a+b': -2,
-  })
+  check(SPEC_CASES['increment and decrement, before and after'])
 })
 
 describe('return leaves immediately', () => {
-  check({ 'return 1; 0': 1 })
+  check(SPEC_CASES['return leaves immediately'])
 })
 
 describe('control flow', () => {
-  check({
-    'y=0; if (1) x=4; else y=5; x*10+y;': 40,
-    'x=0; if (0) x=4; else y=5; x*10+y;': 5,
-    'c=5; a=0; while (c > 0) { ++a; --c; } a': 5,
-    'c=5; a=0; do { ++a; --c; } while (c > 0); a': 5,
-    'a=0; for (i=0; i<5; ++i) { ++a; } a': 5,
-    // WorldEdit's range form: `for (counter = first, last)`, inclusive.
-    'y=0; for (i=1,5) { y *= 10; y += i; } y': 12345,
-  })
+  check(SPEC_CASES['control flow'])
 })
 
 describe('switch, including fallthrough', () => {
@@ -298,14 +206,7 @@ describe('rotate and swap write back to their arguments', () => {
 })
 
 describe('the megabuf scratch store', () => {
-  check({
-    'megabuf(0, 7); megabuf(0)': 7,
-    'gmegabuf(3, 9); gmegabuf(3)': 9,
-    // Never written, so zero rather than undefined.
-    'megabuf(42)': 0,
-    // Upstream indexes with `(int) index`, so these are one cell and not two.
-    'megabuf(1, 5); megabuf(1.9)': 5,
-  })
+  check(SPEC_CASES['the megabuf scratch store'])
 
   test('closest finds the nearest stored point and returns its index', () => {
     // Two points in the buffer, stride 3: (5,0,0) at index 0 and (-5,0,0) at index 3.
@@ -324,7 +225,10 @@ describe('the megabuf scratch store', () => {
  * smoke test would not.
  */
 describe('the shapes people actually generate', () => {
-  const shape = (source: string, points: Array<[number, number, number, number]>) => {
+  const shape = (
+    source: string,
+    points: ReadonlyArray<readonly [number, number, number, number]>,
+  ) => {
     const result = compileExpression(source)
     if (!result.ok) throw new Error(result.diagnostics.map((d) => d.message).join(' '))
     for (const [x, y, z, expected] of points) {
@@ -333,90 +237,9 @@ describe('the shapes people actually generate', () => {
     }
   }
 
-  test('torus', () => {
-    shape('(0.75-sqrt(x^2+y^2))^2+z^2 < 0.25^2', [
-      [0, 0, 0, 0],
-      [0.5, 0.5, 0.5, 0],
-      [1, 0, 0, 0],
-      [0.5, 0.5, 0, 1],
-      [0.75, 0.5, 0, 1],
-      [0.75, 0, 0, 1],
-    ])
-  })
-
-  test('gnarled oak tree', () => {
-    shape('(0.5+sin(atan2(x,z)*8)*0.2)*(sqrt(x*x+z*z)/0.5)^(-2)-1.2 < y', [
-      [-1, -1, -1, 1],
-      [-1, 0, 1, 1],
-      [1, 1, 1, 1],
-      [0, 0, -1, 1],
-      [0, 0, 0, 0],
-      [0, 1, 0, 0],
-      // The pair that pins the boundary: one ten-thousandth apart, either side of it.
-      [0, 0, 0.32274, 0],
-      [0, 0, 0.32275, 1],
-    ])
-  })
-
-  test('gyroid', () => {
-    // Named in #11 alongside sphere and torus. A triply-periodic minimal surface: it is
-    // the fixture that exercises six trigonometric calls per point, and the one where a
-    // precedence mistake shows as a plausible-looking but wrong lattice rather than as
-    // an obviously broken shape.
-    shape('sin(x*6)*cos(y*6)+sin(y*6)*cos(z*6)+sin(z*6)*cos(x*6) < 0.2', [
-      [0, 0, 0, 1],
-      [0.5, 0.5, 0.5, 1],
-      [-0.5, 0.5, -0.5, 1],
-      [0.3, 0, 0, 0],
-      [0.25, 0.25, 0, 0],
-      [0.2, 0.2, 0.2, 0],
-    ])
-  })
-
-  test('heart', () => {
-    shape('(z/2)^2+x^2+(5*y/4-sqrt(abs(x)))^2<0.6', [
-      [0, 0, -1, 1],
-      [0, 1, -1, 0],
-      [-0.5, 1, 0, 1],
-    ])
-  })
-
-  test('sine wave', () => {
-    // Six points, in pairs one hundred-thousandth apart, straddling the surface.
-    shape('sin(x*5)/2<y', [
-      [1, -0.47947, 0, 0],
-      [1, -0.47946, 0, 1],
-      [2, -0.27202, 0, 0],
-      [2, -0.27201, 0, 1],
-      [3, 0.32513, 0, 0],
-      [3, 0.32515, 0, 1],
-    ])
-  })
-
-  test('radial cosine', () => {
-    shape('cos(sqrt(x^2+z^2)*5)/2<y', [
-      [0, 0.5, 0, 0],
-      [0, 0.51, 0, 1],
-      [Math.PI / 5, -0.5, 0, 0],
-      [Math.PI / 5, -0.49, 0, 1],
-      [Math.PI / 10, 0, 0, 0],
-      [Math.PI / 10, 0.1, 0, 1],
-    ])
-  })
-
-  test('circular hyperboloid', () => {
-    // The one upstream shape that leads with a negated power. It is written `-(z^2/12)`
-    // with the parentheses, which is why it reads the same under either associativity —
-    // and is a fair hint that upstream knows `-z^2/12` would not mean what it looks like.
-    shape('-(z^2/12)+(y^2/4)-(x^2/12)>-0.03', [
-      [0, 0, 0, 1],
-      [0, 1, 0, 1],
-      [0, 1, 1, 1],
-      [1, 1, 1, 1],
-      [0, 0, 1, 0],
-      [1, 0, 1, 0],
-    ])
-  })
+  for (const fixture of SHAPE_CASES) {
+    test(fixture.name, () => shape(fixture.source, fixture.points))
+  }
 
   test('rainbow egg walks data through all sixteen values', () => {
     const source = 'data=(32+y*16+1)%16; y^2/9+x^2/6*(1/(1-0.4*y))+z^2/6*(1/(1-0.4*y))<0.08'
