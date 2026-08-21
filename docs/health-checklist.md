@@ -253,6 +253,17 @@ belongs here.
       (a gyroid) ~196 ms, and `evaluate.test.ts` holds a 400 ms floor so the next
       change fails loudly rather than quietly costing 10×.
       Verify: `pnpm vitest bench src/worldedit/expression`.
+- [x] What the CSG compiler emits is no more expensive to evaluate than an equivalent
+      expression written by hand, and compiling is cheap enough to do on every edit.
+      Both are benched, because they are different questions and the second one is the
+      one that matters: compiling happens once per edit, evaluating happens 262,144
+      times. A twenty-operation sculpt compiles in **~0.9 ms** and its output evaluates
+      at 64³ in **~180 ms** — the same range as the gyroid above, which is a
+      hand-written fixture of comparable depth. So the frame model and the sharing are
+      not buying shorter text at the evaluator's expense. Length is ratcheted separately
+      in `compile.test.ts`, since a compiler can also fail by emitting something
+      enormous that happens to evaluate quickly.
+      Verify: `pnpm vitest bench src/worldedit/csg`.
 - [x] A compiled expression carries a **step budget** and stops with a diagnostic. The
       language has `while` and `for`, so a formula that does not terminate is a thing
       a user can type; without the guard it hangs the tab rather than the evaluation.
