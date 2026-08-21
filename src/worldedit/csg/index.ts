@@ -12,6 +12,7 @@
  */
 
 export { compileTree, type CsgCompilation, type CsgCompileOptions } from './compile'
+export { simplify } from './simplify'
 export {
   EMPTY_TREE,
   axisFrame,
