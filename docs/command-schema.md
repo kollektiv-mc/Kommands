@@ -73,7 +73,7 @@ A user-supplied value. `type` is a key into the argument-type registry.
 ```ts
 {
   kind: 'argument'
-  name: string              // unique within the definition; referenced by constraints and previews
+  name: string              // how constraints and previews address it; see invariant 1
   type: ArgumentTypeKey
   typeOptions?: object      // passed to the editor and validator, e.g. { min: 1 }
   optional?: boolean        // derived from Brigadier `executable` flags
@@ -346,8 +346,11 @@ field rather than a subsystem boundary.
 
 ## Invariants
 
-1. `name` is unique within a definition. Constraints and preview `inputs` resolve
-   against it.
+1. A `name` a constraint or a preview **addresses** resolves to exactly one node. It is
+   _not_ unique within a definition, and claiming it was is what issue #29 found:
+   derived skeletons carry Brigadier's own names, and Brigadier addresses nodes by
+   position, so 33 of the 78 have a duplicate — `/execute` has 36 arguments called
+   `scale`. See invariant 7 for what replaced it.
 2. `provenance: 'derived'` files are overwritten by `pnpm gen:commands`. Never edit
    them; change the generator.
 3. Serializers read version traits from `SerializeContext`. A version-number
@@ -360,3 +363,24 @@ field rather than a subsystem boundary.
    unreachable rather than merely unlikely — the form would draw a field that cannot
    affect the command. `definitionProblems` in `src/schema/invariants.ts` checks 6
    against every definition in the catalogue.
+7. Every `Constraint.targets` entry and every `PreviewBinding.inputs` entry resolves to
+   exactly one node. Checked by `definitionProblems` alongside 6, and this is the
+   build-time validation [`adding-a-preview.md`](adding-a-preview.md) requires of
+   preview `inputs`.
+
+   A target is a **selector**, not merely a name: a bare name where one is enough, or
+   the innermost enclosing keywords where it is not, matched as a contiguous suffix.
+   Flags carry their own leading dash.
+
+   ```
+   targets                       a bare name, when it means one thing
+   result/block/byte/scale       the innermost keywords, when it does not
+   -h                            a flag
+   ```
+
+   Deliberately not a path — `/1/#0/|3/2` is positional and dies the moment the deriver
+   reshapes the tree, and surviving regeneration is the whole reason rules address by
+   name. Deliberately no ordinal form either, which would hand that fragility straight
+   back. The cost is that `/loot` and `/teleport` are partly unaddressable — 32 argument
+   nodes that Brigadier separates by position alone, with no keyword to name. Neither is
+   addressed by anything, and a real case is what should decide the escape hatch.

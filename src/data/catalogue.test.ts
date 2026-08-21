@@ -67,9 +67,10 @@ describe('what a @any Ref may embed', () => {
 })
 
 describe('every definition in the catalogue is structurally sound', () => {
-  test('no unreachable node follows a variadic argument', () => {
-    // Invariant 6. Runs over all 79, so a future authored definition — or a deriver
-    // change that moves a variadic argument — fails here rather than in the browser.
+  test('nothing breaks invariant 6 or 7', () => {
+    // Runs over all 79, so a future authored definition — or a deriver change that
+    // moves a variadic argument, or renames one a rule addresses — fails here rather
+    // than in the browser. The negative controls below prove each half separately.
     expect(Object.values(catalogue).flatMap(definitionProblems)).toEqual([])
   })
 
@@ -78,6 +79,10 @@ describe('every definition in the catalogue is structurally sound', () => {
     // the test above passes just as happily when definitionProblems returns nothing.
     const broken = {
       ...catalogue['worldedit:generate']!,
+      // Dropped so this isolates invariant 6. //generate's mutex names three flags,
+      // and the root below has no flagset — which invariant 7 correctly reports, and
+      // which is not what this test is about.
+      constraints: [],
       root: {
         kind: 'sequence',
         nodes: [
@@ -93,12 +98,57 @@ describe('every definition in the catalogue is structurally sound', () => {
   test('a variadic argument inside a Repeat is caught, because the next instance follows it', () => {
     const broken = {
       ...catalogue['worldedit:generate']!,
+      constraints: [],
       root: {
         kind: 'repeat',
         node: { kind: 'argument', name: 'expression', type: 'we_expression', variadic: true },
       } satisfies Node,
     }
     expect(definitionProblems(broken)).toHaveLength(1)
+  })
+
+  test('a target that names thirty-six nodes is caught, and the advice given works', () => {
+    // Invariant 7's whole reason for existing. A mutex authored against `scale` on
+    // /execute would silently address every one of them, and the old code could not
+    // tell that from a clause the user had repeated thirty-six times.
+    const ambiguous = {
+      ...catalogue['vanilla:execute']!,
+      constraints: [{ kind: 'mutex' as const, targets: ['scale'], message: 'never shown' }],
+    }
+    const [problem, ...rest] = definitionProblems(ambiguous)
+    expect(rest).toEqual([])
+    expect(problem).toContain('matches 36 nodes')
+
+    // The message carries a replacement, and this asserts the replacement is real —
+    // a check whose advice does not work is a check people route around.
+    const suggested = /Qualify it, as in "([^"]+)"/.exec(problem ?? '')?.[1]
+    expect(suggested).toBeDefined()
+    const fixed = {
+      ...ambiguous,
+      constraints: [{ kind: 'mutex' as const, targets: [suggested!], message: 'never shown' }],
+    }
+    expect(definitionProblems(fixed)).toEqual([])
+  })
+
+  test('a target that names nothing is caught, rather than quietly never firing', () => {
+    // The failure the old global suffix scan could not report: a typo'd flag matched
+    // no key, and "no key" read as "the flag is not set".
+    const typo = {
+      ...catalogue['worldedit:generate']!,
+      constraints: [{ kind: 'mutex' as const, targets: ['-r', '-x'], message: 'never shown' }],
+    }
+    const problems = definitionProblems(typo)
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain('"-x"')
+    expect(problems[0]).toContain('not an argument or a flag')
+  })
+
+  test('a collision no keyword separates says so, instead of suggesting the name back', () => {
+    const unaddressable = {
+      ...catalogue['vanilla:teleport']!,
+      constraints: [{ kind: 'mutex' as const, targets: ['destination'], message: 'never shown' }],
+    }
+    expect(definitionProblems(unaddressable)[0]).toContain('no enclosing keyword tells them apart')
   })
 
   test('every argument type named in the catalogue resolves to something renderable', () => {

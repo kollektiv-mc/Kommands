@@ -3,13 +3,15 @@ import type { Node } from './types'
 /**
  * Where a value sits in a definition's tree.
  *
- * Values are keyed by *path*, not by argument name, and that is deliberate.
- * docs/command-schema.md says a name is unique within a definition, which is true of
- * the definition — but a node under a Repeat appears many times at runtime. Two
- * clauses of `/execute as @a as @p` would collide on `as_targets` if names were keys.
+ * Values are keyed by *path*, not by argument name, and that is deliberate. A node
+ * under a Repeat appears many times at runtime, so two clauses of
+ * `/execute as @a as @p` would collide on `as_targets` if names were keys.
  *
- * The name is still how constraints and preview inputs address an argument; see
- * `pathsForName`, which resolves a name to every path it currently occupies.
+ * Names are how a *rule* — a constraint, a preview input — addresses an argument, and
+ * that is a different question with a different answer: see `addressing.ts`. This
+ * module answers "where is this value right now"; that one answers "which node does
+ * this name mean". Conflating them is what let a name that matched 36 nodes look
+ * exactly like a clause the user had repeated 36 times.
  */
 export type Path = string
 
@@ -75,15 +77,6 @@ export function clearSubtree<T>(table: Readonly<Record<Path, T>>, path: Path): R
   return next
 }
 
-/** Every path at which an argument called `name` currently sits. */
-export function pathsForName(root: Node, name: string, counts: RepeatCounts): Path[] {
-  const found: Path[] = []
-  walk(root, ROOT, counts, (node, path) => {
-    if (node.kind === 'argument' && node.name === name) found.push(path)
-  })
-  return found
-}
-
 /** How many instances each Repeat currently has. Absent means `min`, or zero. */
 export type RepeatCounts = Readonly<Record<Path, number>>
 
@@ -124,32 +117,77 @@ export function choiceSelection(
 }
 
 /**
+ * Descend each Repeat exactly once, whatever the user has actually added.
+ *
+ * "How many clauses exist right now" is a fact about a value; "which node does this
+ * name mean" is a fact about the definition. `addressing.ts` asks the second and must
+ * not get a different answer on an empty form than on a filled one.
+ */
+export const STATIC = 'static' as const
+
+/**
  * Visit every live node, honouring repeat counts but *not* choice selections.
  *
  * Not choices, because callers of this are resolving names for constraints and
  * previews, and a constraint has to see an argument that is currently on an unselected
  * branch — otherwise selecting a branch would silently change which rules apply.
+ *
+ * `literals` is the enclosing literal chain, outermost first, and it is what makes a
+ * duplicated name addressable: `/execute`'s 36 arguments called `scale` differ only by
+ * the keywords above them. A literal contributes to its *later siblings* and to
+ * nothing else — it is not in scope for itself, for its parent, or for a sibling
+ * before it, because those are tokens the user types earlier in the command.
  */
 export function walk(
   node: Node,
   path: Path,
-  counts: RepeatCounts,
-  visit: (node: Node, path: Path) => void,
+  counts: RepeatCounts | typeof STATIC,
+  visit: (node: Node, path: Path, literals: readonly string[]) => void,
+  literals: readonly string[] = [],
 ): void {
-  visit(node, path)
+  visit(node, path, literals)
   switch (node.kind) {
-    case 'sequence':
-      node.nodes.forEach((n, i) => walk(n, child(path, i), counts, visit))
-      break
-    case 'choice':
-      node.nodes.forEach((n, i) => walk(n, branch(path, i), counts, visit))
-      break
-    case 'repeat': {
-      const n = repeatCount(counts, path, node)
-      for (let i = 0; i < n; i++) walk(node.node, instance(path, i), counts, visit)
+    case 'sequence': {
+      let chain = literals
+      node.nodes.forEach((n, i) => {
+        walk(n, child(path, i), counts, visit, chain)
+        if (n.kind === 'literal') chain = [...chain, n.token]
+      })
       break
     }
-    default:
+
+    // Branches are alternatives, so each inherits the same chain rather than each
+    // other's — a keyword on one branch is not above an argument on the next.
+    case 'choice':
+      node.nodes.forEach((n, i) => walk(n, branch(path, i), counts, visit, literals))
+      break
+
+    case 'repeat': {
+      const n = counts === STATIC ? 1 : repeatCount(counts, path, node)
+      for (let i = 0; i < n; i++) walk(node.node, instance(path, i), counts, visit, literals)
+      break
+    }
+
+    // The remaining kinds are spelled out rather than left to a `default`, so adding a
+    // node kind is a compile error here too — the same reason CommandRenderer's walk
+    // is exhaustive.
+    case 'literal':
+    case 'argument':
+      // Leaves. `optional` and `variadic` are fields, not children.
+      break
+
+    case 'flagset':
+      // Its flags are not Nodes — they have no `kind`, and they key into
+      // `CommandValue.flags` rather than `.args`. `addressing.ts` expands them, which
+      // keeps this walk over one kind of thing.
+      break
+
+    case 'ref':
+      // Deliberately does not descend. A Ref's subtree *is* another definition, with
+      // its own names and its own path space — the same reasoning `clearSubtree`
+      // states above. The consequence worth naming: a constraint or a preview input
+      // cannot reach across a Ref. Wanting that is cross-definition constraints, a
+      // different feature, not a wider selector.
       break
   }
 }

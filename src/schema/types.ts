@@ -96,7 +96,16 @@ export interface LiteralNode {
 /** A user-supplied value. */
 export interface ArgumentNode {
   kind: 'argument'
-  /** Unique within the definition. Constraints and preview inputs resolve against it. */
+  /**
+   * How a rule addresses this argument. **Not** unique within a definition.
+   *
+   * It used to say it was, and derived skeletons never honoured that: they carry
+   * Brigadier's own names, and Brigadier addresses nodes by position, so 33 of the 78
+   * have a duplicate — `/execute` has 36 arguments called `scale`. What is guaranteed
+   * instead is narrower and checked: a name a constraint or a preview *addresses*
+   * resolves to exactly one node, by invariant 7. See `addressing.ts` for the selector
+   * that disambiguates the rest.
+   */
   name: string
   type: ArgumentTypeKey
   /** Passed to the editor and the validator, e.g. { min: 1 }. */
@@ -178,7 +187,7 @@ export type Node =
 
 export interface Constraint {
   kind: 'mutex' | 'requires' | 'range'
-  /** Argument or flag names. */
+  /** Argument or flag selectors — see `addressing.ts`. Checked by invariant 7. */
   targets: string[]
   /** Shown to the user when violated. Constraints warn; they never block. */
   message: string
@@ -193,7 +202,13 @@ export interface VersionRange {
 
 export interface PreviewBinding {
   module: string
-  /** Argument or flag names. Validated at build time against the definition. */
+  /**
+   * Argument or flag selectors the module observes — see `addressing.ts`.
+   *
+   * Validated against the definition by invariant 7, which is what
+   * `docs/adding-a-preview.md` means by "a typo fails the build rather than rendering
+   * an empty canvas".
+   */
   inputs: string[]
 }
 

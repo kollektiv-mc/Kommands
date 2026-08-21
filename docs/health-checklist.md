@@ -167,6 +167,18 @@ belongs here.
       keep — `^` is power rather than xor, postfix `!` is factorial, `&&`/`||` return
       an operand rather than a boolean, `~=` compares by ULPs — each one something an
       implementation written from intuition gets wrong while passing everything else.
+      The CSG compiler and the AST printer are the two since, and both are checked
+      against something rather than against expectations. The printer round-trips the
+      whole of that same corpus, so cases written to specify the language also specify
+      it. The compiler is checked against `reference.ts`, a second and deliberately
+      naive implementation that shares nothing with it — 200 seeded graphs and 7 named
+      ones, bit-exact at 265 points each, because the reference mirrors the emitted
+      arithmetic operator for operator rather than comparing within a tolerance that
+      would hide a boundary error. `simplify.ts` is checked the same way, before and
+      after, which is the only thing that catches a rewrite rule that is quietly wrong.
+      The named graphs are not decoration: dropping the coordinate frame from the
+      compiler's memo key — the exact bug its sharing design is about — leaves all 200
+      generated graphs passing, and only the fixture written for it fails.
       Verify: `pnpm test`.
 
 ## 3. Scalable / future-proof
@@ -207,6 +219,12 @@ belongs here.
       [`.claude/rules/previews.md`](../.claude/rules/previews.md).
 - [ ] Preview `inputs` are validated at **build time** against real argument names
       and types, so a typo fails the build rather than rendering an empty canvas.
+      **Half done.** Invariant 7 covers the names: `definitionProblems` requires every
+      `inputs` entry to resolve to exactly one node, over the whole catalogue, and
+      reports the qualified selector to use when it does not. The _types_ half — a
+      module's `accepts` asserting the argument types it depends on, per
+      [`adding-a-preview.md`](adding-a-preview.md) — needs the preview registry and is
+      still open under #12. A box half-ticked is not ticked.
 - [ ] Dependencies are reasonably current, with nothing unmaintained and nothing
       duplicated doing the same job.
       Verify: `pnpm outdated`, and `pnpm why <pkg>` for anything suspected of being
@@ -235,6 +253,17 @@ belongs here.
       (a gyroid) ~196 ms, and `evaluate.test.ts` holds a 400 ms floor so the next
       change fails loudly rather than quietly costing 10×.
       Verify: `pnpm vitest bench src/worldedit/expression`.
+- [x] What the CSG compiler emits is no more expensive to evaluate than an equivalent
+      expression written by hand, and compiling is cheap enough to do on every edit.
+      Both are benched, because they are different questions and the second one is the
+      one that matters: compiling happens once per edit, evaluating happens 262,144
+      times. A twenty-operation sculpt compiles in **~0.9 ms** and its output evaluates
+      at 64³ in **~180 ms** — the same range as the gyroid above, which is a
+      hand-written fixture of comparable depth. So the frame model and the sharing are
+      not buying shorter text at the evaluator's expense. Length is ratcheted separately
+      in `compile.test.ts`, since a compiler can also fail by emitting something
+      enormous that happens to evaluate quickly.
+      Verify: `pnpm vitest bench src/worldedit/csg`.
 - [x] A compiled expression carries a **step budget** and stops with a diagnostic. The
       language has `while` and `for`, so a formula that does not terminate is a thing
       a user can type; without the guard it hangs the tab rather than the evaluation.
@@ -274,19 +303,6 @@ it should be stable between runs.
   model exists to prevent. `enchantments` is not affected: its own change rides
   `enchantmentsShape`, which already exists.
   [#26](https://github.com/kollektiv-mc/Kommands/issues/26).
-
-**P1 — Derived argument names are not unique, so nothing can address one**
-
-- `types.ts` promises a name is unique within a definition; 33 of 78 derived commands
-  break that, worst `/execute` with 36 argument nodes called `scale` and `/data` with
-  315 nodes over 13 names. Values are unaffected — they key by path, which is what
-  `paths.ts` was written for — but `pathsForName` resolves a name to _every_ path it
-  occupies, and that is the documented addressing scheme for `Constraint.targets` and
-  for preview `inputs`. Both are consumed by work that is next: a `mutex` on a derived
-  command, and the build-time input validation #12 puts in scope. Either disambiguate
-  during derivation or restate the invariant and make name-addressing path-scoped —
-  a decision worth making before #10 and #12, not after.
-  [#29](https://github.com/kollektiv-mc/Kommands/issues/29).
 
 **P2 — Two schema fields are documented and read by nothing**
 

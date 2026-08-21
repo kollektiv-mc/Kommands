@@ -1,3 +1,4 @@
+import { qualify, resolveTarget } from './addressing'
 import type { CommandDefinition, Node } from './types'
 
 /**
@@ -14,7 +15,55 @@ import type { CommandDefinition, Node } from './types'
  * test suite runs this over the whole catalogue, which is where it should fail.
  */
 export function definitionProblems(definition: CommandDefinition): string[] {
-  return variadicProblems(definition.root, false).map((problem) => `${definition.id}: ${problem}`)
+  return [...variadicProblems(definition.root, false), ...addressingProblems(definition)].map(
+    (problem) => `${definition.id}: ${problem}`,
+  )
+}
+
+/**
+ * Invariant 7 — a name a rule addresses must mean exactly one node.
+ *
+ * Not "every argument name is unique", which was the old claim and was never true of a
+ * derived skeleton: those carry Brigadier's own names, and Brigadier addresses nodes by
+ * position, so it never had a reason to make them unique. 33 of 78 definitions have a
+ * duplicate. What matters is narrower and checkable — a name nothing addresses can
+ * collide freely, and a name something addresses must not.
+ *
+ * This is also the build-time validation `docs/adding-a-preview.md` requires of preview
+ * `inputs`, and the reason it can be written now: it does not depend on derived names
+ * being unique, only on the ones actually pointed at.
+ *
+ * The diagnostic carries a working replacement rather than only a complaint, because a
+ * check that leaves the author to work out the fix is a check they route around.
+ */
+function addressingProblems(definition: CommandDefinition): string[] {
+  const addressed = [
+    ...(definition.constraints ?? []).flatMap((constraint) =>
+      constraint.targets.map((selector) => ({ where: `the ${constraint.kind}`, selector })),
+    ),
+    ...(definition.preview?.inputs ?? []).map((selector) => ({
+      where: 'the preview',
+      selector,
+    })),
+  ]
+
+  return addressed.flatMap(({ where, selector }) => {
+    const [first, ...rest] = resolveTarget(definition.root, selector)
+    if (first === undefined) {
+      return [`${where} names "${selector}", which is not an argument or a flag here`]
+    }
+    if (rest.length === 0) return []
+
+    // Two commands have collisions no keyword separates — /loot and /teleport, where
+    // Brigadier tells the nodes apart by position alone. Saying so is more use than
+    // suggesting the name back unchanged.
+    const suggestion = qualify(definition.root, first)
+    const advice =
+      suggestion === selector
+        ? ', and no enclosing keyword tells them apart'
+        : `. Qualify it, as in "${suggestion}"`
+    return [`${where} names "${selector}", which matches ${rest.length + 1} nodes${advice}`]
+  })
 }
 
 /**

@@ -90,12 +90,12 @@ transcribed into `expression.test.ts` rather than paraphrased — a case that di
 with upstream is this implementation being wrong. Four of them are traps that an
 implementation written from intuition fails while passing everything else:
 
-| Looks like                     | Actually                                                                          |
-| ------------------------------ | --------------------------------------------------------------------------------- |
-| `^` is xor                     | **exponentiation**, right-associative (`POWER : '^' \| '**'`)                     |
-| postfix `!` is negation        | **factorial**, from a 171-entry table, truncating its input                       |
-| `&&` and `\|\|` yield booleans | they yield an **operand** — `0 \|\| 5` is `5`, `2 \|\| 5` is `2`, `5 && 0` is `0` |
-| `~=` is a tolerance            | **units in the last place**, compared as integers                                 |
+| Looks like                     | Actually                                                                                                       |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `^` is xor                     | **exponentiation**, **left**-associative and looser than every prefix operator — `2^3^2` is 64 and `-2^2` is 4 |
+| postfix `!` is negation        | **factorial**, from a 171-entry table, truncating its input                                                    |
+| `&&` and `\|\|` yield booleans | they yield an **operand** — `0 \|\| 5` is `5`, `2 \|\| 5` is `2`, `5 && 0` is `0`                              |
+| `~=` is a tolerance            | **units in the last place**, compared as integers                                                              |
 
 The compiler emits a closure tree rather than an interpreter over the AST, because the
 consumer evaluates it 262,144 times per input change. See
@@ -206,6 +206,14 @@ gyroid            sin(x*6)*cos(y*6)+sin(y*6)*cos(z*6)+sin(z*6)*cos(x*6)<0.2   57
 A twenty-operation sculpt is a long line, not an impossible one — and it stays legible
 enough to hand-edit afterwards, which is worth something on its own.
 
+**Measured, now that the compiler exists** (`src/worldedit/csg/`). The sphere, box,
+gyroid and sphere − sphere counts above are what it emits, exactly. The torus is 30
+rather than 27, because the table writes its minor radius pre-squared and no
+parameterisation of a torus node reproduces that without asking someone for a squared
+length. And the twenty-operation sculpt is **348 characters** — 775 with sharing turned
+off, which is what the shared-subexpression decision below is worth. Both numbers are
+pinned by tests rather than restated here; `compile.test.ts` holds them.
+
 ---
 
 ## The decision
@@ -270,6 +278,15 @@ r = x^2+y^2+z^2; (r<1) && !(r<0.7)
 
 Without that, a diamond in the graph would duplicate its shared subexpression on every
 path — the blow-up that made the scan-and-derive route fail, arriving by another door.
+
+**Sharpened by building it.** The example above is the argument against keying sharing
+on the graph node: it is a sphere minus a _smaller_ sphere, so there is no node that
+occurs twice, and a compiler memoising per node produces nothing at all here. The
+compiler keys on the **emitted text** instead, which finds this case, and which declines
+to share a node reached through two different transforms for free — because the
+coordinate frame is part of the text, and the same node under two frames is genuinely
+two expressions. That last point is not hypothetical: dropping the frame from the key
+leaves 200 generated graphs passing and only the fixture written for it failing.
 
 **Live update should cook the dirty subgraph, not the whole graph.** A node graph makes
 the dependency edges explicit, so a parameter change only invalidates nodes downstream of
