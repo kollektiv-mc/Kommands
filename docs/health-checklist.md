@@ -378,6 +378,19 @@ it should be stable between runs.
   a hole, and the guard belongs in `fetchSummary`, which owns the cache.
   [#31](https://github.com/kollektiv-mc/Kommands/issues/31).
 
+**P2 — The shared type scale has no display step**
+
+- `tokens.source.json` stops at `--text-xl` (20px), which is correct for a dense tool
+  UI and leaves nothing for a landing page's title. `Landing.tsx` therefore reaches
+  for Tailwind's built-in `text-6xl`/`sm:text-7xl` (60/72px). That is a real utility
+  rather than an inlined literal, so the `no literal hex or px in components` grep is
+  silent and the styling rule's letter is kept — but the value comes from Tailwind's
+  default theme instead of the suite's, which is the same drift the token pipeline
+  exists to prevent, one level up. The fix is a `display` step added to
+  `kollektiv/design/tokens.json` and synced, so Konnekt's site and this page size a
+  title from one source. Deliberately not done inside this change: it edits another
+  repo, and `tokens.source.json` here is vendored and must never be hand-edited.
+
 ---
 
 When a backlog item closes, delete it here. If the write-up is worth keeping —
