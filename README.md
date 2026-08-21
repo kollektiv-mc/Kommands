@@ -26,14 +26,17 @@ So Kommands treats commands as **data**:
 
 ## Status
 
-Early. This repo currently contains the architecture, schema, and contributor
-docs; the application is not yet scaffolded. See [`docs/roadmap.md`](docs/roadmap.md)
-for what is planned Now / Next / Later, and the
-[issue tracker](../../issues) for what is in flight.
+The app is scaffolded and generating. Four commands are complete — `/give`,
+`/tellraw`, `/execute` and `//generate` — and every one of the 78 vanilla skeletons
+derived from mcmeta is reachable through a single dynamic route. WorldEdit's
+expression language has a headless evaluator, specified against WorldEdit's own test
+suite rather than by description.
+
+What is not built yet is the 3D previews. See [`docs/roadmap.md`](docs/roadmap.md) for
+what is planned Now / Next / Later, and the [issue tracker](../../issues) for what is
+in flight.
 
 ## Getting started
-
-Once the app is scaffolded:
 
 ```sh
 pnpm install
@@ -43,18 +46,19 @@ pnpm dev
 
 ## Documentation
 
-| Document                                         | Contents                                                     |
-| ------------------------------------------------ | ------------------------------------------------------------ |
-| [Architecture](docs/architecture.md)             | How the system fits together, and the reasoning behind it    |
-| [Command schema](docs/command-schema.md)         | The authoritative definition schema                          |
-| [Minecraft versions](docs/minecraft-versions.md) | Syntax trait matrix — what differs per version               |
-| [Adding a command](docs/adding-a-command.md)     |                                                              |
-| [Adding a version](docs/adding-a-version.md)     |                                                              |
-| [Adding a preview](docs/adding-a-preview.md)     |                                                              |
-| [Design tokens](docs/design-tokens.md)           |                                                              |
-| [Roadmap](docs/roadmap.md)                       |                                                              |
-| [Health checklist](docs/health-checklist.md)     | The quality yardstick this repo is measured against          |
-| [Suite](docs/suite.md)                           | The umbrella this repo belongs to, and the tooling it shares |
+| Document                                           | Contents                                                      |
+| -------------------------------------------------- | ------------------------------------------------------------- |
+| [Architecture](docs/architecture.md)               | How the system fits together, and the reasoning behind it     |
+| [Command schema](docs/command-schema.md)           | The authoritative definition schema                           |
+| [Minecraft versions](docs/minecraft-versions.md)   | Syntax trait matrix — what differs per version                |
+| [Adding a command](docs/adding-a-command.md)       |                                                               |
+| [Adding a version](docs/adding-a-version.md)       |                                                               |
+| [Adding a preview](docs/adding-a-preview.md)       |                                                               |
+| [The `//generate` editor](docs/generate-editor.md) | What `//generate` can express, and the shape of its 3D editor |
+| [Design tokens](docs/design-tokens.md)             |                                                               |
+| [Roadmap](docs/roadmap.md)                         |                                                               |
+| [Health checklist](docs/health-checklist.md)       | The quality yardstick this repo is measured against           |
+| [Suite](docs/suite.md)                             | The umbrella this repo belongs to, and the tooling it shares  |
 
 ## Credits
 
