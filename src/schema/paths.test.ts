@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { branch, child, choiceSelection, instance, NO_BRANCH, reindexInstances } from './paths'
+import { choiceSelection, instance, NO_BRANCH, repeatInstances, seedInstances } from './paths'
 
 describe('choiceSelection — what an absent selection means', () => {
   const required = { nodes: [0, 1, 2] }
@@ -34,48 +34,45 @@ describe('choiceSelection — what an absent selection means', () => {
   })
 })
 
-describe('reindexInstances — moving a clause moves everything under it', () => {
-  const table = {
-    [`${instance('/1', 0)}/1`]: 'first',
-    [`${instance('/1', 1)}/1`]: 'second',
-    [`${instance('/1', 2)}/1`]: 'third',
-    '/9': 'untouched',
-  }
-
-  test('a swap carries each clause’s values with it', () => {
-    const moved = reindexInstances(table, '/1', [1, 0, 2])
-    expect(moved[`${instance('/1', 0)}/1`]).toBe('second')
-    expect(moved[`${instance('/1', 1)}/1`]).toBe('first')
-    expect(moved[`${instance('/1', 2)}/1`]).toBe('third')
+describe('repeatInstances — the id list is the clause order', () => {
+  test('an untouched Repeat has as many instances as its min', () => {
+    expect(repeatInstances({}, '/1', { min: 2 })).toHaveLength(2)
+    expect(repeatInstances({}, '/1', {})).toEqual([])
   })
 
-  test('keys outside the repeat are left alone', () => {
-    expect(reindexInstances(table, '/1', [0, 1, 2])['/9']).toBe('untouched')
+  test('seeded ids are stable, or an untouched Repeat would remount every render', () => {
+    expect(repeatInstances({}, '/1', { min: 2 })).toEqual(repeatInstances({}, '/1', { min: 2 }))
   })
 
-  test('a dropped clause takes its values with it rather than orphaning them', () => {
-    // The bug this exists to prevent: removing the first clause used to drop the last
-    // index and leave `#0`'s values in place, so they reappeared in the next clause
-    // added — filled in, in a clause the user never touched.
-    const removed = reindexInstances(table, '/1', [1, 2])
-    expect(Object.values(removed).sort()).toEqual(['second', 'third', 'untouched'])
-    expect(removed[`${instance('/1', 0)}/1`]).toBe('second')
-    expect(removed[`${instance('/1', 1)}/1`]).toBe('third')
+  test('seeded ids cannot collide with generated ones', () => {
+    // Two clauses on one path is the exact failure the id model exists to prevent, and a
+    // collision between a seed and a generated id would let it in by the back door.
+    expect(seedInstances(3).every((id) => id.startsWith('seed:'))).toBe(true)
+    expect(seedInstances(3)).not.toContain('i0')
   })
 
-  test('a two-digit index is not folded into a one-digit one', () => {
-    // `#1` is a prefix of `#10`, so a naive slice would move the eleventh clause's
-    // values into the second.
-    const many = { [`${instance('/1', 1)}/0`]: 'one', [`${instance('/1', 10)}/0`]: 'ten' }
-    const order = [...Array(11).keys()]
-    const same = reindexInstances(many, '/1', order)
-    expect(same[`${instance('/1', 1)}/0`]).toBe('one')
-    expect(same[`${instance('/1', 10)}/0`]).toBe('ten')
+  test('a stored list wins over the seed, and keeps its order', () => {
+    expect(repeatInstances({ '/1': ['i7', 'i2'] }, '/1', { min: 2 })).toEqual(['i7', 'i2'])
+  })
+})
+
+describe('an instance path carries identity rather than position', () => {
+  test('reordering the ids does not change any path', () => {
+    // The property the whole change buys, stated once. Under the ordinal model every key
+    // beneath a Repeat had to be rewritten on a reorder; here a clause's path is a fact
+    // about which clause it is, so a permutation of the list moves nothing.
+    const before = ['a', 'b', 'c'].map((id) => instance('/1', id))
+    const after = ['c', 'a', 'b'].map((id) => instance('/1', id))
+    expect(new Set(after)).toEqual(new Set(before))
   })
 
-  test('nested paths below the instance are preserved wholesale', () => {
-    const deep = { [`${instance('/1', 1)}${branch('', 2)}${child('', 3)}`]: 'deep' }
-    const moved = reindexInstances(deep, '/1', [1, 0])
-    expect(moved[`${instance('/1', 0)}${branch('', 2)}${child('', 3)}`]).toBe('deep')
+  test('an id is never parsed back out of a path', () => {
+    // `#1` was a prefix of `#10`, so the old remap had to read the whole index or it
+    // folded the eleventh clause into the second. Nothing reads an id out of a path now,
+    // so that class of bug is gone rather than guarded — but ids must still not be
+    // prefixes of one another *as paths*, which the separator guarantees.
+    expect(instance('/1', 'i1')).not.toBe(instance('/1', 'i10'))
+    expect(instance('/1', 'i10').startsWith(instance('/1', 'i1'))).toBe(true)
+    expect(`${instance('/1', 'i10')}/`.startsWith(`${instance('/1', 'i1')}/`)).toBe(false)
   })
 })

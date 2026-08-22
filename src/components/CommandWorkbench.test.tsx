@@ -381,3 +381,126 @@ test('the output panel is not downstream of the preview', async () => {
   await userEvent.type(screen.getByLabelText('Expression'), 'x < 0')
   expect(output()).toBe('//generate <pattern> x < 0')
 })
+
+/**
+ * A Repeat holding an editor with internal state.
+ *
+ * Synthetic, and it has to be: `/execute`'s Repeat is the only one in the catalogue and
+ * none of its 13 clause branches uses an editor that holds local state, so the bug #33
+ * describes is unreachable with real data. That is what made it latent rather than
+ * absent — every editor added from here is free to hold state, and nothing warned the
+ * author that doing so inside a Repeat was unsafe.
+ *
+ * `max: 2` rides along because the same definition is the only way to reach that gate
+ * too: no derived definition declares a `max`.
+ */
+const REPEATED_ITEM: CommandDefinition = {
+  id: 'test:repeated-item',
+  label: '/repeated',
+  dialect: 'vanilla',
+  provenance: 'authored',
+  versions: { min: '1.21.1' },
+  root: {
+    kind: 'sequence',
+    nodes: [
+      { kind: 'literal', token: 'repeated' },
+      {
+        kind: 'repeat',
+        min: 0,
+        max: 2,
+        node: { kind: 'argument', name: 'item', type: 'item_stack' },
+      },
+    ],
+  },
+}
+
+const renderRepeated = () =>
+  render(<CommandWorkbench definition={REPEATED_ITEM} version={v1_21_1} registries={registries} />)
+
+test('a reordered clause takes its component state with it, not just its values', async () => {
+  // The reproduction from #33, as a test. Before instance identity existed, values moved
+  // and internal state did not:
+  //
+  //   BEFORE  items    : stone, netherite_sword
+  //   BEFORE  dropdowns: "",    enchantments
+  //           ← move clause 2 earlier →
+  //   AFTER   items    : netherite_sword, stone   ✅ store-held values moved
+  //   AFTER   dropdowns: "",    enchantments      ❌ internal state stayed put
+  //
+  // The dropdown is `ItemStackEditor`'s "Add component" select, which holds its choice
+  // in useState — exactly the shape the issue names.
+  const user = userEvent.setup()
+  renderRepeated()
+
+  await user.click(screen.getByLabelText('Add clause'))
+  await user.click(screen.getByLabelText('Add clause'))
+
+  const items = () => screen.getAllByLabelText('Item')
+  const dropdowns = () => screen.getAllByLabelText<HTMLSelectElement>('Add component')
+
+  await user.type(items()[0]!, 'stone')
+  await user.type(items()[1]!, 'netherite_sword')
+  await user.selectOptions(dropdowns()[1]!, 'enchantments')
+
+  expect(items().map((i) => (i as HTMLInputElement).value)).toEqual(['stone', 'netherite_sword'])
+  expect(dropdowns().map((d) => d.value)).toEqual(['', 'enchantments'])
+
+  await user.click(screen.getByLabelText('Move clause 2 earlier'))
+
+  // Both halves move together, which is the whole of the fix.
+  expect(items().map((i) => (i as HTMLInputElement).value)).toEqual(['netherite_sword', 'stone'])
+  expect(dropdowns().map((d) => d.value)).toEqual(['enchantments', ''])
+})
+
+test('the DOM node moves with the clause, which is what carries focus and selection', async () => {
+  // The same failure in its other form, asserted at its mechanism. Focus, the caret, an
+  // IME composition and a text selection are all bound to a *DOM node*; with `key={i}`
+  // React kept one node per position and repainted it, so all of them stayed at the slot
+  // while the values moved past. Keying on the id makes React move the node instead.
+  //
+  // Asserted as node identity rather than via `document.activeElement`, because reorder
+  // here is driven by clicking a button and the click itself takes focus — which would
+  // test the button, not the clause.
+  const user = userEvent.setup()
+  renderRepeated()
+
+  await user.click(screen.getByLabelText('Add clause'))
+  await user.click(screen.getByLabelText('Add clause'))
+
+  const items = () => screen.getAllByLabelText<HTMLInputElement>('Item')
+  await user.type(items()[1]!, 'stone')
+  const second = items()[1]!
+
+  await user.click(screen.getByLabelText('Move clause 2 earlier'))
+
+  expect(items()[0]).toBe(second)
+  expect(items()[0]!.value).toBe('stone')
+})
+
+test('a removed clause does not leave its values for the next one', async () => {
+  // What `reindexInstances` existed to prevent, still true now that it is gone: removal
+  // clears the dropped instance's subtree, so the id is retired with its values.
+  const user = userEvent.setup()
+  renderRepeated()
+
+  await user.click(screen.getByLabelText('Add clause'))
+  await user.type(screen.getAllByLabelText('Item')[0]!, 'stone')
+  await user.click(screen.getByLabelText('Remove clause 1'))
+  await user.click(screen.getByLabelText('Add clause'))
+
+  expect(screen.getAllByLabelText<HTMLInputElement>('Item')[0]!.value).toBe('')
+})
+
+test('a Repeat stops offering + add at its max', async () => {
+  // RepeatNode.max was declared, documented, and read by nothing (part of #30), so a
+  // Repeat declared max: 2 accepted a third.
+  const user = userEvent.setup()
+  renderRepeated()
+
+  await user.click(screen.getByLabelText('Add clause'))
+  expect(screen.queryByLabelText('Add clause')).not.toBeNull()
+
+  await user.click(screen.getByLabelText('Add clause'))
+  expect(screen.getAllByLabelText('Item')).toHaveLength(2)
+  expect(screen.queryByLabelText('Add clause')).toBeNull()
+})

@@ -6,8 +6,9 @@ import {
   choiceSelection,
   instance,
   NO_BRANCH,
-  repeatCount,
+  repeatInstances,
   ROOT,
+  type InstanceId,
   type Path,
 } from '../schema/paths'
 import type { CommandValue } from '../schema/serialize'
@@ -34,8 +35,8 @@ interface Actions {
   setArg: (path: Path, value: unknown) => void
   setFlag: (path: Path, on: boolean) => void
   setChoice: (path: Path, index: number) => void
-  setRepeat: (path: Path, count: number) => void
-  reorderRepeat: (path: Path, order: readonly number[]) => void
+  addInstance: (path: Path, node: { min?: number; max?: number }) => void
+  reorderRepeat: (path: Path, ids: readonly InstanceId[]) => void
   setRef: (path: Path, definitionId: string) => void
 }
 
@@ -198,24 +199,30 @@ function NodeView({ node, path, value, ctx, actions, scope }: NodeViewProps) {
       // exercises add, remove and reorder against real values.
       //
       // What is *not* provisional is everything below this line that is not JSX: the
-      // permutation handed to `reorderRepeat`, the path remapping behind it, and the
-      // value tree it operates on. A node editor rebuilds the drawing and keeps all of
-      // it. Do not build further on the rows themselves.
-      const count = repeatCount(value.repeats, path, node)
-      const positions = Array.from({ length: count }, (_, i) => i)
+      // id list handed to `reorderRepeat`, the identity model behind it, and the value
+      // tree it operates on. A node editor rebuilds the drawing and keeps all of it. Do
+      // not build further on the rows themselves.
+      const ids = repeatInstances(value.repeats, path, node)
+      const count = ids.length
       // Each control hands the store the order it wants, rather than an index and a
       // verb. Moving and removing are the same operation on a path-keyed tree, and
       // saying so once is what keeps a removed clause's values from coming back.
-      const swap = (i: number, j: number) => positions.map((p) => (p === i ? j : p === j ? i : p))
-      const without = (i: number) => positions.filter((p) => p !== i)
+      const swap = (i: number, j: number) =>
+        ids.map((id, k) => (k === i ? ids[j]! : k === j ? ids[i]! : id))
+      const without = (i: number) => ids.filter((_, k) => k !== i)
+      const atMax = node.max !== undefined && count >= node.max
 
       return (
         <div className="border-l-hairline border-border-subtle flex flex-col gap-2 pl-2">
-          {positions.map((i) => (
-            <div key={i} className="flex items-start gap-2">
+          {ids.map((id, i) => (
+            // Keyed on the instance's id, not its position. With `key={i}` React saw the
+            // same keys in the same order after a reorder and simply handed each mounted
+            // editor the next clause's props — values moved and component-internal state
+            // did not, so a dropdown's selection stayed on the clause that had not moved.
+            <div key={id} className="flex items-start gap-2">
               <NodeView
                 node={node.node}
-                path={instance(path, i)}
+                path={instance(path, id)}
                 value={value}
                 ctx={ctx}
                 actions={actions}
@@ -253,15 +260,25 @@ function NodeView({ node, path, value, ctx, actions, scope }: NodeViewProps) {
               </div>
             </div>
           ))}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className={ROW_ADD}
-              onClick={() => actions.setRepeat(path, count + 1)}
-            >
-              + add
-            </button>
-          </div>
+          {/* Hidden at `max` rather than disabled, matching how the remove button treats
+              `min`. The limit is a fact about the command's grammar, so the control that
+              would break it is not offered. */}
+          {!atMax && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className={ROW_ADD}
+                // Labelled like its siblings, which say "Move clause 1 earlier" and
+                // "Remove clause 1". The visible text is ambiguous on its own: a deep
+                // editor inside the clause may have a `+ add` of its own, and
+                // `item_stack`'s does.
+                aria-label="Add clause"
+                onClick={() => actions.addInstance(path, node)}
+              >
+                + add
+              </button>
+            </div>
+          )}
         </div>
       )
     }

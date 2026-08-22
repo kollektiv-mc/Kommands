@@ -17,46 +17,20 @@ export type Path = string
 
 export const ROOT: Path = ''
 
-export const child = (parent: Path, index: number): Path => `${parent}/${index}`
-export const instance = (parent: Path, index: number): Path => `${parent}/#${index}`
-export const branch = (parent: Path, index: number): Path => `${parent}/|${index}`
-
 /**
- * Rewrite every key beneath a Repeat so its instances land in a new order.
+ * A Repeat instance's identity.
  *
- * An instance path carries its index — `/1/#0` — so moving or dropping a clause is
- * never a change to one key. Every value, choice, flag, nested repeat count and ref
- * below it is keyed through that index and has to move with it.
- *
- * `order[i]` is the index the instance now at position `i` held before. An index
- * absent from `order` is dropped, which is what removal is: the alternative, leaving
- * the keys in place, is what made a removed clause's values reappear in the next one
- * added.
+ * Opaque, and generated rather than positional. It used to be the instance's *ordinal*,
+ * which made a path a statement about where a clause currently sits — so reordering
+ * rewrote every key beneath the Repeat, and React, seeing the same keys in the same
+ * order, handed each mounted editor a different clause's props while its own internal
+ * state stayed put. See docs/command-schema.md § Paths.
  */
-export function reindexInstances<T>(
-  table: Readonly<Record<Path, T>>,
-  repeatPath: Path,
-  order: readonly number[],
-): Record<Path, T> {
-  const prefix = `${repeatPath}/#`
-  const next: Record<Path, T> = {}
-  for (const [key, held] of Object.entries(table)) {
-    if (!key.startsWith(prefix)) {
-      next[key] = held
-      continue
-    }
-    // Read the whole index, not one character: `#1` and `#10` share a prefix, and
-    // truncating would fold the eleventh clause into the second.
-    const rest = key.slice(prefix.length)
-    const end = rest.indexOf('/')
-    const digits = end === -1 ? rest : rest.slice(0, end)
-    const was = Number(digits)
-    const now = order.indexOf(was)
-    if (!/^\d+$/.test(digits) || now === -1) continue
-    next[`${prefix}${now}${end === -1 ? '' : rest.slice(end)}`] = held
-  }
-  return next
-}
+export type InstanceId = string
+
+export const child = (parent: Path, index: number): Path => `${parent}/${index}`
+export const instance = (parent: Path, id: InstanceId): Path => `${parent}/#${id}`
+export const branch = (parent: Path, index: number): Path => `${parent}/|${index}`
 
 /**
  * Every key at or below `path` removed.
@@ -77,8 +51,32 @@ export function clearSubtree<T>(table: Readonly<Record<Path, T>>, path: Path): R
   return next
 }
 
-/** How many instances each Repeat currently has. Absent means `min`, or zero. */
-export type RepeatCounts = Readonly<Record<Path, number>>
+/**
+ * The instances each Repeat currently holds, in order.
+ *
+ * The order of this list *is* the order of the clauses, so reordering is a permutation
+ * of it and touches no value key at all. That is the whole of the change from the
+ * ordinal model: values do not move, so nothing has to be moved correctly.
+ *
+ * Absent means the Repeat has not been touched, and `repeatInstances` seeds it from
+ * `min`.
+ */
+export type RepeatInstances = Readonly<Record<Path, readonly InstanceId[]>>
+
+/**
+ * The ids a Repeat has before anyone has touched it.
+ *
+ * Only `min` produces these, and no definition in the catalogue declares a `min` above
+ * zero — `/execute`'s is the only Repeat there is, at `min: 0` — so this is reachable
+ * today only from a fixture. It still has to be right: the ids must be stable across
+ * renders, or an untouched Repeat would remount itself on every keystroke.
+ *
+ * The `seed:` prefix keeps them out of the generated id space. A seeded instance that
+ * collided with a generated one would put two clauses on one path, which is the failure
+ * this whole change exists to prevent, arriving by the back door.
+ */
+export const seedInstances = (count: number): InstanceId[] =>
+  Array.from({ length: count }, (_, i) => `seed:${i}`)
 
 /**
  * Which branch each Choice has selected.
@@ -93,8 +91,13 @@ export type ChoiceSelections = Readonly<Record<Path, number>>
 /** No branch of an optional Choice applies. */
 export const NO_BRANCH = -1
 
-export function repeatCount(counts: RepeatCounts, path: Path, node: { min?: number }): number {
-  return counts[path] ?? node.min ?? 0
+/** The instances of one Repeat, seeded from `min` when it has never been touched. */
+export function repeatInstances(
+  instances: RepeatInstances,
+  path: Path,
+  node: { min?: number },
+): readonly InstanceId[] {
+  return instances[path] ?? seedInstances(node.min ?? 0)
 }
 
 /**
@@ -125,6 +128,9 @@ export function choiceSelection(
  */
 export const STATIC = 'static' as const
 
+/** The one instance `STATIC` descends into. Its path is discarded by every caller. */
+const STATIC_INSTANCE: readonly InstanceId[] = ['static']
+
 /**
  * Visit every live node, honouring repeat counts but *not* choice selections.
  *
@@ -141,7 +147,7 @@ export const STATIC = 'static' as const
 export function walk(
   node: Node,
   path: Path,
-  counts: RepeatCounts | typeof STATIC,
+  instances: RepeatInstances | typeof STATIC,
   visit: (node: Node, path: Path, literals: readonly string[]) => void,
   literals: readonly string[] = [],
 ): void {
@@ -150,7 +156,7 @@ export function walk(
     case 'sequence': {
       let chain = literals
       node.nodes.forEach((n, i) => {
-        walk(n, child(path, i), counts, visit, chain)
+        walk(n, child(path, i), instances, visit, chain)
         if (n.kind === 'literal') chain = [...chain, n.token]
       })
       break
@@ -159,12 +165,15 @@ export function walk(
     // Branches are alternatives, so each inherits the same chain rather than each
     // other's — a keyword on one branch is not above an argument on the next.
     case 'choice':
-      node.nodes.forEach((n, i) => walk(n, branch(path, i), counts, visit, literals))
+      node.nodes.forEach((n, i) => walk(n, branch(path, i), instances, visit, literals))
       break
 
     case 'repeat': {
-      const n = counts === STATIC ? 1 : repeatCount(counts, path, node)
-      for (let i = 0; i < n; i++) walk(node.node, instance(path, i), counts, visit, literals)
+      // STATIC descends exactly once, under a fixed id. Which id does not matter and is
+      // never observed: `staticLocations` discards the path, keeping only the node's
+      // name and the literals above it.
+      const ids = instances === STATIC ? STATIC_INSTANCE : repeatInstances(instances, path, node)
+      for (const id of ids) walk(node.node, instance(path, id), instances, visit, literals)
       break
     }
 

@@ -128,6 +128,18 @@ Child may appear multiple times. This is how Brigadier `redirect` is represented
 { kind: 'repeat', node: Node, min?: number, max?: number }
 ```
 
+`max` is enforced where an instance is created: the store refuses to add past it and the
+`+ add` control is not offered, the same way the remove control is withheld at `min`.
+
+Each instance carries a generated **id**, and its path keys on that id rather than on its
+position — `/1/#i3`, not `/1/#0`. So the order of a Repeat's id list is the order of its
+clauses, and reordering is a permutation of that list which touches no value key at all.
+The ordinal form was the other way round: a clause's path stated where it currently sat,
+so a reorder had to rewrite every key beneath the Repeat, and React — seeing the same
+keys in the same order — handed each mounted editor a different clause's props while its
+internal state, its focus and its caret stayed at the slot. An id is opaque: nothing
+parses one back out of a path.
+
 ### `FlagSetNode`
 
 Boolean switches. WorldEdit only; vanilla has no equivalent.
@@ -378,7 +390,7 @@ field rather than a subsystem boundary.
    -h                            a flag
    ```
 
-   Deliberately not a path — `/1/#0/|3/2` is positional and dies the moment the deriver
+   Deliberately not a path — `/1/#i3/|3/2` is positional and dies the moment the deriver
    reshapes the tree, and surviving regeneration is the whole reason rules address by
    name. Deliberately no ordinal form either, which would hand that fragility straight
    back. The cost is that `/loot` and `/teleport` are partly unaddressable — 32 argument

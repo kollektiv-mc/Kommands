@@ -203,9 +203,9 @@ describe('/execute — the case that decides whether the tree was necessary', ()
     const out = serializeCommand(
       EXECUTE,
       value({
-        repeats: { '/1': 2 },
-        choices: { '/1/#0': 0, '/1/#1': 1 },
-        args: { '/1/#0/|0/1': '@a', '/1/#1/|1/1': '@s' },
+        repeats: { '/1': ['as', 'at'] },
+        choices: { '/1/#as': 0, '/1/#at': 1 },
+        args: { '/1/#as/|0/1': '@a', '/1/#at/|1/1': '@s' },
       }),
       ctx,
     )
@@ -219,9 +219,9 @@ describe('/execute — the case that decides whether the tree was necessary', ()
     const out = serializeCommand(
       EXECUTE,
       value({
-        repeats: { '/1': 1 },
-        choices: { '/1/#0': 0, '/2': 0 },
-        args: { '/1/#0/|0/1': '@a' },
+        repeats: { '/1': ['as'] },
+        choices: { '/1/#as': 0, '/2': 0 },
+        args: { '/1/#as/|0/1': '@a' },
       }),
       ctx,
     )
@@ -232,10 +232,10 @@ describe('/execute — the case that decides whether the tree was necessary', ()
     const out = serializeCommand(
       EXECUTE,
       value({
-        repeats: { '/1': 1 },
-        choices: { '/1/#0': 0, '/2': 0 },
+        repeats: { '/1': ['as'] },
+        choices: { '/1/#as': 0, '/2': 0 },
         args: {
-          '/1/#0/|0/1': '@a',
+          '/1/#as/|0/1': '@a',
           '/2/|0/1/1': '@s',
           '/2/|0/1/2': { id: 'stone', components: {} },
         },
@@ -372,11 +372,14 @@ describe('the canonical /execute fixture', () => {
     const out = serializeCommand(
       EXECUTE_1_21_1,
       value({
-        repeats: { '/1': 2 },
-        choices: { '/1/#0': 2, '/1/#1': 3, '/2': 0 },
+        // Named so that the list order and any order the *ids* suggest disagree: `z`
+        // comes first. The expected string below is unchanged, which is the assertion —
+        // clause order comes from the list, and an id says only which clause it is.
+        repeats: { '/1': ['z', 'a'] },
+        choices: { '/1/#z': 2, '/1/#a': 3, '/2': 0 },
         args: {
-          '/1/#0/|2/1': '@a',
-          '/1/#1/|3/1': '@s',
+          '/1/#z/|2/1': '@a',
+          '/1/#a/|3/1': '@s',
           '/2/|0/1/1': 'minecraft:flame',
           '/2/|0/1/2': '~ ~1 ~',
           '/2/|0/1/3': '0.2 0.2 0.2',
