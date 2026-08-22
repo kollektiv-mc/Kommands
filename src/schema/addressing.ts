@@ -1,4 +1,4 @@
-import type { Node } from './types'
+import type { ArgumentTypeKey, Node } from './types'
 import { ROOT, STATIC, walk, type Path, type RepeatCounts } from './paths'
 
 /**
@@ -42,6 +42,15 @@ import { ROOT, STATIC, walk, type Path, type RepeatCounts } from './paths'
 export interface StaticLocation {
   kind: 'argument' | 'flag'
   name: string
+  /**
+   * The argument's type key. Absent on a flag, which has no type to carry.
+   *
+   * Here rather than looked up by a second walk, because the walk that finds a node
+   * already has it in hand. A preview module's `accepts` asserts the *types* it depends
+   * on — `docs/adding-a-preview.md` is explicit that names alone are not enough — and
+   * without this it would have to re-find the node it was just handed.
+   */
+  type?: ArgumentTypeKey
   /** The enclosing literal chain, outermost first. */
   literals: readonly string[]
 }
@@ -76,7 +85,7 @@ function located(root: Node, counts: RepeatCounts | typeof STATIC): Located[] {
   const found: Located[] = []
   walk(root, ROOT, counts, (node, path, literals) => {
     if (node.kind === 'argument') {
-      found.push({ kind: 'argument', name: node.name, literals, path })
+      found.push({ kind: 'argument', name: node.name, type: node.type, literals, path })
     } else if (node.kind === 'flagset') {
       for (const flag of node.flags) {
         found.push({ kind: 'flag', name: flag.name, literals, path: `${path}/${flag.name}` })
@@ -88,7 +97,12 @@ function located(root: Node, counts: RepeatCounts | typeof STATIC): Located[] {
 
 /** Every argument and flag in the definition, each counted once however often it repeats. */
 export function staticLocations(root: Node): StaticLocation[] {
-  return located(root, STATIC).map(({ kind, name, literals }) => ({ kind, name, literals }))
+  return located(root, STATIC).map(({ kind, name, type, literals }) => ({
+    kind,
+    name,
+    type,
+    literals,
+  }))
 }
 
 /**

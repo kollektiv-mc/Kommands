@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, expect, test } from 'vitest'
+import { beforeEach, expect, test, vi } from 'vitest'
 import { CommandWorkbench } from './CommandWorkbench'
 import commandsPayload from '../data/generated/1.21.1/commands.json'
 import { makeRegistryLookup } from '../data/versions/registry'
@@ -9,6 +9,18 @@ import { generate } from '../data/authored/commands/worldedit/generate'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import type { CommandDefinition } from '../schema/types'
 import { useCommandStore } from '../stores/useCommandStore'
+
+/**
+ * The 3D stage, stubbed.
+ *
+ * `//generate` binds a preview, so several tests below mount one. jsdom has no WebGL,
+ * and the real stage would try to make a context and fail — for a reason that has
+ * nothing to do with what these tests assert. Stubbing it keeps them about the
+ * serializer, and leaves the stage's own behaviour to PreviewCanvas.test.tsx.
+ */
+vi.mock('./PreviewStage', () => ({
+  default: () => <div data-testid="preview-stage" />,
+}))
 
 const commands = commandsPayload.commands as unknown as Record<string, CommandDefinition>
 const GIVE = commands['vanilla:give']!
@@ -340,4 +352,32 @@ test('re-pointing an embedded command clears what the last one held', async () =
 
   await user.selectOptions(screen.getByLabelText('command'), 'vanilla:particle')
   expect(output()).toBe('/execute run particle <name>')
+})
+
+test('a command with a preview gets a panel, and one without does not', async () => {
+  // The binding reaching the UI, which is the half `previewProblems` cannot check: it
+  // proves the definition is sound, not that anything renders it.
+  const { unmount } = render(
+    <CommandWorkbench definition={generate} version={v1_21_1} registries={registries} />,
+  )
+  expect(await screen.findByTestId('preview-stage')).toBeDefined()
+  expect(screen.getByText('Preview')).toBeDefined()
+  unmount()
+
+  renderGive()
+  expect(screen.queryByText('Preview')).toBeNull()
+})
+
+test('the output panel is not downstream of the preview', async () => {
+  // `.claude/rules/previews.md`: preview state must never gate command output. Asserted
+  // rather than asserted-in-a-comment, because the arrangement that guarantees it — the
+  // two panels being siblings — is one refactor away from not being true.
+  const { container } = render(
+    <CommandWorkbench definition={generate} version={v1_21_1} registries={registries} />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+
+  expect(output()).toBe('//generate <pattern> <expression>')
+  await userEvent.type(screen.getByLabelText('Expression'), 'x < 0')
+  expect(output()).toBe('//generate <pattern> x < 0')
 })

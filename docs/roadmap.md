@@ -8,26 +8,39 @@ no `TODO.md`.
 
 ## Now
 
-The acceptance set is complete, and so is everything headless behind it. What is left
-in this phase is the part that has to run in a browser.
+The phase's exit criterion is met: all four commands in the acceptance set generate
+correct output, and one 3D preview is live. What is left in it is the `/execute` editor.
 
 - **The `/execute` node editor** — the clause chain becomes a node-based builder
   rather than the stack of rows it is now. The current chain UI is a placeholder that
   proved the data layer end to end; it is not the intended design, and #33 (stable
   instance identity) is its prerequisite
-- Preview infrastructure: shared `<PreviewCanvas>`, module registry, build-time
-  binding validation. The `inputs` half of that validation is done — invariant 7
-  checks every one against the definition — and the `accepts` half, which asserts
-  argument _types_, arrives with the registry
-- **`worldedit/shape` preview** for `//generate`
 
 Exit criterion: all four commands in the schema's acceptance set generate correct
-output, and one 3D preview is live. **All four commands are done**, so is the
-evaluator that was the long pole, and so is the graph that feeds it. What remains is
-the canvas: three.js, a shared `<PreviewCanvas>`, and a module that draws what the
-evaluator returns.
+output, and one 3D preview is live. **Both halves are now met.**
 
 ## Done
+
+- **Preview infrastructure, and the `worldedit/shape` module** — the part of this phase
+  that had to run in a browser. A definition declares a preview and the rest follows:
+  `src/previews/` holds an eager registry of descriptors and nothing else, `<PreviewCanvas>`
+  owns the panel and the degradation, `<PreviewStage>` owns the renderer, camera and
+  lights, and `three` plus `@react-three/fiber` are reached only through a dynamic import —
+  enforced by `check-bundle`, which fails if the entry chunk contains `WebGLRenderer`, not
+  merely if it grows. The entry chunk moved 104.2 → 105.3 KB. Build-time binding validation
+  is now whole: invariant 7 already proved every `inputs` selector named one node, and
+  `accepts` proves that node holds the type the module reads — a distinction with teeth,
+  because a _retype_ leaves invariant 7 entirely satisfied.
+  Two things in it were not the obvious answer, and both were read out of the source
+  rather than recalled. `-h` keeps a position when any one of its **six** axis neighbours
+  is outside, and WorldEdit's cache spans one layer _beyond_ the region and evaluates the
+  expression there — so a shape reaching the selection face is not shelled at that face,
+  and `evaluateGrid` grew a `pad` option to say so. A naive reading fills 184 positions
+  where the correct one fills 64, and only the fixture written for it fails. And the token
+  layer's `--accent` is `rgb(74 222 128)`, which Three's colour parser answers with
+  **white** rather than an error; the channel triplet is read instead, in `SRGBColorSpace`,
+  because reading it in the working space gives a plausible wrong green. A preview drawn in
+  silently-wrong colours is not something a grep can see, so both are pinned by tests.
 
 Getting a single command generating correct 1.21.1 output end to end. The goal of
 this phase was to **prove the schema against real commands**, not to ship breadth.

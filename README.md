@@ -30,11 +30,12 @@ The app is scaffolded and generating. Four commands are complete — `/give`,
 `/tellraw`, `/execute` and `//generate` — and every one of the 78 vanilla skeletons
 derived from mcmeta is reachable through a single dynamic route. WorldEdit's
 expression language has a headless evaluator, specified against WorldEdit's own test
-suite rather than by description.
+suite rather than by description, and `//generate` now has a **3D preview**: the
+formula is evaluated across the selection and drawn as voxels, hollow included, with
+Three.js loaded only by the commands that need it.
 
-What is not built yet is the 3D previews. See [`docs/roadmap.md`](docs/roadmap.md) for
-what is planned Now / Next / Later, and the [issue tracker](../../issues) for what is
-in flight.
+See [`docs/roadmap.md`](docs/roadmap.md) for what is planned Now / Next / Later, and the
+[issue tracker](../../issues) for what is in flight.
 
 ## Getting started
 

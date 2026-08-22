@@ -61,10 +61,10 @@
       {
         "name": "no literal hex or px in components",
         "grep": "#[0-9a-fA-F]{3,8}\\b|\\[[0-9.]+px\\]",
-        "paths": ["src/components", "src/routes"],
+        "paths": ["src/components", "src/routes", "src/previews"],
         "exclude": [],
         "expect": "no matches",
-        "diagnosis": "Runtime theming works by overriding custom properties on the root element. An inlined value silently opts that element out of theming, and the breakage only appears in a non-default theme \u2014 not the one being looked at while the code is written. Every value has a named token, including the awkward ones (9px, 0.5px, 10px radius). If a value seems missing, add a token; do not inline or approximate.",
+        "diagnosis": "Runtime theming works by overriding custom properties on the root element. An inlined value silently opts that element out of theming, and the breakage only appears in a non-default theme \u2014 not the one being looked at while the code is written. Every value has a named token, including the awkward ones (9px, 0.5px, 10px radius). If a value seems missing, add a token; do not inline or approximate. src/previews is covered too: a preview module needs a colour as a *value* rather than a class, and the way to get one is to resolve the custom property at runtime \u2014 see voxelColor in src/previews/worldedit/shape/ShapePreview.tsx. A literal there would be outside the grep's old reach while being exactly the drift it exists to catch.",
         "reference": "docs/design-tokens.md"
       }
     ],

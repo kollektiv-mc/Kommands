@@ -23,6 +23,16 @@ import { join } from 'node:path'
 // is the check that says so.
 const ENTRY_BUDGET_KB = 120
 
+// A budget alone would not catch this. Three.js is ~150 KB gzip, so an eager import
+// would blow the budget today — but the budget is a number someone can raise, and the
+// entry chunk staying free of the renderer is a structural claim rather than a size
+// one. docs/health-checklist.md § 3 states it; this is what enforces it.
+//
+// Matched on identifiers three's own source defines, not on the package name: a bare
+// "three" appears in ordinary English and in minified variable names, while these are
+// what the library actually ships.
+const THREE_FINGERPRINTS = ['WebGLRenderer', 'BufferGeometry', 'InstancedMesh']
+
 const distAssets = join('dist', 'assets')
 
 let files: string[]
@@ -34,24 +44,43 @@ try {
 }
 
 const rows = await Promise.all(
-  files.map(async (file) => ({
-    file,
-    gzipKB: gzipSync(await readFile(join(distAssets, file))).length / 1024,
-  })),
+  files.map(async (file) => {
+    const source = await readFile(join(distAssets, file))
+    return {
+      file,
+      gzipKB: gzipSync(source).length / 1024,
+      source: source.toString('utf8'),
+    }
+  }),
 )
 rows.sort((a, b) => b.gzipKB - a.gzipKB)
 
 console.log('Bundle sizes (gzip):')
+const entryPattern = /^index-.*\.js$/
 for (const { file, gzipKB } of rows) {
-  const lazy = /^(commands|registries|blocks)-/.test(file) ? '  (lazy)' : ''
+  // Everything that is not the entry chunk is, by construction, reached through a
+  // dynamic import — Vite emits a separate chunk for nothing else. Listing them by an
+  // allowlist of names meant adding a name every time something new was split out, and
+  // a preview chunk carries the module's filename rather than a name chosen here.
+  const lazy = entryPattern.test(file) ? '' : '  (lazy)'
   console.log(`  ${gzipKB.toFixed(1).padStart(8)} KB  ${file}${lazy}`)
 }
 
-const entry = rows.find((r) => /^index-.*\.js$/.test(r.file))
+const entry = rows.find((r) => entryPattern.test(r.file))
 if (!entry) {
   console.error('check-bundle: no index-*.js entry chunk in dist/assets')
   process.exit(1)
 }
+
+const leaked = THREE_FINGERPRINTS.filter((name) => entry.source.includes(name))
+if (leaked.length > 0) {
+  console.error(`\n\u2716 Three.js is in the entry chunk (found ${leaked.join(', ')}).`)
+  console.error('  A preview module or the shared stage is being imported statically.')
+  console.error('  Both must be reached only through a dynamic import — see')
+  console.error('  .claude/rules/previews.md and docs/adding-a-preview.md.')
+  process.exit(1)
+}
+console.log('\u2713 Three.js is not in the entry chunk.')
 
 console.log(
   `\nEntry chunk (${entry.file}): ${entry.gzipKB.toFixed(1)} KB gzip ` +

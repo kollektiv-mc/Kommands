@@ -58,6 +58,32 @@ export function expressionDiagnostics(source: string): Diagnostic[] {
   return result.diagnostics
 }
 
+export interface GridOptions {
+  /**
+   * Extra sample layers evaluated **outside** the region, on every face.
+   *
+   * The step stays the one `size` implies, so padding widens the sampled box rather
+   * than stretching the shape inside it. Hollow needs exactly this: WorldEdit's
+   * `ArbitraryShape` pads its cache by one layer (`cacheOffsetX = min.x() - 1`) and
+   * evaluates the expression there, so a neighbour beyond the region is *outside the
+   * shape only if the formula says so* — not merely because it left the box. Without
+   * the ring, a shape reaching the selection edge gets shelled at that edge, which
+   * WorldEdit does not do.
+   */
+  pad?: number
+}
+
+export interface Grid {
+  /** 1 where the expression is greater than zero. Indexed `ix + iy * span + iz * span²`. */
+  filled: Uint8Array
+  /** The `data` slot each filled position left behind, same indexing. */
+  data: Float64Array
+  /** Samples per axis, padding included: `size + 2 * pad`. */
+  span: number
+  /** How many of those layers sit outside the region on each face. */
+  pad: number
+}
+
 /**
  * Evaluate across a grid, for a preview.
  *
@@ -72,20 +98,28 @@ export function expressionDiagnostics(source: string): Diagnostic[] {
 export function evaluateGrid(
   expression: import('./compile').CompiledExpression,
   size: number,
-): { filled: Uint8Array; data: Float64Array } | { failure: string } {
-  const total = size * size * size
+  options: GridOptions = {},
+): Grid | { failure: string } {
+  const pad = Math.max(0, Math.trunc(options.pad ?? 0))
+  const span = size + 2 * pad
+  const total = span * span * span
   const filled = new Uint8Array(total)
   const data = new Float64Array(total)
   const step = size > 1 ? 2 / (size - 1) : 0
 
+  // A single sample sits at the origin, and padding it would put the extra layers at
+  // the same point. Keeping `at` centred there is what makes size 1 mean "one sample"
+  // rather than "a degenerate box".
+  const at = (i: number): number => (size > 1 ? -1 + (i - pad) * step : 0)
+
   try {
     let index = 0
-    for (let iz = 0; iz < size; iz++) {
-      const z = size > 1 ? -1 + iz * step : 0
-      for (let iy = 0; iy < size; iy++) {
-        const y = size > 1 ? -1 + iy * step : 0
-        for (let ix = 0; ix < size; ix++, index++) {
-          const x = size > 1 ? -1 + ix * step : 0
+    for (let iz = 0; iz < span; iz++) {
+      const z = at(iz)
+      for (let iy = 0; iy < span; iy++) {
+        const y = at(iy)
+        for (let ix = 0; ix < span; ix++, index++) {
+          const x = at(ix)
           if (expression.evaluate(x, y, z) > 0) {
             filled[index] = 1
             data[index] = expression.slot('data')
@@ -98,5 +132,5 @@ export function evaluateGrid(
     throw error
   }
 
-  return { filled, data }
+  return { filled, data, span, pad }
 }

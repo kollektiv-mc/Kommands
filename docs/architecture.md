@@ -194,6 +194,7 @@ trait and give every existing version an explicit value — still additive.
 | WorldEdit pattern blocks                                                       | The `block` registry, via `isKnownBlock`          | Lazy, with blocks          |
 | WorldEdit expression grammar and built-ins                                     | `src/worldedit/expression/`                       | Static (entry chunk)       |
 | WorldEdit CSG vocabulary and its compiler                                      | `src/worldedit/csg/`                              | Not yet reached by a route |
+| Three.js, the shared stage, and every preview module                           | `src/previews/`, `PreviewStage.tsx`               | Lazy, per preview binding  |
 | Design tokens                                                                  | Generated → `src/styles/tokens.css`               | Global CSS                 |
 
 Nothing in this table is a literal inside a component. `/suite-kit:health` enforces it.
@@ -219,9 +220,13 @@ The contract that keeps this decoupled: **a preview module receives parsed argum
 values, never the command string.** It never parses text, and no command definition
 needs to know Three.js exists.
 
-A shared `<PreviewCanvas>` owns the renderer, camera, and lighting; modules
-contribute scene content only. Modules are dynamically imported per route, so
-Three.js stays out of the main bundle — the abstraction is eager, the code is lazy.
+A shared `<PreviewCanvas>` owns the panel and its failure states; `<PreviewStage>`
+inside it owns the renderer, camera, and lighting. Modules contribute scene content
+only, and speak to the panel through a `report` callback — they render inside a
+`<Canvas>`, so they have no DOM of their own to put a message in. Modules are
+dynamically imported, so Three.js stays out of the main bundle — the abstraction is
+eager, the code is lazy, and `pnpm check-bundle` fails if the entry chunk ever contains
+the renderer rather than merely if it grows.
 
 Design detail in [`adding-a-preview.md`](adding-a-preview.md).
 
