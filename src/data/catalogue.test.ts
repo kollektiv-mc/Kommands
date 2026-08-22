@@ -79,10 +79,12 @@ describe('every definition in the catalogue is structurally sound', () => {
     // the test above passes just as happily when definitionProblems returns nothing.
     const broken = {
       ...catalogue['worldedit:generate']!,
-      // Dropped so this isolates invariant 6. //generate's mutex names three flags,
-      // and the root below has no flagset — which invariant 7 correctly reports, and
-      // which is not what this test is about.
+      // Both dropped so this isolates invariant 6. //generate's mutex names three flags
+      // and its preview names six arguments and flags; the root below has neither a
+      // flagset nor a pattern, which invariant 7 correctly reports and which is not
+      // what this test is about.
       constraints: [],
+      preview: undefined,
       root: {
         kind: 'sequence',
         nodes: [
@@ -99,6 +101,7 @@ describe('every definition in the catalogue is structurally sound', () => {
     const broken = {
       ...catalogue['worldedit:generate']!,
       constraints: [],
+      preview: undefined,
       root: {
         kind: 'repeat',
         node: { kind: 'argument', name: 'expression', type: 'we_expression', variadic: true },

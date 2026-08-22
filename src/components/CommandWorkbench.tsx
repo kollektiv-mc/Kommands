@@ -5,7 +5,10 @@ import { embeddableIn } from '../data/catalogue'
 import { evaluateConstraints } from '../schema/constraints'
 import { EMPTY_VALUE, serializeCommand } from '../schema/serialize'
 import type { CommandDefinition } from '../schema/types'
+import { previewInputsKey, readPreviewInputs } from '../previews/inputs'
+import { previewModule } from '../previews/registry'
 import { useCommandStore } from '../stores/useCommandStore'
+import { PreviewCanvas } from './PreviewCanvas'
 import { LABEL, WARNING } from './editors/fieldStyles'
 import { ROW_ADD } from './editors/rowStyles'
 
@@ -74,6 +77,22 @@ export function CommandWorkbench({
   const output = serializeCommand(definition, value, ctx, { resolve })
   const warnings = evaluateConstraints(definition, value)
 
+  /**
+   * The preview's inputs, and nothing else.
+   *
+   * `readPreviewInputs` runs every render — it reads a handful of paths, which is
+   * cheaper than deciding whether to — but its *result* is memoised on a key built from
+   * the declared inputs alone. So typing in an argument the module never declared
+   * leaves `values` referentially identical and the module does not recompute, which is
+   * what docs/health-checklist.md § 4 asks for.
+   */
+  const binding = definition.preview
+  const module = binding === undefined ? undefined : previewModule(binding.module)
+  const inputs = binding === undefined ? {} : readPreviewInputs(definition, binding, value)
+  const inputsKey = previewInputsKey(inputs)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the key *is* the dependency
+  const previewValues = useMemo(() => inputs, [inputsKey])
+
   return (
     <div className="flex flex-col gap-3">
       <CommandRenderer
@@ -98,6 +117,13 @@ export function CommandWorkbench({
           </span>
         ))}
       </div>
+
+      {/* Last, and a sibling of the output panel rather than a wrapper around it. The
+          preview is an aid and the command is the product, so nothing above can be
+          taken down by a preview that fails to load. */}
+      {module !== undefined && (
+        <PreviewCanvas module={module} values={previewValues} registry={registries} />
+      )}
     </div>
   )
 }

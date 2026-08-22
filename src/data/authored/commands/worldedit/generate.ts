@@ -61,6 +61,18 @@ export const generate: CommandDefinition = {
       message: 'Only one origin mode applies. WorldEdit takes -r first, then -o, then -c.',
     },
   ],
+  // Invariant 7 checks every selector below against this definition, so a renamed
+  // argument fails the catalogue suite rather than rendering an empty canvas; the
+  // module's own `accepts` checks their *types* in src/previews/binding.test.ts.
+  //
+  // The three origin flags are declared not because the preview can draw them but so it
+  // can say it cannot: -r, -o and -c resolve against a selection in a world, and a
+  // browser has neither. A module that never saw them would silently draw the default
+  // origin and look correct.
+  preview: {
+    module: 'worldedit/shape',
+    inputs: ['expression', 'pattern', '-h', '-r', '-o', '-c'],
+  },
   ui: {
     summary:
       'Fills the selection with a shape, placing a block wherever the expression is true. ' +

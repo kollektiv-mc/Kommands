@@ -210,21 +210,35 @@ belongs here.
 - [x] Routes are assembled from definitions rather than generated per command. A file
       per command reintroduces exactly the per-command cost
       [`architecture.md`](architecture.md) § The constraint rules out.
-- [ ] Three.js and every preview module are lazily imported and stay out of the entry
-      chunk. The abstraction is eager; the code is lazy.
-      Verify: `pnpm build`, then confirm `three` lands in its own chunk.
-- [ ] Preview modules receive **parsed argument values, never the command string**.
+- [x] Three.js and every preview module are lazily imported and stay out of the entry
+      chunk. The abstraction is eager; the code is lazy. `three` lands in
+      `three.core-*.js` (100.5 KB gzip) and `@react-three/fiber` with the shared stage in
+      `PreviewStage-*.js`; the entry chunk moved 104.2 → 105.3 KB, which is the registry,
+      the binding check and the panel shell — the descriptors, not the renderer.
+      Enforced rather than observed: `scripts/check-bundle.ts` fails if the entry chunk
+      contains `WebGLRenderer`, `BufferGeometry` or `InstancedMesh`. A budget alone would
+      not do, because a budget is a number someone can raise.
+      Verify: `pnpm build && pnpm check-bundle`.
+- [x] Preview modules receive **parsed argument values, never the command string**.
       A module that parses text depends on the serializer and on version traits, and
-      breaks whenever syntax changes. See
-      [`.claude/rules/previews.md`](../.claude/rules/previews.md).
-- [ ] Preview `inputs` are validated at **build time** against real argument names
-      and types, so a typo fails the build rather than rendering an empty canvas.
-      **Half done.** Invariant 7 covers the names: `definitionProblems` requires every
-      `inputs` entry to resolve to exactly one node, over the whole catalogue, and
-      reports the qualified selector to use when it does not. The _types_ half — a
-      module's `accepts` asserting the argument types it depends on, per
-      [`adding-a-preview.md`](adding-a-preview.md) — needs the preview registry and is
-      still open under #12. A box half-ticked is not ticked.
+      breaks whenever syntax changes. Structural rather than merely observed: `PreviewProps`
+      has no field through which command text could arrive, and `src/previews/inputs.ts`
+      reads the value tree through `pathsForTarget` — the same function
+      `src/schema/constraints.ts` uses, so a preview and a constraint naming one argument
+      cannot disagree about which node they mean. No serializer is imported anywhere under
+      `src/previews/`. See [`.claude/rules/previews.md`](../.claude/rules/previews.md).
+- [x] Preview `inputs` are validated at **build time** against real argument names
+      and types, so a typo fails the build rather than rendering an empty canvas. Both
+      halves now. Invariant 7 covers the names: `definitionProblems` requires every
+      `inputs` entry to resolve to exactly one node, over the whole catalogue, and reports
+      the qualified selector to use when it does not. The types half is `previewProblems`
+      in `src/previews/binding.ts`, run over the same catalogue by `binding.test.ts`,
+      with a module's `accepts` asserting the argument **types** it reads. Neither implies
+      the other, and the negative controls say why: a rename is caught by invariant 7, and
+      a _retype_ is invisible to it — every selector still resolves to exactly one node,
+      and that node no longer holds an expression. `StaticLocation` grew a `type` field so
+      the answer comes off the walk that already found the node.
+      Verify: `pnpm test`.
 - [ ] Dependencies are reasonably current, with nothing unmaintained and nothing
       duplicated doing the same job.
       Verify: `pnpm outdated`, and `pnpm why <pkg>` for anything suspected of being
@@ -239,13 +253,29 @@ belongs here.
       660 KB of registries and 260 KB of block states.
       Verify: `pnpm build`, then confirm neither lands in the entry chunk.
 - [ ] The command output panel recomputes only when a value it depends on changes,
-      not on every keystroke anywhere in the tree.
-- [ ] Preview recomputation is debounced by the module, not by the canvas, and uses
-      instanced geometry. A 64³ region is 262,144 candidate positions.
-- [ ] The evaluated preview volume is **capped, and the cap is surfaced in the UI**
-      rather than freezing the tab.
-- [ ] Geometries and materials are disposed on unmount. A module that creates its own
-      renderer produces a second WebGL context and leaks it.
+      not on every keystroke anywhere in the tree. `serializeCommand` and
+      `evaluateConstraints` still run on every render of `CommandWorkbench`. The
+      **preview** half is done and is the harder one — `previewInputsKey` is built from the
+      declared `inputs` alone, so editing an argument a module never asked for leaves its
+      props referentially identical and no 32,768-point evaluation happens. Serialization
+      has no declared dependency set to key on, which is why the same trick does not
+      transfer; see `Open backlog`.
+- [x] Preview recomputation is debounced by the module, not by the canvas, and uses
+      instanced geometry. A 64³ region is 262,144 candidate positions. `ShapePreview`
+      debounces its _inputs_ rather than its output — debouncing the output would still
+      evaluate on every keystroke and merely delay showing it, which is the expensive half
+      done anyway — and draws one `<instancedMesh>` rather than a mesh per voxel.
+- [x] The evaluated preview volume is **capped, and the cap is surfaced in the UI**
+      rather than freezing the tab. 32 per axis by default, clamped at 64. The cap is
+      reported through `PreviewStatus.cap` and drawn beside the panel title as
+      `32³ samples`, because a preview that quietly shrinks the volume misrepresents the
+      command being generated. The reporting channel exists for this: a module renders
+      inside the canvas and has no DOM of its own to say it in.
+- [x] Geometries and materials are disposed on unmount. A module that creates its own
+      renderer produces a second WebGL context and leaks it. `ShapePreview` creates its
+      geometry and material through JSX, so R3F owns and disposes both; the only imperative
+      object is a scratch `Object3D` that never enters the scene. No module creates a
+      renderer — `<PreviewStage>` owns the only one.
 - [x] The WorldEdit expression evaluator compiles to a closure tree rather than
       walking the AST per voxel, and has been benchmarked before being wired to a
       canvas. `compile.ts` binds every operand at compile time; `evaluate` dispatches
@@ -343,7 +373,7 @@ it should be stable between runs.
   naming for anyone porting a formula from Python, Haskell or calculator notation, where
   both answers differ.
 
-**P2 — `perlin`, `voronoi` and `ridgedmulti` are diagnosed rather than evaluated**
+**P1 — `perlin`, `voronoi` and `ridgedmulti` are diagnosed rather than evaluated**
 
 - The evaluator covers the language except its three noise functions, which come from
   `jlibnoise` (`worldedit-core/build.gradle.kts:38`) and have to be ported exactly — an
@@ -351,23 +381,32 @@ it should be stable between runs.
   drawing nothing. Upstream has no tests for them either, so the port has to be checked
   against the Java by reading it rather than by running a corpus. Today they parse,
   compile, and report honestly that the preview cannot draw them, so the command still
-  generates and copies. The right time to do the port is once the preview exists and the
-  difference between right and nearly-right is visible on screen. This outlives
+  generates and copies. **Raised to P1 now that the preview exists**, which is the
+  condition this entry named: the difference between right and nearly-right is visible on
+  screen, and a formula built on noise is now the one case where the panel is empty while
+  the command is fine. `shapeVoxels` tells that apart from a formula that is genuinely
+  never true, so the panel does not claim something false about the command in the
+  meantime. This outlives
   [#11](https://github.com/kollektiv-mc/Kommands/issues/11), which the evaluator
   otherwise closes.
 
 **P2 — The expression evaluator ships in the entry chunk, for every command**
 
 - Wiring `we_expression`'s validator to the real evaluator moved the entry chunk from
-  98.4 KB to 103.7 KB gzip. That is inside the 120 KB budget with 16.3 KB spare, and it
-  is the price of the field telling the truth as you type — but the cost is paid by
-  someone who only ever opens `/give`. The cause is structural rather than local: the
-  argument-type registry in `argument-types/index.ts` is one eagerly-constructed object,
-  so every type's validator, editor and serializer is statically reachable from every
-  route. Making one lazy means an async validator, which changes the contract for
-  every type in the registry. The right time to decide is when the preview lands and the same module
-  is wanted lazily by a canvas — splitting the whole `we_expression` type, editor
-  included, is a cleaner cut than special-casing its validator.
+  98.4 KB to 103.7 KB gzip. That is inside the 120 KB budget, and it is the price of the
+  field telling the truth as you type — but the cost is paid by someone who only ever
+  opens `/give`. The cause is structural rather than local: the argument-type registry in
+  `argument-types/index.ts` is one eagerly-constructed object, so every type's validator,
+  editor and serializer is statically reachable from every route. Making one lazy means an
+  async validator, which changes the contract for every type in the registry.
+  **The moment this entry was waiting for has arrived and was deliberately not taken.**
+  The preview does want the evaluator lazily, and `src/previews/worldedit/shape/voxels.ts`
+  imports it — but that import is already inside a lazy chunk, so the preview neither
+  worsens nor fixes this. Splitting the whole `we_expression` type, editor included, is
+  still the cleaner cut than special-casing its validator; it was left out of #12 because
+  changing the argument-type contract for all ten types is its own change, not a rider on
+  a preview. Entry chunk is 105.3 KB with 14.7 KB spare, so this is a tidiness debt rather
+  than a pressing one.
 
 **P2 — `gen:diff` can pin to a branch**
 
@@ -377,6 +416,27 @@ it should be stable between runs.
   snapshot. Nothing shipped is wrong — `gen:diff` only reports — but the guarantee has
   a hole, and the guard belongs in `fetchSummary`, which owns the cache.
   [#31](https://github.com/kollektiv-mc/Kommands/issues/31).
+
+**P2 — The output panel recomputes on every keystroke anywhere in the tree**
+
+- `CommandWorkbench` calls `serializeCommand` and `evaluateConstraints` on every render,
+  so typing in one argument re-serializes the whole command and re-evaluates every
+  constraint. Cheap today — the acceptance set's trees are small — and the reason it is
+  written down is that the preview half of the same § 4 item is now closed, which makes
+  the gap look ticked when it is not. The preview could be keyed on `previewInputsKey`
+  because a `PreviewBinding` _declares_ what it depends on; serialization depends on the
+  whole tree by definition, so the fix is memoising on the value tree's identity rather
+  than on a declared subset, and the store already replaces the tables it changes.
+
+**P2 — The preview cannot draw the three origin modes**
+
+- `-r`, `-o` and `-c` change what `x`, `y` and `z` mean — raw world coordinates, the
+  placement position, the selection centre — and all three resolve against a selection in
+  a world the browser has never seen. The preview declares them as `inputs` so it can say
+  it is drawing the default −1..1 origin instead, which is honest but not the same as
+  drawing them. Doing better needs a selection-region model, which does not exist and is
+  not obviously worth inventing for three flags that do not change the _shape_, only
+  where it lands.
 
 **P2 — The shared type scale has no display step**
 

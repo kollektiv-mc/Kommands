@@ -71,9 +71,9 @@ rather than at runtime.
 ### 2. Implement the component
 
 ```tsx
-export default function ShapePreview({ values, registry }: PreviewProps) {
+export default function ShapePreview({ values, report }: PreviewProps) {
   const { expression, pattern, '-h': hollow } = values
-  // compute scene content from values
+  report({ cap: '32³ samples' })
   return <>{/* meshes, points, instanced geometry */}</>
 }
 ```
@@ -82,11 +82,31 @@ export default function ShapePreview({ values, registry }: PreviewProps) {
 
 | Prop       | Contents                                                      |
 | ---------- | ------------------------------------------------------------- |
-| `values`   | Parsed values for the declared `inputs`, keyed by name        |
+| `values`   | Parsed values for the declared `inputs`, keyed by selector    |
 | `registry` | The active version registry, for resolving block and item IDs |
+| `report`   | Say what was drawn, or why nothing was — see below            |
 
-The component renders **inside** the shared `<PreviewCanvas>`. Do not create a
-renderer, scene, or camera.
+The component renders **inside** the shared `<PreviewCanvas>`, which is to say inside a
+`<Canvas>`. Do not create a renderer, scene, or camera.
+
+### `report`, and why it exists
+
+A module contributes scene content, so there is no DOM inside it to put a sentence in —
+but two things only the module knows have to reach the user: **why there is nothing to
+draw**, and **what it capped**. Both travel back through `report`, and the shell renders
+them. Without it a module would have to own DOM chrome, which is one short step from
+owning a renderer.
+
+```ts
+report({
+  message: 'Enter an expression to see the shape.', // why nothing is drawn
+  diagnostics: compiled.diagnostics, // warnings, shown, never blocking
+  cap: '32³ samples', // the cap, surfaced rather than silent
+})
+```
+
+`report` is stable across renders, so calling it from an effect does not make the
+callback a reason to run that effect again.
 
 ### 3. Performance
 
@@ -110,6 +130,7 @@ state — the generated command is the product; the preview is an aid.
 ## Checklist
 
 - [ ] Module reads parsed values, never command text
+- [ ] Meaning lives in a headless file; the component only draws
 - [ ] `accepts` validates argument types, not just names
 - [ ] `load` uses a dynamic import
 - [ ] No renderer, scene, or camera created in the module
@@ -123,13 +144,23 @@ state — the generated command is the product; the preview is an aid.
 ## First module: `worldedit/shape`
 
 Previews `//generate` — evaluates its expression across the selection region and
-renders the resulting voxels.
+renders the resulting voxels. **Built**, in `src/previews/worldedit/shape/`.
 
-**This carries a hidden cost:** it needs an evaluator for WorldEdit's expression
-language (variables `x`/`y`/`z`, arithmetic, comparisons, and WorldEdit's built-in
-functions). That evaluator is not derivable from any data source and must be
-written and tested independently of the preview itself. It is the largest single
-piece of work in the preview roadmap — see [`roadmap.md`](roadmap.md).
+Its hidden cost was the expression evaluator, which is not derivable from any data
+source; that was built and fixture-tested standalone first, in
+`src/worldedit/expression/`, and the advice to do it that way generalises: **put the
+meaning in a headless file and let the component only draw it.** jsdom has no WebGL, so
+anything computed inside a canvas component is untestable, and `voxels.ts` is where this
+module's meaning lives for exactly that reason.
 
-Build and test the evaluator as a standalone module with its own fixtures before
-wiring it to a canvas.
+Two findings from building it that the next module will meet too:
+
+- **`-h` is not "remove the interior".** WorldEdit's `ArbitraryShape.getMaterial` keeps a
+  position when any one of its **six axis neighbours** is outside — and its cache spans
+  one layer beyond the region and _evaluates the expression there_, so a shape that
+  reaches the selection face is not shelled at that face. `evaluateGrid` takes a `pad`
+  option for this. Reading the Java was the only way to get either detail right.
+- **The token layer's colours are channel triplets, and Three cannot read the derived
+  form.** `--accent` is `rgb(74 222 128)`; `new Color('rgb(74 222 128)')` silently
+  returns white. Read `--accent-rgb` and build the colour from the numbers, in
+  `SRGBColorSpace`. See `src/previews/worldedit/shape/color.ts`.
