@@ -18,3 +18,9 @@ pnpm-lock.yaml
 # which byte-compares the two to detect drift. Prettier reformatting it here would
 # report drift that does not exist — the same reason .gitattributes pins LF.
 tokens.source.json
+
+# Vendored from kollektiv/plugins/suite-kit/ by that repo's scripts/sync-priority.sh,
+# which byte-compares the two to detect drift. Same reasoning as tokens.source.json
+# above: a Prettier pass here would be reverted on the next sync and would show up
+# in between as drift that does not exist.
+.github/workflows/issue-priority.yml

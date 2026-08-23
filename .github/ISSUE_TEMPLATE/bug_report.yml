@@ -1,0 +1,89 @@
+# A bug here is almost always one of two things: a command that Minecraft rejects,
+# or a command Minecraft accepts that does something other than what the UI said it
+# would. Both are reproducible from two fields, and both are worthless without them,
+# so `command` and `expected` are the required pair.
+#
+# `version` matters more than it looks. Kommands targets Java Edition 1.21.1, and
+# syntax genuinely differs across versions - the enchantments component was
+# restructured and every attribute ID renamed between 1.21.1 and 1.21.5. A report
+# with no version cannot be told apart from that.
+name: Bug report
+description: A generated command is wrong, or the app does not behave the way you expected
+title: '[Bug]: '
+labels: ['type:bug']
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Kommands targets **Java Edition 1.21.1**. If your server runs something else, the syntax
+        genuinely differs, and [that document](https://github.com/kollektiv-mc/Kommands/blob/main/docs/minecraft-versions.md)
+        is the faster answer.
+
+  - type: input
+    id: summary
+    attributes:
+      label: What went wrong?
+      description: One sentence. There is room for the detail below.
+      placeholder: The enchantment dropdown emits a component the server rejects
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: The command Kommands generated
+      description: Copy it straight out of the output box, unedited.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect it to do, and what did it do instead?
+      description: If the server printed an error, paste that too.
+    validations:
+      required: true
+
+  - type: input
+    id: mc-version
+    attributes:
+      label: Which Minecraft version did you run it on?
+      placeholder: '1.21.1'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part?
+      description: Pick the closest one. The last option is a perfectly good answer.
+      options:
+        - A generated command (/give, /tellraw, /execute, WorldEdit)
+        - The 3D preview
+        - Command definitions or registry data
+        - The interface itself
+        - Something else, or not sure
+    validations:
+      required: true
+
+  # >>> suite:priority. Vendored from kollektiv by scripts/sync-priority.sh. Edit it there.
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How urgent is this for you?
+      description: Your honest read. Triage may change it, and that is normal.
+      options:
+        - 'Blocking: I cannot use it and have no way around it'
+        - 'Significant: it costs me real time, but I can work around it'
+        - 'Minor: it would be nice, but it is not in my way'
+    validations:
+      required: true
+  # <<< suite:priority
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Browser, whether it started recently, a screenshot. Drag images straight into this box.
