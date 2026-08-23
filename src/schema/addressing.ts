@@ -1,5 +1,5 @@
 import type { ArgumentTypeKey, Node } from './types'
-import { ROOT, STATIC, walk, type Path, type RepeatCounts } from './paths'
+import { ROOT, STATIC, walk, type Path, type RepeatInstances } from './paths'
 
 /**
  * How a rule names an argument or a flag.
@@ -81,9 +81,9 @@ const endsWith = (literals: readonly string[], chain: readonly string[]): boolea
  * path and `value.flags` by `<flagset path>/<flag name>`, which is the key the
  * renderer and the serializer already write.
  */
-function located(root: Node, counts: RepeatCounts | typeof STATIC): Located[] {
+function located(root: Node, instances: RepeatInstances | typeof STATIC): Located[] {
   const found: Located[] = []
-  walk(root, ROOT, counts, (node, path, literals) => {
+  walk(root, ROOT, instances, (node, path, literals) => {
     if (node.kind === 'argument') {
       found.push({ kind: 'argument', name: node.name, type: node.type, literals, path })
     } else if (node.kind === 'flagset') {
@@ -135,9 +135,13 @@ export interface TargetPath {
  * tables. Reading it off the selector's spelling instead is what the old global suffix
  * scan did, and it could not tell a typo from a flag that simply was not set.
  */
-export function pathsForTarget(root: Node, selector: string, counts: RepeatCounts): TargetPath[] {
+export function pathsForTarget(
+  root: Node,
+  selector: string,
+  instances: RepeatInstances,
+): TargetPath[] {
   const { name, chain } = parseSelector(selector)
-  return located(root, counts)
+  return located(root, instances)
     .filter((l) => l.name === name && endsWith(l.literals, chain))
     .map(({ kind, path }) => ({ kind, path }))
 }

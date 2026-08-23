@@ -6,11 +6,11 @@ import {
   choiceSelection,
   instance,
   NO_BRANCH,
-  repeatCount,
+  repeatInstances,
   ROOT,
   type ChoiceSelections,
   type Path,
-  type RepeatCounts,
+  type RepeatInstances,
 } from './paths'
 import { REF_ANY, type CommandDefinition, type Node } from './types'
 
@@ -19,7 +19,7 @@ export interface CommandValue {
   args: Readonly<Record<Path, unknown>>
   flags: Readonly<Record<Path, boolean>>
   choices: ChoiceSelections
-  repeats: RepeatCounts
+  repeats: RepeatInstances
   /** Which definition a Ref resolves to, for `@any` refs. */
   refs: Readonly<Record<Path, string>>
 }
@@ -145,10 +145,12 @@ function serializeNode(
     }
 
     case 'repeat': {
-      const count = repeatCount(value.repeats, path, node)
+      // The id list is the clause order, so serialization reads it straight through. It
+      // used to count and then rebuild each ordinal, which meant the output order and
+      // the stored keys had to agree; now there is only one thing to be in order.
       const parts: string[] = []
-      for (let i = 0; i < count; i++) {
-        const part = serializeNode(node.node, instance(path, i), value, ctx, options, depth)
+      for (const id of repeatInstances(value.repeats, path, node)) {
+        const part = serializeNode(node.node, instance(path, id), value, ctx, options, depth)
         if (part !== '') parts.push(part)
       }
       return parts.join(' ')

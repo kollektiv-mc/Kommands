@@ -115,7 +115,10 @@ describe('static resolution does not depend on how much the user has filled in',
     // The distinction the old code could not draw: three paths here is a clause
     // repeated three times, not a name that means three things.
     const repeat = '/1'
-    expect(pathsForTarget(EXECUTE.root, 'result/block/byte/scale', { [repeat]: 3 })).toHaveLength(3)
-    expect(pathsForTarget(EXECUTE.root, 'result/block/byte/scale', { [repeat]: 0 })).toHaveLength(0)
+    const three = { [repeat]: ['a', 'b', 'c'] }
+    expect(pathsForTarget(EXECUTE.root, 'result/block/byte/scale', three)).toHaveLength(3)
+    expect(pathsForTarget(EXECUTE.root, 'result/block/byte/scale', { [repeat]: [] })).toHaveLength(
+      0,
+    )
   })
 })

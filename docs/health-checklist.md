@@ -334,30 +334,19 @@ it should be stable between runs.
   `enchantmentsShape`, which already exists.
   [#26](https://github.com/kollektiv-mc/Kommands/issues/26).
 
-**P2 — Two schema fields are documented and read by nothing**
+**P2 — One schema field is documented and read by nothing**
 
-- `ArgumentNode.default` and `RepeatNode.max` exist in the type and in
-  `command-schema.md`, and no code in `src/` reads either. A documented field with no
-  behaviour reads as a guarantee, which is worse than an absent one. `variadic` was the
-  third and is now real: it reaches the editor through `argumentOptions`, and invariant
-  6 — nothing may follow a variadic argument — is checked against every definition in
-  the catalogue. `CommandDefinition.versions` has since joined the list: the catalogue
-  merges without consulting it, because with one version a range check would be
-  untestable code standing in for a decision nobody has had to make yet.
+- `ArgumentNode.default` exists in the type and in `command-schema.md`, and no code in
+  `src/` reads it. A documented field with no behaviour reads as a guarantee, which is
+  worse than an absent one — and `ArgumentType.defaultValue` is the mechanism actually
+  used, so it is not clear this field should exist rather than be deleted.
+  `RepeatNode.max` was the second and is now real, enforced in `addInstance` where the
+  instance is created; `variadic` was the third, and reaches the editor through
+  `argumentOptions` with invariant 6 checking it across the catalogue.
+  `CommandDefinition.versions` has since joined the list: the catalogue merges without
+  consulting it, because with one version a range check would be untestable code
+  standing in for a decision nobody has had to make yet.
   [#30](https://github.com/kollektiv-mc/Kommands/issues/30).
-
-**P1 — A reordered clause takes its values but not its component state**
-
-- Repeat instances are addressed by index and rendered with `key={i}`, so
-  `reindexInstances` moves every stored value while React hands the same mounted
-  components new props. An editor holding internal state — `ItemStackEditor`'s
-  component dropdown is one — keeps it at the old position, and focus is bound to a
-  DOM slot rather than to a clause. Latent today, because `/execute`'s Repeat is the
-  only one in the catalogue and none of its clauses uses such an editor. It stops
-  being latent the moment the `/execute` editor becomes the intended lock-in-place
-  node editor, where per-node local state is the norm and reorder is the primary
-  interaction. The decision is where instance identity lives.
-  [#33](https://github.com/kollektiv-mc/Kommands/issues/33).
 
 **P2 — `^` associativity is pinned here and by nothing upstream**
 
