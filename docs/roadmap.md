@@ -140,7 +140,15 @@ Breadth, once the foundations are proven. Ordering here is not fixed.
 - More previews: entity placement, particle emitters, structure bounds
 - Command import — parse an existing command back into a value tree. Note this
   inverts the preview contract's direction and needs its own design
-- Sharing: permalinks, saved commands
+- Sharing: permalinks ([#43](https://github.com/kollektiv-mc/Kommands/issues/43)). The
+  **saved-commands** half of this entry has left Later and landed — a persisted value
+  tree with a permanent id and a content revision, behind a storage interface whose
+  second implementation is the standalone build's file
+  ([#42](https://github.com/kollektiv-mc/Kommands/issues/42)). It was promoted because
+  Konnekt's linking work cannot begin without an id to bind against. See
+  [`command-schema.md`](command-schema.md) § Saved commands. What is still open here is
+  the UI on top of it and the permalink half, which is a different mechanism: a
+  permalink puts the tree in the URL, where this puts it in a store
 - Multi-command scripts and function-file export
 
 ---

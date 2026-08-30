@@ -396,3 +396,84 @@ field rather than a subsystem boundary.
    back. The cost is that `/loot` and `/teleport` are partly unaddressable — 32 argument
    nodes that Brigadier separates by position alone, with no keyword to name. Neither is
    addressed by anything, and a real case is what should decide the escape hatch.
+
+---
+
+## Saved commands
+
+A `CommandDefinition` describes what a command _can_ be; a `SavedCommand`
+(`src/schema/saved.ts`) is one someone kept. It is a separate, persisted format with
+compatibility obligations the definition schema does not have, so its rules are
+written down here rather than inferred from the type.
+
+### It holds the value tree, not the text
+
+The decision everything else inherits. Storing the rendered string is much simpler
+and much worse: it cannot be resumed for editing, cannot be migrated across a version
+bump, and would make command import the only route back into the editor. The tree is
+the source of truth.
+
+`preview` holds the text anyway, as an explicit **cache**. It exists so a list of
+saved commands can show what each one is without loading the 560 KB of command
+skeletons and 668 KB of registries that re-serializing needs. The tree wins wherever
+the two disagree, and opening a command re-derives the text from it.
+
+### The id is permanent
+
+`id` is minted once, from `crypto.randomUUID()`, and never regenerated — not on
+rename, not on re-save, not on reorder. A linked Konnekt preset stores
+`{ source: 'kommands', id, revision }` pointing at it, so a changing id breaks every
+link silently: nothing errors, and the user's only symptom is that edits stop
+propagating. `createSaved` is the only function that writes the field.
+
+### `revision` tracks content, not the record
+
+It increments when the command's **content** changes, so a consumer can tell "I have
+already seen this" from "this changed" without diffing the tree.
+
+A rename deliberately does _not_ bump it. `revision` means "what this command emits
+has changed", and a rename emits byte-identical text — bumping it would tell every
+linked consumer to re-read a command that did not change. `updatedAt` moves on both.
+
+### Version awareness is a trait comparison
+
+A value tree is only meaningful against the version it was authored for, so a saved
+command stores its version id. That id is never compared as a _number_:
+`resumability()` resolves it through `src/data/versions/` and compares that version's
+**traits** against the active one's.
+
+| Answer            | Means                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------- |
+| `ready`           | The traits match, so the tree serializes the way it did when saved                                |
+| `retraited`       | A known version that writes something differently — needs a migration decision, not a silent open |
+| `unknown-version` | Nothing this build knows, so there are no traits to compare and no honest claim to make           |
+
+Traits rather than numbers for the same reason serializers branch on them (§ Invariants,
+rule 3): the changes did not land together, so no ordering of version numbers describes
+them. Two versions with identical traits render a tree identically whatever their
+numbers say.
+
+Registry drift is deliberately not part of that answer. A resumed tree can hold an id
+the active version does not have — 1.21.1's `generic.armor` against 1.21.5's `armor` —
+and the existing validators already warn about exactly that. Refusing to open the
+command would be this layer overruling rule 4 from a position where it cannot see
+which value is wrong.
+
+### Restoring a tree restores its instance counter
+
+Repeat instance ids are handed out as `i0`, `i1`, … from a counter that resets with
+the tree. Loading a saved tree without restoring that counter starts a session at `i0`
+while the tree already holds one, putting two instances on one path — the failure the
+generated-id model exists to prevent (§ Paths). `nextInstanceIdFor()` reads the counter
+back off the tree, and `useCommandStore.load()` is the only sanctioned way in.
+
+### Where it is stored
+
+`src/storage/` is an interface with one implementation and a second one coming. The
+backend is chosen once, in `resolveStorage()`; a call site never branches on which one
+it got. `localStorage` today; the standalone desktop build's JSON file — the same file
+Konnekt reads — swaps in there and nowhere else.
+
+Storage being unavailable is a **state, not an error**. A browser refusing site data
+makes even reading `window.localStorage` throw, and a generator that still generates
+is far more useful than a blank page.

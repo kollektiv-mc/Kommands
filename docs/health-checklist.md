@@ -381,6 +381,23 @@ it should be stable between runs.
   [#11](https://github.com/kollektiv-mc/Kommands/issues/11), which the evaluator
   otherwise closes.
 
+**P2 — A saved-command format bump discards every saved command**
+
+- `src/storage/` writes a versioned envelope (`FORMAT_VERSION`) and refuses to read
+  one it does not recognise, which is the right call at read time: reading a future
+  shape through today's guard would silently drop the fields it did not know about and
+  then write that loss back on the next save. What does not exist yet is the other
+  half — a migration from an older version to the current one. So bumping
+  `FORMAT_VERSION` today is not a migration, it is a deletion, and it happens quietly:
+  the dashboard simply comes up empty.
+  That is acceptable while the only shape is version 1 and nothing has shipped, and it
+  stops being acceptable the moment `SavedCommand` gains or reshapes a field. The fix
+  is a migration table keyed on the stored version, run in `read()` before the shape
+  guard — small, but worth writing before the first bump rather than during it. Note
+  the standalone build raises the stakes rather than changing them: a discarded
+  `localStorage` blob costs one browser's saved commands, a discarded file costs the
+  ones Konnekt was linking against.
+
 **P2 — The expression evaluator ships in the entry chunk, for every command**
 
 - Wiring `we_expression`'s validator to the real evaluator moved the entry chunk from
