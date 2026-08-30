@@ -3,6 +3,14 @@
 The authoritative reference for command definitions. Rationale lives in
 [`architecture.md`](architecture.md); this document defines the shape.
 
+**Definitions, not instances.** Everything here describes a command as a _thing to be
+built_ — the nodes, argument types and constraints a renderer walks. The shape of a
+command someone _has_ built — the value tree, its saved form, its encoding in a link,
+and the file Konnekt reads — is specified in [`persistence.md`](persistence.md). The
+two are kept apart deliberately: a definition schema is free to change because it is
+regenerated or re-authored, and an instance format is not, because it is on someone's
+disk.
+
 ---
 
 ## `CommandDefinition`

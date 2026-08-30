@@ -42,6 +42,13 @@ diff means the generated file was hand-edited (the next run reverts it) or its i
 the pinned mcmeta tag, or `tokens.source.json` — was refreshed without regenerating.
 Only the first declares `requiresNetwork`, and only for a cold `.cache/mcmeta`.
 
+When the Wails v2 shell lands ([#44](https://github.com/kollektiv-mc/Kommands/issues/44)) this repo has a second toolchain, and
+`health.commands` has to grow the Go checks with it — otherwise `/suite-kit:health` and
+CI report green while covering half the product, which is the same failure the
+skip-is-not-a-pass rule below exists to prevent. Until `go.mod` exists the manifest
+records the pending change in its `distribution` block rather than declaring a check
+that cannot run.
+
 Where the plugin is not installed — CI, a cloud container, an unattended agent —
 [`.claude/suite-check.py`](../.claude/suite-check.py) reads the same manifest and runs
 the same three sections. `--json` for one record per check, `--require-runnable` to
@@ -204,6 +211,31 @@ belongs here.
       still branches on node kind alone.
       Verify: `git diff` for the last command added — expect
       `src/data/authored/ui/` and a test. Nothing else.
+- [ ] A persisted format never breaks a reader it cannot see. Saved commands, links
+      and the shared file all outlive the build that wrote them, and the shared file is
+      read by **another repository on another release cycle**, so a schema change here
+      cannot be fixed in the same commit. Every one carries a version marker, and a
+      reader skips an entry it does not understand rather than rejecting the whole
+      file. Nothing in `src/` had this obligation before saved commands existed.
+      Verify: load a fixture containing an unknown entry shape — expect it to load
+      minus that entry. See [`persistence.md`](persistence.md).
+      [#42](https://github.com/kollektiv-mc/Kommands/issues/42), [#45](https://github.com/kollektiv-mc/Kommands/issues/45)
+- [ ] A saved command's `id` is stable and never reused. It is generated once at save
+      time and survives rename, re-save and reorder; a deleted command's id is retired
+      permanently. A changed id breaks every Konnekt link pointing at it silently, and
+      a **reused** one turns a deleted command into a replacement for a working button
+      on someone's dashboard.
+      Verify: `pnpm test` — rename/reorder/re-save assert an unchanged id, and
+      delete-then-create asserts a fresh one.
+- [ ] A saved command round-trips. Save a value tree, reload it, resume editing, and
+      serialize to **byte-identical** command text; the same for encode → decode →
+      serialize on a link. This is the one assertion that holds the whole chain to the
+      only thing a user observes.
+- [ ] The shared file is written atomically — temp file in the same directory, renamed
+      over the target — and a rewrite that changes nothing does not move the mtime.
+      Konnekt polls `os.Stat`, so a partial write **will** be caught eventually, and a
+      spurious mtime bump makes every poll interval a re-read on the other side.
+      [#45](https://github.com/kollektiv-mc/Kommands/issues/45)
 - [ ] Adding a Minecraft version touches only version data and generated files.
       Adding 1.21.5 flips two of the three trait flags; 1.21.2 flips none. Neither
       touches serializer control flow.
@@ -239,6 +271,20 @@ belongs here.
       and that node no longer holds an expression. `StaticLocation` grew a `type` field so
       the answer comes off the walk that already found the node.
       Verify: `pnpm test`.
+- [ ] The web/desktop difference lives behind a capability interface, never behind a
+      build-target flag at a call site. `SavedCommandStorage.kind` is the seam; an
+      `isDesktop` branch in a serializer, an editor or the renderer is the same class of
+      bug as a version-number comparison, for the same reason — the difference is a
+      capability, so the check does not belong where the behaviour is.
+      Verify: `grep -rnE 'isDesktop|isWails|__WAILS|import\.meta\.env\.\w*DESKTOP' src`
+      — expect no matches outside the storage layer.
+- [ ] What the web build cannot do is **stated in the UI, not discovered**. Linking is
+      standalone-only and permanently so. The affordance is present and disabled with a
+      reason and a route to the desktop build; it is never simply absent. Likewise
+      `unavailable` storage renders as a state — a browser refusing site data still has
+      a working generator — and a quota-exceeded save surfaces rather than silently
+      doing nothing. See [`distribution.md`](distribution.md) § The split must be visible.
+      [#45](https://github.com/kollektiv-mc/Kommands/issues/45), [#51](https://github.com/kollektiv-mc/Kommands/issues/51)
 - [ ] Dependencies are reasonably current, with nothing unmaintained and nothing
       duplicated doing the same job.
       Verify: `pnpm outdated`, and `pnpm why <pkg>` for anything suspected of being
