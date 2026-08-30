@@ -3,6 +3,8 @@ import {
   createSaved,
   renameSaved,
   reviseSaved,
+  setPinned,
+  touchOpened,
   type SavedCommand,
   type SavedCommandDraft,
 } from '../schema/saved'
@@ -33,9 +35,23 @@ interface SavedCommandsState {
   /** Save a command that has never been saved. Resolves to its new, permanent id. */
   create: (draft: SavedCommandDraft) => Promise<string | null>
   /** Replace a saved command's content, bumping its revision. */
-  revise: (id: string, content: Pick<SavedCommandDraft, 'value' | 'preview'>) => Promise<void>
+  revise: (
+    id: string,
+    content: Pick<SavedCommandDraft, 'value' | 'preview' | 'fingerprint'>,
+  ) => Promise<void>
   /** Rename without bumping the revision — see `SavedCommand.revision`. */
   rename: (id: string, name: string) => Promise<void>
+  /**
+   * Record that a command was opened. Drives the Recent panel.
+   *
+   * Silent about failure, unlike every other write here: this fires as a side effect of
+   * navigating, not of a control the user pressed, so a quota error has no action to
+   * attach itself to. Losing the ordering of a Recent list is not worth an error
+   * message the user cannot connect to anything they did.
+   */
+  markOpened: (id: string) => Promise<void>
+  /** Pin or unpin. Drives the Quick panel. Neither a content nor a metadata timestamp change. */
+  pin: (id: string, pinned: boolean) => Promise<void>
   remove: (id: string) => Promise<void>
 }
 
@@ -142,6 +158,37 @@ export const useSavedCommandsStore = create<SavedCommandsState>((set, get) => ({
     const existing = get().commands.find((held) => held.id === id)
     if (!store || !existing) return
     const next = renameSaved(existing, name)
+    try {
+      await store.put(next)
+    } catch (error) {
+      return set({ error: reason(error) })
+    }
+    set((s) => ({
+      commands: s.commands.map((held) => (held.id === id ? next : held)),
+      error: null,
+    }))
+  },
+
+  markOpened: async (id) => {
+    const store = storage()
+    const existing = get().commands.find((held) => held.id === id)
+    if (!store || !existing) return
+    const next = touchOpened(existing)
+    try {
+      await store.put(next)
+    } catch {
+      // Deliberately swallowed — see the interface comment. There is no control to
+      // report against, and the cost of losing it is a Recent list one entry stale.
+      return
+    }
+    set((s) => ({ commands: s.commands.map((held) => (held.id === id ? next : held)) }))
+  },
+
+  pin: async (id, pinned) => {
+    const store = storage()
+    const existing = get().commands.find((held) => held.id === id)
+    if (!store || !existing) return
+    const next = setPinned(existing, pinned)
     try {
       await store.put(next)
     } catch (error) {

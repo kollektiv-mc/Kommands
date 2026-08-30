@@ -42,5 +42,20 @@ export interface SavedCommandFile {
   commands: SavedCommand[]
 }
 
-/** The format version this build writes. Bump it when `SavedCommand` changes shape. */
+/**
+ * The format version this build **writes**. It is not a gate the reader applies.
+ *
+ * `persistence.md` requires the marker from the first commit, and it earns its place:
+ * it lets a future reader tell an old shape from a corrupt one. What it must not do is
+ * decide whether to read the file, and the reader no longer consults it — see
+ * `local.ts` § read.
+ *
+ * So bump it only when an entry this build writes could not be understood by re-reading
+ * it under the older rules — a re-keying of the value tree, say. **Not for a new
+ * field.** Adding `fingerprint`, `pinned` and `lastOpenedAt` did not bump it, because
+ * an older build reads their absence correctly and carries their presence through
+ * untouched, and because Konnekt is on a different release cycle: a number it does not
+ * recognise is exactly the "one new field breaks every linked command at once" failure
+ * the health checklist names.
+ */
 export const FORMAT_VERSION = 1

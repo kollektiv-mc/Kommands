@@ -56,12 +56,22 @@ function read(backing: Storage): SavedCommand[] {
 
   if (typeof parsed !== 'object' || parsed === null) return []
   const file = parsed as Partial<SavedCommandFile>
-  // A newer format is refused rather than partially read. Two builds sharing one
-  // browser origin is ordinary — a tab left open across a deploy does it — and
-  // reading a future shape through today's guard would silently drop whatever fields
-  // it did not know about, then write the loss back on the next save.
-  if (file.version !== FORMAT_VERSION) return []
   if (!Array.isArray(file.commands)) return []
+  // `file.version` is deliberately **not** consulted. This used to refuse a whole file
+  // whose envelope version it did not recognise, on the reasoning that reading a future
+  // shape would drop the fields it did not know about and write that loss back. That
+  // reasoning was wrong, and `health-checklist.md` now forbids the behaviour outright:
+  // a reader skips an entry it does not understand rather than rejecting the file.
+  //
+  // Wrong because `filter` is not `map`. It returns the parsed objects with their
+  // unknown properties intact, `write` stringifies them whole, and every mutation in
+  // `saved.ts` is a spread — so a field this build has never heard of survives a read,
+  // an edit and a write back. Preservation is structural rather than lucky, which is
+  // what makes per-entry acceptance safe rather than a trade.
+  //
+  // The cost of the old rule was not hypothetical either: one build refusing another's
+  // file empties the dashboard silently, and on the standalone backend that file is the
+  // one Konnekt reads.
   return file.commands.filter(isSavedCommand)
 }
 

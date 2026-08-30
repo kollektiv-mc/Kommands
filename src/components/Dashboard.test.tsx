@@ -29,6 +29,7 @@ const DRAFT: SavedCommandDraft = {
   version: v1_21_1.id,
   value: EMPTY_VALUE,
   preview: '/give @p stone',
+  fingerprint: 'fp-give',
 }
 
 let backing: Storage

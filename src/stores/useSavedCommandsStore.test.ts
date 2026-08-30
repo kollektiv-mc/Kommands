@@ -4,6 +4,7 @@ import { useCommandStore } from './useCommandStore'
 import { localStorageBackend } from '../storage/local'
 import type { SavedCommandStorage } from '../storage'
 import { createSaved } from '../schema/saved'
+import { fingerprintOf } from '../schema/fingerprint'
 import { EXECUTE } from '../schema/fixtures'
 import { NO_REGISTRIES } from '../data/versions/registry'
 import { serializeCommand } from '../schema/serialize'
@@ -43,6 +44,7 @@ const DRAFT = {
   version: v1_21_1.id,
   value: useCommandStore.getState().value,
   preview: '/give @p stone',
+  fingerprint: 'fp-give',
 }
 
 test('saving, listing, renaming and removing', async () => {
@@ -160,6 +162,7 @@ test('a value tree survives a save, a reload, and resumed editing', async () => 
     version: v1_21_1.id,
     value: useCommandStore.getState().value,
     preview: before,
+    fingerprint: fingerprintOf(EXECUTE),
   })
 
   // The session ends: the value tree and its id counter both go.

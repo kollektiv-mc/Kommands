@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import type { CommandDefinition } from '../schema/types'
 import type { VersionDefinition } from '../data/versions/types'
 import type { CommandValue } from '../schema/serialize'
+import { fingerprintOf } from '../schema/fingerprint'
 import { useSavedCommandsStore } from '../stores/useSavedCommandsStore'
 import { FIELD, LABEL, WARNING } from './editors/fieldStyles'
 import { ROW_ADD } from './editors/rowStyles'
@@ -70,12 +71,19 @@ export function SaveCommandBar({
     )
   }
 
+  // Stamped here because this is the layer that holds the definition. The tree being
+  // saved is the one the workbench just rendered from it, so the shape recorded is the
+  // shape it was actually built against — which is the whole claim the fingerprint
+  // makes. `saved.ts` stays a record builder and never learns to walk a definition.
+  const fingerprint = fingerprintOf(definition)
+
   const draft = {
     name: name.trim(),
     definitionId: definition.id,
     version: version.id,
     value,
     preview: output,
+    fingerprint,
   }
 
   // Nothing to save is not an error state and gets no message: a command that has not
@@ -91,7 +99,9 @@ export function SaveCommandBar({
           className={BUTTON}
           disabled={empty}
           onClick={() => {
-            void revise(saved.id, { value, preview: output }).then(() => setNote('updated'))
+            void revise(saved.id, { value, preview: output, fingerprint }).then(() =>
+              setNote('updated'),
+            )
           }}
         >
           Save changes

@@ -1,7 +1,7 @@
 import { beforeEach, expect, test } from 'vitest'
 import { STORAGE_KEY, localStorageBackend } from './local'
 import { FORMAT_VERSION } from './types'
-import { createSaved, type SaveClock, type SavedCommandDraft } from '../schema/saved'
+import { createSaved, renameSaved, type SaveClock, type SavedCommandDraft } from '../schema/saved'
 import { EMPTY_VALUE } from '../schema/serialize'
 import { v1_21_1 } from '../data/versions/1.21.1'
 
@@ -31,6 +31,7 @@ const DRAFT: SavedCommandDraft = {
   version: v1_21_1.id,
   value: EMPTY_VALUE,
   preview: '/give @p stone',
+  fingerprint: 'fp-give',
 }
 
 let backing: Storage
@@ -80,14 +81,56 @@ test('a corrupt blob costs the commands, not the app', async () => {
   expect(await localStorageBackend(backing).list()).toEqual([])
 })
 
-test('a newer format version is refused rather than partly read', async () => {
+test('a newer format version still yields the entries it can read', async () => {
   const saved = createSaved(DRAFT, clock(1))
   backing.setItem(STORAGE_KEY, JSON.stringify({ version: FORMAT_VERSION + 1, commands: [saved] }))
 
-  // Two builds sharing one browser origin is ordinary — a tab left open across a
-  // deploy does it. Reading a future shape through today's guard would silently drop
-  // whatever fields it did not know about, then write that loss back on the next save.
-  expect(await localStorageBackend(backing).list()).toEqual([])
+  // This assertion is the inverse of the one it replaces, and the reversal is the
+  // point. The old rule refused a whole file whose envelope version it did not
+  // recognise; `health-checklist.md` now requires a reader to skip an entry it does not
+  // understand rather than reject the file, because one build refusing another's file
+  // empties the dashboard silently — and on the standalone backend that file is the one
+  // Konnekt reads.
+  expect(await localStorageBackend(backing).list()).toEqual([saved])
+})
+
+test('a field this build has never heard of survives a read, an edit and a write', async () => {
+  // The property that makes per-entry acceptance safe rather than a gamble, and the one
+  // the old whole-file refusal was written to protect. It holds structurally: `read`
+  // *filters* rather than maps, so it returns the parsed objects with their unknown keys
+  // intact, `write` stringifies them whole, and every mutation in `saved.ts` is a spread.
+  const store = localStorageBackend(backing)
+  const saved = createSaved(DRAFT, clock(1))
+  const fromTheFuture = { ...saved, somethingNew: 'from a later build' }
+  backing.setItem(
+    STORAGE_KEY,
+    JSON.stringify({ version: FORMAT_VERSION, commands: [fromTheFuture] }),
+  )
+
+  const [read] = await store.list()
+  expect((read as unknown as Record<string, unknown>).somethingNew).toBe('from a later build')
+
+  // And it survives being written back, which is where the loss would actually happen.
+  await store.put(renameSaved(read!, 'Renamed'))
+  const [after] = await store.list()
+  expect((after as unknown as Record<string, unknown>).somethingNew).toBe('from a later build')
+  expect(after!.name).toBe('Renamed')
+})
+
+test('an entry saved before fingerprints existed still loads', async () => {
+  // A version-1 record has no `fingerprint`. Dropping it would be the reader rejecting
+  // what it does not recognise; it loads, and `structureState` reports it as
+  // `unverified` rather than as a match.
+  const store = localStorageBackend(backing)
+  const { fingerprint: _dropped, ...withoutFingerprint } = createSaved(DRAFT, clock(1))
+  backing.setItem(
+    STORAGE_KEY,
+    JSON.stringify({ version: FORMAT_VERSION, commands: [withoutFingerprint] }),
+  )
+
+  const listed = await store.list()
+  expect(listed).toHaveLength(1)
+  expect(listed[0]!.fingerprint).toBeUndefined()
 })
 
 test('an entry of the wrong shape is dropped and its neighbours survive', async () => {

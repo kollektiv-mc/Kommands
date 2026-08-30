@@ -1,4 +1,6 @@
 import type { CommandValue } from './serialize'
+import type { CommandDefinition } from './types'
+import { fingerprintOf } from './fingerprint'
 import type { VersionDefinition } from '../data/versions/types'
 
 /**
@@ -53,6 +55,33 @@ export interface SavedCommand {
    */
   readonly preview: string
   /**
+   * The structural fingerprint of the definition this tree was built against.
+   *
+   * The tripwire `persistence.md` § How values are keyed requires. Paths into a
+   * Sequence or a Choice are positional, and `pnpm gen:commands` regenerates those
+   * arrays — so without this, a deriver change silently repoints every stored value
+   * and the only symptom is a command that quietly rebuilds itself wrong.
+   *
+   * Compared by `structureState`, never here: this module has no catalogue, and the
+   * layer that does is the one that can answer.
+   *
+   * Optional because a record written before this field existed is still a valid
+   * record and must still load — dropping it would be the reader rejecting what it
+   * does not recognise, which is the thing `health-checklist.md` forbids. Absent
+   * reads as `unverified`, not as a match.
+   */
+  readonly fingerprint?: string
+  /**
+   * When this command was last opened in the editor. Absent until it is.
+   *
+   * Drives the Recent panel, and is deliberately **not** `updatedAt`: the store orders
+   * the Saved panel by `updatedAt`, so recording an open there would sort Saved by
+   * recency of opening and make the two panels the same list.
+   */
+  readonly lastOpenedAt?: string
+  /** Whether the user pinned it. Drives the Quick panel. */
+  readonly pinned?: boolean
+  /**
    * Bumped on every **content** change, so a consumer can tell "I have already seen
    * this" from "this changed" without diffing the tree.
    *
@@ -75,6 +104,7 @@ export interface SavedCommandDraft {
   version: string
   value: CommandValue
   preview: string
+  fingerprint: string
 }
 
 /** What `createSaved` needs from its environment, so a test can pin both. */
@@ -109,6 +139,7 @@ export function createSaved(
     version: draft.version,
     value: draft.value,
     preview: draft.preview,
+    fingerprint: draft.fingerprint,
     revision: 1,
     createdAt: at,
     updatedAt: at,
@@ -118,13 +149,17 @@ export function createSaved(
 /** The same command, with new content. Keeps the id; bumps the revision. */
 export function reviseSaved(
   saved: SavedCommand,
-  content: Pick<SavedCommandDraft, 'value' | 'preview'>,
+  content: Pick<SavedCommandDraft, 'value' | 'preview' | 'fingerprint'>,
   clock: SaveClock = SYSTEM_CLOCK,
 ): SavedCommand {
   return {
     ...saved,
     value: content.value,
     preview: content.preview,
+    // Refreshed, not carried over. The tree being written is the one the workbench
+    // just held, so it was built against whatever shape is loaded now — stamping the
+    // old fingerprint onto it would describe a definition this tree never saw.
+    fingerprint: content.fingerprint,
     revision: saved.revision + 1,
     updatedAt: clock.now(),
   }
@@ -137,6 +172,31 @@ export function renameSaved(
   clock: SaveClock = SYSTEM_CLOCK,
 ): SavedCommand {
   return { ...saved, name, updatedAt: clock.now() }
+}
+
+/**
+ * The same command, marked as opened just now.
+ *
+ * Touches neither `updatedAt` nor `revision`, and both omissions are load-bearing.
+ * `revision` is content-only by the rule above. `updatedAt` is what the store sorts
+ * the Saved panel by, so writing it here would order Saved by recency of *opening* —
+ * which is the Recent panel's job, and would leave the two showing the same list in
+ * the same order.
+ */
+export function touchOpened(saved: SavedCommand, clock: SaveClock = SYSTEM_CLOCK): SavedCommand {
+  return { ...saved, lastOpenedAt: clock.now() }
+}
+
+/**
+ * The same command, pinned or unpinned.
+ *
+ * Metadata like a rename, so no `revision` bump — what a linked consumer runs has not
+ * changed. Unlike a rename it also leaves `updatedAt` alone: pinning is a filing
+ * decision rather than an edit, and moving a command to the top of Saved because it
+ * was pinned would be a surprising second effect for a one-click action.
+ */
+export function setPinned(saved: SavedCommand, pinned: boolean): SavedCommand {
+  return { ...saved, pinned }
 }
 
 /**
@@ -176,6 +236,49 @@ export function resumability(
   return traits.every((trait) => authored.traits[trait] === active.traits[trait])
     ? 'ready'
     : 'retraited'
+}
+
+/**
+ * Whether the definition still has the shape this tree was built against.
+ *
+ * The second half of "can this be resumed", and deliberately a **separate function
+ * from `resumability`** rather than a fourth state inside it — because the two are
+ * answerable at different layers and one of them is answerable without loading
+ * anything.
+ *
+ * `resumability` needs only the stored version string and the version table, both of
+ * which are static. `structureState` needs the *definition*, which lives in the 560 KB
+ * of command skeletons the dashboard exists not to load — the whole reason a saved
+ * command carries a cached `preview`. So a tile can say "authored for a version this
+ * build does not know" and cannot say "the shape moved"; the editor, which has the
+ * definition in its loader data, says the second.
+ *
+ * That split is not a compromise. It puts the refusal at the moment of opening, which
+ * is where `persistence.md` wants it: the command still lists, still shows its text,
+ * still copies — it just does not restore a tree into a form that no longer fits it.
+ *
+ * A missing fingerprint answers `restructured`. A record saved before fingerprints
+ * existed has an unknown provenance, and unknown is not a match.
+ */
+export type StructureState = 'verified' | 'stale' | 'unverified' | 'unknown-command'
+
+export function structureState(
+  saved: SavedCommand,
+  definition: CommandDefinition | undefined,
+): StructureState {
+  // Four answers rather than a boolean, because they want four different things said
+  // to the user. "The command is gone from this build" and "the command was reshaped"
+  // are the same refusal but not the same explanation, and "saved before Kommands
+  // recorded shapes at all" is neither — it is a record that predates the tripwire and
+  // can never be verified, however unchanged the definition actually is.
+  if (!definition) return 'unknown-command'
+  if (saved.fingerprint === undefined) return 'unverified'
+  return saved.fingerprint === fingerprintOf(definition) ? 'verified' : 'stale'
+}
+
+/** Whether a tree may be restored. Only a positive verification qualifies. */
+export function canResume(state: StructureState): boolean {
+  return state === 'verified'
 }
 
 /**
