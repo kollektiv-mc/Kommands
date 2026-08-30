@@ -220,6 +220,27 @@ belongs here.
       Verify: load a fixture containing an unknown entry shape — expect it to load
       minus that entry. See [`persistence.md`](persistence.md).
       [#42](https://github.com/kollektiv-mc/Kommands/issues/42), [#45](https://github.com/kollektiv-mc/Kommands/issues/45)
+- [ ] A change that moves a definition's **structural fingerprint** for an
+      already-shipped version ships with a migration or an explicitly accepted loss —
+      never unnoticed. This is the release gate that makes storing raw paths safe:
+      paths are positional in a structure `pnpm gen:commands` regenerates, so a deriver
+      change or an edited authored definition silently invalidates every saved command
+      for that definition. mcmeta being pinned by immutable tag is what keeps this rare;
+      it is not what makes it safe.
+      Verify: for any diff touching `scripts/lib/derive.ts` or
+      `src/data/authored/commands/**`, recompute fingerprints across the catalogue and
+      diff them against the previous release. A moved fingerprint is a finding, not a
+      detail. See [`persistence.md`](persistence.md) § How values are keyed.
+      [#42](https://github.com/kollektiv-mc/Kommands/issues/42)
+- [ ] Every argument type declares a versioned **value shape** — what it stores, not
+      what it emits. `CommandValue.args` is `Record<Path, unknown>` and
+      `ItemStackValue.components` is `Record<string, unknown>`, so today no type has
+      one, and `unknown` hides that this is now a persisted surface. Data components
+      are what 1.21.5 restructures, so a saved `/give` is the first thing a version
+      bump meets.
+      Verify: `grep -rn "unknown" src/schema/argument-types/ src/schema/serialize.ts` —
+      every remaining `unknown` in a persisted position must be a declared, documented
+      erasure rather than an undecided shape.
 - [ ] A saved command's `id` is stable and never reused. It is generated once at save
       time and survives rename, re-save and reorder; a deleted command's id is retired
       permanently. A changed id breaks every Konnekt link pointing at it silently, and

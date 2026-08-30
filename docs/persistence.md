@@ -45,15 +45,23 @@ A saved command holds a name, the `definition id` of the command it builds, the
 Minecraft version it was authored against, and **the value tree** — not the rendered
 command string.
 
-> **Open decision.** Storing the rendered text is much simpler and much worse: it
-> cannot be resumed for editing, cannot be migrated across a version bump, and makes
-> command import the only way back in. Storing the tree means the tree becomes a
-> persisted format with the obligations above, which it has never had. The tree is
-> the direction everything downstream assumes — [#43](https://github.com/kollektiv-mc/Kommands/issues/43)
-> notes the inbound link direction needs it and that it subsumes the text case — but
-> it is recorded here as **not yet settled**, per
-> [#42](https://github.com/kollektiv-mc/Kommands/issues/42). Settle it explicitly;
-> do not let it be settled by whichever code lands first.
+> **Decided: the tree.** Storing the rendered text is much simpler and loses three
+> things — a saved command cannot be reopened in the workbench, cannot be migrated
+> across a version bump, and makes command import (still in `roadmap.md` § Later) the
+> only way back in, so an unbuilt feature gates a built one. The tree costs a
+> compatibility obligation the codebase has never carried, and § How values are keyed
+> is the whole of what that costs.
+>
+> What makes the tree strictly better rather than merely richer is the cached
+> `preview` string below. When a tree cannot be resumed, the command degrades to
+> exactly what text-only would have stored — so the tree's worst case is the other
+> option's normal case. There is no scenario where choosing text would have left more
+> intact.
+>
+> Note what does **not** drive this. Konnekt matches on `id`, uses `revision` to detect
+> change, and wants a string for its console input; text alone satisfies
+> [#45](https://github.com/kollektiv-mc/Kommands/issues/45) and [#46](https://github.com/kollektiv-mc/Kommands/issues/46) completely. What needs the tree is resumable editing
+> and [#43](https://github.com/kollektiv-mc/Kommands/issues/43)'s inbound seeding.
 
 Alongside the tree, a saved command carries a small amount of data whose only job is
 to let a list view render without paying for the real thing:
@@ -102,6 +110,103 @@ Resumability is therefore a **state, not a boolean**: a tree authored against th
 current version, one authored against a version whose traits differ, and one
 authored against a version this build does not know at all are three different
 situations and want three different treatments in the UI.
+
+---
+
+## How values are keyed
+
+This is the cost of the tree, and it is worth stating precisely rather than as a
+general worry about compatibility.
+
+### The path grammar is positional
+
+`src/schema/paths.ts` builds three kinds of path segment:
+
+```ts
+child(parent, index)  → `${parent}/${index}`   // index into a Sequence's nodes[]
+branch(parent, index) → `${parent}/|${index}`  // index into a Choice's nodes[]
+instance(parent, id)  → `${parent}/#${id}`     // opaque, generated
+```
+
+Only the third is stable by construction. The other two are positions in a node array
+that `pnpm gen:commands` **regenerates from mcmeta**. A path like `/1/|2/0` is a
+statement about where a node currently sits, and the deriver is free to move it.
+
+`choiceSelection` already says so in its own doc comment — _"a stored index can outlive
+the branch it pointed at ... regenerating a skeleton with fewer branches"_ — but today
+that is a within-session nuisance. Persisted, it is silent data loss across a release.
+
+Stable instance ids (PR [#40](https://github.com/kollektiv-mc/Kommands/pull/40)) do not
+help here. They fixed **values moving within a tree**; this is **the definition moving
+underneath one**, which is a different problem with a different answer.
+
+### Why name-addressing is not the answer either
+
+[`addressing.ts`](../src/schema/addressing.ts) faced a version of this question for
+constraints and preview inputs, and answered it emphatically:
+
+> It is deliberately not a path: `/1/#0/|3/2` is positional and dies the moment the
+> deriver reshapes the tree, and surviving regeneration is the entire reason rules
+> address by name rather than by index.
+
+That precedent does **not** transfer, for two independent reasons, and both were
+checked rather than assumed.
+
+**It is lossy.** Measured over the full 1.21.1 catalogue: of 952 argument and flag
+locations across 79 definitions, **32 (3.4%) cannot be uniquely named** — 28 in
+`/loot` and 4 in `/teleport`, where Brigadier separates the collisions by position
+alone and there is no keyword to write. A rule can shrug that off, and `addressing.ts`
+does: _"Neither is addressed by anything today."_ A save feature cannot, because a user
+can build a `/loot` command and press save.
+
+**It addresses the wrong half.** `staticLocations` returns arguments and flags, and
+those are the only node kinds carrying a `name` — `SequenceNode`, `ChoiceNode`,
+`RepeatNode` and `RefNode` have none. So a selector can name a value in `args` or
+`flags`, but nothing in `choices`, `repeats` or `refs`, and those three hold the
+**structure the argument paths hang from**. Knowing that `as/targets` was `@a` is
+useless without knowing that the Repeat had one instance and the Choice had selected
+that branch. Recovering structure from a bag of named values is an inference problem,
+not a lookup, and it is not one worth solving speculatively.
+
+### The decision: paths, with a fingerprint as a tripwire
+
+A saved command stores **raw paths**, exactly as the store holds them, plus a
+**structural fingerprint of the definition** it was built against.
+
+The fingerprint covers only what can move a path or change what a value means:
+
+| In                                                             | Out                                           |
+| -------------------------------------------------------------- | --------------------------------------------- |
+| Node kinds in tree order                                       | `label`, `description`, presentation metadata |
+| Literal tokens                                                 | `aliases`                                     |
+| Argument `name`, `type`, `optional`, `variadic`                | Constraint messages                           |
+| Choice arity and branch order; flagset flag names; Ref targets | Anything the renderer only displays           |
+
+Relabelling a command must not orphan a save; reordering a Choice's branches must.
+
+**On load, the fingerprint decides, and there are only three outcomes:**
+
+1. **Match** → resume from the paths verbatim. Exact, total, and it covers `/loot` and
+   `/teleport` like anything else. This is the normal case and, given the rule below,
+   very nearly the only one.
+2. **Mismatch** → **do not attempt to resume.** The command is marked as saved against
+   an older build of Kommands, and it degrades to its cached `preview`: still readable,
+   still copyable, still sendable to Konnekt. Never a partial tree opened against a
+   shape it was not built for — that is the failure this whole section exists to
+   prevent, and a half-restored command is worse than an honest refusal because the
+   user cannot see what is missing.
+3. **Definition gone entirely** → the same as (2).
+
+The fingerprint's job is therefore **detection, not recovery**. It is a tripwire, and
+what it protects is stated in [`health-checklist.md`](health-checklist.md): a change
+that moves a definition's fingerprint for a version already shipped is a release-gating
+event. It ships with a migration, or with an explicitly accepted loss — never
+unnoticed.
+
+That rule is affordable because shape changes are **entirely within this repo's
+control**. mcmeta is pinned by immutable tag and a test asserts it, so a definition's
+shape for 1.21.1 cannot move on its own. It moves only when the deriver changes or an
+authored definition is edited, which is a reviewed commit either way.
 
 ---
 
@@ -216,6 +321,36 @@ output.
 
 ---
 
+## Value shapes
+
+Keys are only half the persisted surface. The values are structurally untyped at two
+levels today:
+
+```ts
+args: Readonly<Record<Path, unknown>> // CommandValue
+components: Readonly<Record<string, unknown>> // ItemStackValue
+```
+
+`unknown` was the right call while a value tree lived in a tab — the argument-type
+registry erases its value parameter deliberately, and `defineArgumentType` is the one
+cast that keeps the registry sound. It stops being free the moment the tree is written
+to disk, because `unknown` means **no argument type currently has a declared value
+shape**, and every one of them is now a compatibility surface.
+
+So each argument type owes a written, versioned shape for what it stores — not what it
+emits. The two differ: `serializeItemStack` branches on traits to write 1.21.1's form,
+while `ItemStackValue` is what the editor holds and must survive being reloaded.
+
+`ItemStackValue.components` is where this bites first. It is `Record<string, unknown>`
+keyed by data-component id, and data components are exactly what 1.21.5 restructures —
+enchantments reshaped, every attribute id renamed. A saved `/give` is the first thing a
+version bump will meet.
+
+This is roughly half the real work in saved commands, and it is invisible in the issue
+as written, because `unknown` hides it.
+
+---
+
 ## Testing obligations
 
 These are the assertions that make the rules above real rather than aspirational:
@@ -230,6 +365,13 @@ These are the assertions that make the rules above real rather than aspirational
   mtime alone.
 - **Forward compatibility.** A file containing an entry with an unknown shape loads,
   minus that entry, rather than failing.
+- **Fingerprint sensitivity.** Reordering a Choice's branches, renaming an argument or
+  changing its type key moves the fingerprint; changing a `label`, a description or an
+  alias does not. Both halves assert, because a fingerprint that moves too eagerly
+  orphans saves for no reason and one that moves too rarely is not a tripwire at all.
+- **Refusal, not partial restore.** A saved command whose fingerprint does not match
+  resumes nothing and still renders from its cached `preview`. Assert that no value
+  from the stale tree reaches the workbench.
 
 The round-trip test is the one that catches the most: it is the only assertion that
 holds the whole chain — tree, storage, reload and serializer — to the one thing a

@@ -37,8 +37,10 @@ Ordering here **is** fixed, because the dependencies are real.
 - **Saved commands** — the repo persists nothing today. A stable `id` generated once
   and never reused, a content `revision`, and the **value tree** rather than the
   rendered string. This is the prerequisite for everything below it and for Konnekt's
-  side of the link, so it comes first. The tree-versus-text question is settled
-  explicitly before the code, not during it. [#42](https://github.com/kollektiv-mc/Kommands/issues/42)
+  side of the link, so it comes first. Tree-versus-text is **settled** — see
+  [`persistence.md`](persistence.md) § What a saved command is — as is how values are
+  keyed, which is the part that carries the risk. What remains open in it is a declared
+  value shape per argument type. [#42](https://github.com/kollektiv-mc/Kommands/issues/42)
 - **The dashboard** — `/` is still the `Landing` placeholder, eight hand-authored
   tiles all tagged _Coming soon_. It becomes a view of real saved commands, with the
   `unavailable` storage state rendered as a state rather than an error. [#51](https://github.com/kollektiv-mc/Kommands/issues/51)
