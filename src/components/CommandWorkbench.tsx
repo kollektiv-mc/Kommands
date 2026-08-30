@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { RegistryLookup, SerializeContext, VersionDefinition } from '../data/versions/types'
 import { CommandRenderer, type Catalogue } from './CommandRenderer'
 import { embeddableIn } from '../data/catalogue'
@@ -23,6 +23,7 @@ export function CommandWorkbench({
   version,
   registries,
   catalogue = {},
+  footer,
 }: {
   definition: CommandDefinition
   version: VersionDefinition
@@ -37,6 +38,18 @@ export function CommandWorkbench({
    * its tests — the tests passed a resolver and the app did not.
    */
   catalogue?: Catalogue
+  /**
+   * Rendered under the output panel, given the serialized command.
+   *
+   * A render prop rather than a `<SaveCommandBar>` imported here, for two reasons.
+   * This component is the one that already holds the serialized string, and a caller
+   * that wanted it would have to call `serializeCommand` a second time on the same
+   * tree — the expensive call in this render, and the one health-checklist.md § 4
+   * already flags as running more often than it should. And knowing about saving
+   * would give the workbench a dependency on persistence that nothing about editing
+   * needs; a fixture test renders it today with no store at all.
+   */
+  footer?: (output: string) => ReactNode
 }) {
   const stored = useCommandStore((s) => s.value)
   const setArg = useCommandStore((s) => s.setArg)
@@ -117,6 +130,8 @@ export function CommandWorkbench({
           </span>
         ))}
       </div>
+
+      {footer?.(output)}
 
       {/* Last, and a sibling of the output panel rather than a wrapper around it. The
           preview is an aid and the command is the product, so nothing above can be

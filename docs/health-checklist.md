@@ -449,13 +449,20 @@ it should be stable between runs.
 **P2 — The shared type scale has no display step**
 
 - `tokens.source.json` stops at `--text-xl` (20px), which is correct for a dense tool
-  UI and leaves nothing for a landing page's title. `Landing.tsx` therefore reaches
-  for Tailwind's built-in `text-6xl`/`sm:text-7xl` (60/72px). That is a real utility
-  rather than an inlined literal, so the `no literal hex or px in components` grep is
-  silent and the styling rule's letter is kept — but the value comes from Tailwind's
-  default theme instead of the suite's, which is the same drift the token pipeline
-  exists to prevent, one level up. The fix is a `display` step added to
-  `kollektiv/design/tokens.json` and synced, so Konnekt's site and this page size a
+  UI and leaves nothing to size a title with. Two places now reach past it, and they
+  do so differently, which is the part worth fixing.
+  `Dashboard.tsx` uses Tailwind's built-in `text-5xl`/`sm:text-6xl` and `text-4xl`.
+  Those are real utilities rather than inlined literals, so the `no literal hex or px
+in components` grep is silent and the styling rule's letter is kept — but the value
+  comes from Tailwind's default theme instead of the suite's, which is the same drift
+  the token pipeline exists to prevent, one level up.
+  The splash is a step further out: `.splash-word` in `src/styles/index.css` carries a
+  literal `clamp(48px, 9vw, 112px)`. That is a genuine one-off — a title card is not a
+  UI step and no scale should name its size — but it also sits in `src/styles/`, which
+  the grep does not cover, so nothing would catch it drifting. It is deliberate and
+  documented in place; it is not enforced.
+  The fix for the first half is a `display` step added to
+  `kollektiv/design/tokens.json` and synced, so Konnekt's site and this app size a
   title from one source. Deliberately not done inside this change: it edits another
   repo, and `tokens.source.json` here is vendored and must never be hand-edited.
 
