@@ -1,6 +1,10 @@
 # Kommands
 
-Minecraft Java Edition command generator. React web app. Target version **1.21.1**.
+Minecraft Java Edition command generator. Target version **1.21.1**.
+
+Two builds from one codebase: a hosted web app, and a standalone desktop app with
+local storage and Konnekt integration. They differ in one dimension — access to the
+local filesystem. See `docs/distribution.md`.
 
 ## Stack
 
@@ -26,8 +30,15 @@ Package manager: **pnpm**.
 | `pnpm check-bundle` | Entry-chunk gzip budget                                      |
 | `pnpm gen`          | Both generators                                              |
 
-Three.js is **not a dependency yet**. It is planned for the lazy-loaded 3D previews,
-which are still open work — see `docs/adding-a-preview.md` and `docs/roadmap.md`.
+Three.js and `@react-three/fiber` are dependencies, reached **only** through a dynamic
+import so they stay out of the entry chunk. `pnpm check-bundle` fails if the renderer
+appears there. See `docs/adding-a-preview.md`.
+
+The desktop shell is a Go/Wails v2 module that does not exist yet
+([#44](https://github.com/kollektiv-mc/Kommands/issues/44)). When it lands
+this repo has two toolchains and `.claude/suite.json` gains the Go checks — until then
+its `distribution` block records the pending change rather than declaring a check that
+cannot run.
 
 Run `/suite-kit:health` before calling any task done. It runs lint, typecheck, tests,
 format and the entry-chunk bundle budget, and greps for the three things this codebase
@@ -73,6 +84,8 @@ Each fact lives in exactly one file. This file links; it does not restate.
 | File                         | Answers                                                            |
 | ---------------------------- | ------------------------------------------------------------------ |
 | `docs/architecture.md`       | How the system fits together, and why it is shaped this way        |
+| `docs/distribution.md`       | The web and standalone builds, and the Konnekt boundary            |
+| `docs/persistence.md`        | Saved commands, links, and the file Konnekt reads                  |
 | `docs/command-schema.md`     | The authoritative command definition schema                        |
 | `docs/minecraft-versions.md` | Which syntax differs per version, and what 1.21.1 emits            |
 | `docs/adding-a-command.md`   | Adding a command definition                                        |
