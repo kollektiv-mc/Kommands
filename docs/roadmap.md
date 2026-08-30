@@ -152,7 +152,19 @@ Recording these so they are not accidentally re-litigated:
 - **Bedrock Edition.** Different command syntax entirely; not a version trait.
 - **Versions before 1.20.5.** The `nbt` item format trait exists in the matrix for
   completeness, but no pre-component version is supported.
-- **Server integration.** Kommands generates text; it does not connect to a server.
+- **Server integration, in the sense of Kommands talking to a server.** Kommands
+  never opens a socket to a Minecraft server, never speaks RCON, and never learns a
+  server address. That restriction is permanent and is the one this entry protects.
+
+  It is _not_ a restriction on Kommands' output reaching a server by other means.
+  A decision has been taken that a command saved here can be linked into
+  [Konnekt](https://github.com/kollektiv-mc/Konnekt), which reads it from a shared
+  file on the same machine and may fire the updated version unattended from its
+  scheduler. Everything touching a server stays on Konnekt's side of the line; what
+  crosses is a file. See the linked-commands issues for the mechanism, and note the
+  responsibility consequence: a command edited here can change what another
+  application runs against a live world, without a human reading it in between.
+
 - **Accounts, tiers, subscriptions.** Removed with the previous codebase and not
   returning.
 
