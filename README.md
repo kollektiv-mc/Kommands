@@ -6,6 +6,11 @@ with 3D previews for the commands that describe shapes.
 
 Targets **Java Edition 1.21.1**.
 
+It ships two ways from one codebase: a **hosted web app**, and a **standalone desktop
+app** that works with no internet and can hand commands to
+[Konnekt](https://github.com/kollektiv-mc/Konnekt). See
+[`docs/distribution.md`](docs/distribution.md).
+
 ## Why it is built this way
 
 Minecraft command syntax changes in ways that are easy to get wrong. Between
@@ -34,6 +39,10 @@ suite rather than by description, and `//generate` now has a **3D preview**: the
 formula is evaluated across the selection and drawn as voxels, hollow included, with
 Three.js loaded only by the commands that need it.
 
+The web build is not deployed yet and the desktop shell is not written yet. Next up is
+giving a command a life beyond the tab that built it: saved commands, a dashboard that
+replaces the placeholder landing page, the Wails v2 shell, and the link into Konnekt.
+
 See [`docs/roadmap.md`](docs/roadmap.md) for what is planned Now / Next / Later, and the
 [issue tracker](../../issues) for what is in flight.
 
@@ -50,6 +59,8 @@ pnpm dev
 | Document                                           | Contents                                                      |
 | -------------------------------------------------- | ------------------------------------------------------------- |
 | [Architecture](docs/architecture.md)               | How the system fits together, and the reasoning behind it     |
+| [Distribution](docs/distribution.md)               | The web and standalone builds, and the Konnekt boundary       |
+| [Persistence](docs/persistence.md)                 | Saved commands, links, and the file Konnekt reads             |
 | [Command schema](docs/command-schema.md)           | The authoritative definition schema                           |
 | [Minecraft versions](docs/minecraft-versions.md)   | Syntax trait matrix — what differs per version                |
 | [Adding a command](docs/adding-a-command.md)       |                                                               |

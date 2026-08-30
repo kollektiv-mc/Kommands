@@ -5,6 +5,12 @@ How Kommands fits together, and why it is shaped this way.
 The schema itself is specified in [`command-schema.md`](command-schema.md); this
 document covers the system around it and the reasoning behind the structure.
 
+Two axes are deliberately **not** here, because they are about what happens to a
+command after it is generated rather than how it is generated:
+[`distribution.md`](distribution.md) covers the web and standalone builds and the
+Konnekt boundary, and [`persistence.md`](persistence.md) covers saved commands, links,
+and the file that crosses that boundary.
+
 ---
 
 ## The constraint
@@ -39,6 +45,13 @@ version data  ──►  command definitions  ──►  renderer  ──►  se
 
 The renderer never knows which command it is rendering, and the serializer never
 knows which version it is targeting beyond the traits it is handed.
+
+This pipeline used to be the whole system, because its output was a string a user
+copied and the app forgot. It no longer is: a **saved command** holds the value tree
+between the renderer and the serializer, so the tree becomes a persisted format and
+the string becomes a projection of it that can be regenerated. That inversion is the
+subject of [`persistence.md`](persistence.md), and it is the reason the value tree now
+has compatibility obligations it never had while it lived only in a tab.
 
 ---
 
@@ -184,20 +197,26 @@ trait and give every existing version an explicit value — still additive.
 
 ## Where data lives
 
-| Category                                                                       | Source                                            | Loading                    |
-| ------------------------------------------------------------------------------ | ------------------------------------------------- | -------------------------- |
-| Items, entities, enchantments, effects, particles, attributes, potions, sounds | mcmeta → `src/data/generated/<v>/registries.json` | Lazy, per version          |
-| Block states                                                                   | mcmeta → `src/data/generated/<v>/blocks.json`     | Lazy, route-split          |
-| Command skeletons                                                              | Derived → `src/data/generated/<v>/commands.json`  | Lazy, per command route    |
-| Version traits                                                                 | `src/data/versions/<v>.ts`                        | Static                     |
-| Selectors, colour codes, item components                                       | `src/data/authored/`                              | Static                     |
-| WorldEdit pattern blocks                                                       | The `block` registry, via `isKnownBlock`          | Lazy, with blocks          |
-| WorldEdit expression grammar and built-ins                                     | `src/worldedit/expression/`                       | Static (entry chunk)       |
-| WorldEdit CSG vocabulary and its compiler                                      | `src/worldedit/csg/`                              | Not yet reached by a route |
-| Three.js, the shared stage, and every preview module                           | `src/previews/`, `PreviewStage.tsx`               | Lazy, per preview binding  |
-| Design tokens                                                                  | Generated → `src/styles/tokens.css`               | Global CSS                 |
+| Category                                                                       | Source                                            | Loading                        |
+| ------------------------------------------------------------------------------ | ------------------------------------------------- | ------------------------------ |
+| Items, entities, enchantments, effects, particles, attributes, potions, sounds | mcmeta → `src/data/generated/<v>/registries.json` | Lazy, per version              |
+| Block states                                                                   | mcmeta → `src/data/generated/<v>/blocks.json`     | Lazy, route-split              |
+| Command skeletons                                                              | Derived → `src/data/generated/<v>/commands.json`  | Lazy, per command route        |
+| Version traits                                                                 | `src/data/versions/<v>.ts`                        | Static                         |
+| Selectors, colour codes, item components                                       | `src/data/authored/`                              | Static                         |
+| WorldEdit pattern blocks                                                       | The `block` registry, via `isKnownBlock`          | Lazy, with blocks              |
+| WorldEdit expression grammar and built-ins                                     | `src/worldedit/expression/`                       | Static (entry chunk)           |
+| WorldEdit CSG vocabulary and its compiler                                      | `src/worldedit/csg/`                              | Not yet reached by a route     |
+| Three.js, the shared stage, and every preview module                           | `src/previews/`, `PreviewStage.tsx`               | Lazy, per preview binding      |
+| Design tokens                                                                  | Generated → `src/styles/tokens.css`               | Global CSS                     |
+| Saved commands                                                                 | `localStorage` (web) or a JSON file (standalone)  | Per backend, chosen at startup |
 
 Nothing in this table is a literal inside a component. `/suite-kit:health` enforces it.
+
+Every row but the last is **read-only, derived, and disposable** — regenerate it and
+nothing is lost. Saved commands are the first row that is none of those: they are
+user-authored, they outlive the build that wrote them, and one of the two backends is
+read by another application. See [`persistence.md`](persistence.md).
 
 Registry files are large — 660 KB for 1.21.1 registries, 260 KB for blocks — so they
 are loaded on demand rather than bundled into the entry chunk.
@@ -251,13 +270,16 @@ values themselves live in `kollektiv/design/tokens.json`.
 
 ## Decision record
 
-| Decision                | Alternative rejected              | Why                                                                                |
-| ----------------------- | --------------------------------- | ---------------------------------------------------------------------------------- |
-| Commands as data        | A page per command                | Command list is open-ended; per-page cost never falls                              |
-| Schema as node tree     | Flat argument list                | `/execute` recurses and embeds commands                                            |
-| One schema + `dialect`  | WorldEdit as sibling subsystem    | `//generate` needed one node kind and two argument types — no second schema        |
-| Derive skeletons only   | Derive everything                 | Brigadier has no semantics for `item_stack` or `component` — the parts that matter |
-| Emit every command      | Emit only the three in scope      | Same cost; makes future additions a routing decision                               |
-| Commit generated data   | Gitignore and generate on install | Reviewable version diffs, offline builds, no network in CI                         |
-| Traits, not eras        | Era enum                          | Changes do not land together — attributes moved at 1.21.2, enchantments at 1.21.5  |
-| Preview receives values | Preview parses command text       | Keeps previews independent of serializer and version traits                        |
+| Decision                       | Alternative rejected              | Why                                                                                                         |
+| ------------------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Commands as data               | A page per command                | Command list is open-ended; per-page cost never falls                                                       |
+| Schema as node tree            | Flat argument list                | `/execute` recurses and embeds commands                                                                     |
+| One schema + `dialect`         | WorldEdit as sibling subsystem    | `//generate` needed one node kind and two argument types — no second schema                                 |
+| Derive skeletons only          | Derive everything                 | Brigadier has no semantics for `item_stack` or `component` — the parts that matter                          |
+| Emit every command             | Emit only the three in scope      | Same cost; makes future additions a routing decision                                                        |
+| Commit generated data          | Gitignore and generate on install | Reviewable version diffs, offline builds, no network in CI                                                  |
+| Traits, not eras               | Era enum                          | Changes do not land together — attributes moved at 1.21.2, enchantments at 1.21.5                           |
+| Preview receives values        | Preview parses command text       | Keeps previews independent of serializer and version traits                                                 |
+| Two builds, one codebase       | Web only, or desktop only         | A LAN server has no route to a hosted site; a browser tab cannot write a shared file                        |
+| Capability interface           | A `isDesktop` flag at call sites  | The difference is a capability, so it belongs behind one — the same argument as traits over version numbers |
+| Kommands writes, Konnekt reads | Either side may write             | A single writer makes divergence structurally impossible rather than merely unlikely                        |

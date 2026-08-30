@@ -8,18 +8,105 @@ no `TODO.md`.
 
 ## Now
 
-The phase's exit criterion is met: all four commands in the acceptance set generate
-correct output, and one 3D preview is live. What is left in it is the `/execute` editor.
+Exit criterion: all four commands in the schema's acceptance set generate correct
+output, and one 3D preview is live. **Both halves are met.** What is left in the phase
+is the `/execute` editor.
 
 - **The `/execute` node editor** — the clause chain becomes a node-based builder
   rather than the stack of rows it is now. The current chain UI is a placeholder that
-  proved the data layer end to end; it is not the intended design, and #33 (stable
-  instance identity) is its prerequisite
+  proved the data layer end to end; it is not the intended design. Stable instance
+  identity, its prerequisite, has landed.
+  [#34](https://github.com/kollektiv-mc/Kommands/issues/34)
 
-Exit criterion: all four commands in the schema's acceptance set generate correct
-output, and one 3D preview is live. **Both halves are now met.**
+This phase proved the schema against real commands. The next one gives a command a
+life beyond the tab that built it — see § Next.
+
+## Next
+
+**A command outliving the session that built it, and the second build that lets it
+travel.** Everything in this phase follows from one decision: Kommands ships as a
+hosted web app _and_ as a standalone desktop app, which is what makes a command
+something another application can hold on to. The shape of both is in
+[`distribution.md`](distribution.md); the formats are in
+[`persistence.md`](persistence.md).
+
+Ordering here **is** fixed, because the dependencies are real.
+
+### 1. Persistence, and the dashboard it unlocks
+
+- **Saved commands** — the repo persists nothing today. A stable `id` generated once
+  and never reused, a content `revision`, and the **value tree** rather than the
+  rendered string. This is the prerequisite for everything below it and for Konnekt's
+  side of the link, so it comes first. Tree-versus-text is **settled** — see
+  [`persistence.md`](persistence.md) § What a saved command is — as is how values are
+  keyed, which is the part that carries the risk. What remains open in it is a declared
+  value shape per argument type. [#42](https://github.com/kollektiv-mc/Kommands/issues/42)
+- **The dashboard** — `/` is still the `Landing` placeholder, eight hand-authored
+  tiles all tagged _Coming soon_. It becomes a view of real saved commands, with the
+  `unavailable` storage state rendered as a state rather than an error. [#51](https://github.com/kollektiv-mc/Kommands/issues/51)
+- **Tile-to-editor transition**, and **a command navbar beside the workbench** — all
+  78 derived definitions are already reachable through one route; what is missing is a
+  way to see them. [#52](https://github.com/kollektiv-mc/Kommands/issues/52), [#53](https://github.com/kollektiv-mc/Kommands/issues/53)
+
+### 2. The standalone build
+
+- **A Wails v2 shell** — Go, single-window, serving the embedded Vite build, with
+  command data bundled rather than fetched so the app works with no internet at all.
+  Independent of the persistence work and can proceed in parallel; both are needed
+  before anything in § 3. This is where the repo grows a second toolchain.
+  [#44](https://github.com/kollektiv-mc/Kommands/issues/44)
+
+### 3. Reaching Konnekt
+
+- **The shared file** — `os.UserConfigDir()/kommands/saved-commands.json`, written
+  atomically, read-only from Konnekt's side. Blocked on both of the above.
+  **Standalone only, permanently**: a browser tab cannot write to a shared location on
+  disk, and that split has to be visible in the web UI rather than discovered.
+  [#45](https://github.com/kollektiv-mc/Kommands/issues/45)
+- **`konnekt://` handoff** — the one-shot path, which keeps no relationship after the
+  command arrives. Not the same feature as the link above. [#46](https://github.com/kollektiv-mc/Kommands/issues/46)
+
+### 4. Links
+
+- **Command state in the URL** — the route identifies _which_ command, never the state
+  of the build, so a link can open the `/give` page but arrives empty. Both directions:
+  outbound so a finished command can leave, inbound so Konnekt can seed a page with the
+  version, world and online player list it already knows. Shares the persistence
+  encoding rather than paralleling it. [#43](https://github.com/kollektiv-mc/Kommands/issues/43)
+
+Exit criterion: a command saved in the standalone build appears in Konnekt, and an
+edit here reaches it — while the web build generates every command it does today and
+says plainly which of these it cannot do.
+
+## Later
+
+Breadth, once the foundations are proven. Ordering here is not fixed.
+
+- More vanilla commands — skeletons already exist; each needs editors,
+  presentation metadata, and a route
+- Additional deep argument types: `nbt_compound`, `block_state`, `loot_table`
+- **Version 2 support** — likely 1.21.5, which flips two trait flags. This is
+  the real test of the version model: if it turns into a refactor, the trait
+  design was wrong
+- More previews: entity placement, particle emitters, structure bounds
+- Command import — parse an existing command back into a value tree. Note this
+  inverts the preview contract's direction and needs its own design, and that § Next
+  makes it cheaper: a saved command already stores a tree, so import is the only
+  remaining way _in_ for a command this app did not build
+- Multi-command scripts and function-file export
+- Cross-device sync of saved commands. Recorded here as **deliberately not planned**
+  rather than as work: it needs a backend, which this repo does not have by design.
+  Per-browser on the web and per-machine on the desktop is the intended ceiling
+
+Sharing used to sit here as one line, "permalinks, saved commands". It has been split
+into [#42](https://github.com/kollektiv-mc/Kommands/issues/42) and [#43](https://github.com/kollektiv-mc/Kommands/issues/43) — different consumers, different blockers — and
+both are promoted to § Next.
+
+---
 
 ## Done
+
+Completed phases, newest first. Kept for the reasoning, not the tick.
 
 - **Preview infrastructure, and the `worldedit/shape` module** — the part of this phase
   that had to run in a browser. A definition declares a preview and the rest follows:
@@ -127,22 +214,6 @@ surface two things worth naming: `variadic` had been declared and read by nothin
 working only because `raw_text` passes spaces through; and the command page applied
 vanilla's slash rule to a WorldEdit alias and printed `///gen`.
 
-## Later
-
-Breadth, once the foundations are proven. Ordering here is not fixed.
-
-- More vanilla commands — skeletons already exist; each needs editors,
-  presentation metadata, and a route
-- Additional deep argument types: `nbt_compound`, `block_state`, `loot_table`
-- **Version 2 support** — likely 1.21.5, which flips two trait flags. This is
-  the real test of the version model: if it turns into a refactor, the trait
-  design was wrong
-- More previews: entity placement, particle emitters, structure bounds
-- Command import — parse an existing command back into a value tree. Note this
-  inverts the preview contract's direction and needs its own design
-- Sharing: permalinks, saved commands
-- Multi-command scripts and function-file export
-
 ---
 
 ## Explicitly out of scope
@@ -161,9 +232,14 @@ Recording these so they are not accidentally re-litigated:
   [Konnekt](https://github.com/kollektiv-mc/Konnekt), which reads it from a shared
   file on the same machine and may fire the updated version unattended from its
   scheduler. Everything touching a server stays on Konnekt's side of the line; what
-  crosses is a file. See the linked-commands issues for the mechanism, and note the
+  crosses is a file. The mechanism is in [`distribution.md`](distribution.md) § The
+  Konnekt boundary and its format in [`persistence.md`](persistence.md); note the
   responsibility consequence: a command edited here can change what another
   application runs against a live world, without a human reading it in between.
+
+- **A backend of any kind.** No accounts, no server-side storage, no sync service.
+  This is what makes the shared file the transport for linked commands rather than a
+  convenience, and it is why cross-device sync sits under § Later as not planned.
 
 - **Accounts, tiers, subscriptions.** Removed with the previous codebase and not
   returning.

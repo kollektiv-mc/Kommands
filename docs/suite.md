@@ -11,12 +11,19 @@ an umbrella repository, **[kollektiv](https://github.com/kollektiv-mc/Kollektiv)
 
 ## Why an umbrella and not a monorepo
 
-The two products share almost nothing at the build layer. Konnekt is a Go module
-with `wails generate module` bindings, a `165 KB` gzip bundle budget, and a `v*`
-tag-driven release workflow that publishes binaries and an `.rpm`. Kommands is a
-Vite app whose data is derived from pinned mcmeta tags. Merging them would put two
-unrelated toolchains behind one CI run and break Konnekt's release pipeline for no
-gain.
+The two products have **separate release cycles and unrelated failure modes**.
+Konnekt ships versioned binaries and an `.rpm` off `v*` tags; Kommands deploys a web
+build continuously and, once [#44](https://github.com/kollektiv-mc/Kommands/issues/44)
+lands, cuts desktop releases on its own schedule. Merging them would put both behind
+one CI run, so a Kommands doc change would gate a Konnekt release, and a Konnekt
+platform failure would block a web deploy that shares nothing with it.
+
+This argument used to be made as "Konnekt is a Go module, Kommands is a Vite app."
+That was never the real reason and is no longer even true: Kommands' standalone build
+is a Wails v2 app, so both products are a Go shell around a web frontend, deliberately
+— see [`distribution.md`](distribution.md) § The shell is Wails v2. The toolchains
+converging is a **reason to share more**, not a reason to merge. What converged is the
+shell; what stayed separate is everything either product releases.
 
 What _is_ genuinely shared is narrower and more valuable:
 
@@ -119,7 +126,8 @@ the suite does the same.
 Linear is a **downstream mirror**, written only by `/suite-kit:suite-sync`. Never
 write to it directly from this repo. Kommands mirrors into the **Apps** team's
 **Kommands** project, with milestones `Now` / `Next` / `Later` matching this
-repo's [`roadmap.md`](roadmap.md) headings.
+repo's [`roadmap.md`](roadmap.md) headings. `Done` is a heading there but not a
+milestone — completed work is closed, not mirrored into a fourth column.
 
 Close issues with GitHub's own magic words in a PR title or description:
 
