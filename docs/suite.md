@@ -12,7 +12,7 @@ an umbrella repository, **[kollektiv](https://github.com/kollektiv-mc/Kollektiv)
 ## Why an umbrella and not a monorepo
 
 The two products share almost nothing at the build layer. Konnekt is a Go module
-with `wails generate module` bindings, a `550 KB` gzip bundle budget, and a `v*`
+with `wails generate module` bindings, a `165 KB` gzip bundle budget, and a `v*`
 tag-driven release workflow that publishes binaries and an `.rpm`. Kommands is a
 Vite app whose data is derived from pinned mcmeta tags. Merging them would put two
 unrelated toolchains behind one CI run and break Konnekt's release pipeline for no

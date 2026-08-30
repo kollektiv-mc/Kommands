@@ -300,8 +300,10 @@ belongs here.
       This is the headless half of capping the evaluated volume.
 - [x] There is an agreed production bundle budget, checked in CI. 120 KB gzip on the
       entry chunk, via `pnpm check-bundle`, run by `.github/workflows/ci.yml` on every
-      push. Currently 103.7 KB. Konnekt's equivalent is 550 KB, and the gap is the
-      point: this app's data is lazy and Konnekt's is not.
+      push. Currently 105.4 KB. Konnekt's equivalent is 165 KB. It was 550 KB
+      before its scheduler/config/mods code split, and that gap used to be the
+      point: this app's data was lazy and Konnekt's dependencies were not. Both
+      lazy-load now, so what is left is a much narrower difference.
       Verify: `pnpm build && pnpm check-bundle`.
 
 ---
