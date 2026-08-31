@@ -10,6 +10,7 @@ import { localStorageBackend } from '../storage/local'
 import { createSaved, type SavedCommandDraft } from '../schema/saved'
 import { EMPTY_VALUE } from '../schema/serialize'
 import { v1_21_1 } from '../data/versions/1.21.1'
+import { loadFingerprints } from '../data/loadGenerated'
 
 function memoryStorage(): Storage {
   const held = new Map<string, string>()
@@ -154,4 +155,28 @@ test('the standalone build offers the same control live', async () => {
   const link = await screen.findByRole('button', { name: 'link' })
   expect(link.hasAttribute('disabled')).toBe(false)
   expect(screen.queryByText(/needs the standalone build/)).toBeNull()
+})
+
+test('a tile says a tree will not restore before it is opened', async () => {
+  // DRAFT carries a fingerprint that is not vanilla:give's, so the committed index
+  // contradicts it. Before the index existed this could only be discovered by opening
+  // the command — the tile had no catalogue and the editor had the only answer.
+  await seed(DRAFT)
+  await renderWithRouter(<Dashboard />)
+
+  expect(await screen.findByText(/older shape of this command/)).toBeDefined()
+})
+
+test('a tile whose fingerprint matches the index says nothing structural', async () => {
+  // The negative control. Without it the test above passes equally well against a tile
+  // that calls every saved command stale, which would train the user to ignore it.
+  const index = await loadFingerprints(v1_21_1)
+  await seed({ ...DRAFT, fingerprint: index['vanilla:give'] as string })
+  await renderWithRouter(<Dashboard />)
+
+  // The tile is there…
+  expect(await screen.findByText('Starter kit')).toBeDefined()
+  // …and says nothing about its shape.
+  expect(screen.queryByText(/older shape of this command/)).toBeNull()
+  expect(screen.queryByText(/Saved before Kommands recorded/)).toBeNull()
 })

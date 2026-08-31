@@ -17,8 +17,9 @@
     "check-bundle": "tsx scripts/check-bundle.ts",
     "gen:commands": "tsx scripts/derive-commands.ts",
     "gen:diff": "tsx scripts/gen-diff.ts",
+    "gen:fingerprints": "tsx scripts/gen-fingerprints.ts",
     "gen:tokens": "tsx scripts/gen-tokens.ts",
-    "gen": "pnpm gen:commands && pnpm gen:tokens"
+    "gen": "pnpm gen:commands && pnpm gen:fingerprints && pnpm gen:tokens"
   },
   "dependencies": {
     "@react-three/fiber": "^9.7.0",

@@ -61,7 +61,7 @@
         "paths": ["src"],
         "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/assets/**", "src/data/**"],
         "expect": "no matches",
-        "diagnosis": "A game value was inlined instead of read from the version registry. Minecraft identifiers are versioned data — an item that exists in 1.21.1 may not exist in another version, and a literal silently ships the wrong value. Legitimate exception: the bare 'minecraft:' namespace prefix being constructed by a serializer. Judge by whether a specific entity, item, or enchantment is named — 'minecraft:' alone is fine, 'minecraft:diamond_sword' is not. Test files are excluded: a serializer fixture asserts literal expected command text, so the identifiers in it are the thing under test rather than a value that should have come from a registry. The rule is about components and serializers reaching for a literal instead of the version's data; a fixture that did that would not be a fixture. Canonical fixtures and their provenance live in docs/minecraft-versions.md.",
+        "diagnosis": "A game value was inlined instead of read from the version registry. Minecraft identifiers are versioned data \u2014 an item that exists in 1.21.1 may not exist in another version, and a literal silently ships the wrong value. Legitimate exception: the bare 'minecraft:' namespace prefix being constructed by a serializer. Judge by whether a specific entity, item, or enchantment is named \u2014 'minecraft:' alone is fine, 'minecraft:diamond_sword' is not. Test files are excluded: a serializer fixture asserts literal expected command text, so the identifiers in it are the thing under test rather than a value that should have come from a registry. The rule is about components and serializers reaching for a literal instead of the version's data; a fixture that did that would not be a fixture. Canonical fixtures and their provenance live in docs/minecraft-versions.md.",
         "reference": "docs/minecraft-versions.md"
       },
       {
@@ -79,7 +79,7 @@
         "paths": ["src/components", "src/routes", "src/previews"],
         "exclude": [],
         "expect": "no matches",
-        "diagnosis": "Runtime theming works by overriding custom properties on the root element. An inlined value silently opts that element out of theming, and the breakage only appears in a non-default theme — not the one being looked at while the code is written. Every value has a named token, including the awkward ones (9px, 0.5px, 10px radius). If a value seems missing, add a token; do not inline or approximate. src/previews is covered too: a preview module needs a colour as a *value* rather than a class, and the way to get one is to resolve the custom property at runtime — see voxelColor in src/previews/worldedit/shape/ShapePreview.tsx. A literal there would be outside the grep's old reach while being exactly the drift it exists to catch.",
+        "diagnosis": "Runtime theming works by overriding custom properties on the root element. An inlined value silently opts that element out of theming, and the breakage only appears in a non-default theme \u2014 not the one being looked at while the code is written. Every value has a named token, including the awkward ones (9px, 0.5px, 10px radius). If a value seems missing, add a token; do not inline or approximate. src/previews is covered too: a preview module needs a colour as a *value* rather than a class, and the way to get one is to resolve the custom property at runtime \u2014 see voxelColor in src/previews/worldedit/shape/ShapePreview.tsx. A literal there would be outside the grep's old reach while being exactly the drift it exists to catch.",
         "reference": "docs/design-tokens.md"
       }
     ],
@@ -88,14 +88,21 @@
         "regenerate": "pnpm gen:commands",
         "expectCleanDiff": ["src/data/generated"],
         "requiresNetwork": true,
-        "diagnosis": "A non-empty diff means either src/data/generated was hand-edited, or a generator change was committed without its regenerated output. Both are bugs: the hand edit is destroyed on the next run and the underlying issue survives. Fix the generator, regenerate, and commit both together. Regeneration is deterministic — same mcmeta tag in, same bytes out — so a diff without a generator or version change means something else is wrong. requiresNetwork is declared for the cold case only: the deriver caches each pinned tag under .cache/mcmeta, so a warm run never reaches the network and CI restores that cache keyed on the tag.",
+        "diagnosis": "A non-empty diff means either src/data/generated was hand-edited, or a generator change was committed without its regenerated output. Both are bugs: the hand edit is destroyed on the next run and the underlying issue survives. Fix the generator, regenerate, and commit both together. Regeneration is deterministic \u2014 same mcmeta tag in, same bytes out \u2014 so a diff without a generator or version change means something else is wrong. Note that src/data/generated also holds fingerprints.json, which this generator does not write - it is produced by pnpm gen:fingerprints and has its own entry below. The path here stays the whole directory so that nothing in it escapes both checks; a diff naming fingerprints.json is that entry's to explain, not this one's. requiresNetwork is declared for the cold case only: the deriver caches each pinned tag under .cache/mcmeta, so a warm run never reaches the network and CI restores that cache keyed on the tag.",
         "reference": ".claude/rules/generated-data.md"
+      },
+      {
+        "regenerate": "pnpm gen:fingerprints",
+        "expectCleanDiff": ["src/data/generated"],
+        "requiresNetwork": false,
+        "diagnosis": "A non-empty diff means a command definition's STRUCTURE moved: the deriver changed, or an authored definition under src/data/authored/commands was edited. That is not a cosmetic diff and must never be regenerated on autopilot. A saved command stores raw paths into a definition's node arrays, so a moved fingerprint silently repoints or orphans every command a user saved against that definition - and on the standalone build those saves feed the file Konnekt reads, which can fire them unattended. This check is the mechanism behind the release gate in docs/health-checklist.md: a fingerprint that moves for an already-shipped version ships with a migration or an explicitly accepted loss, never unnoticed. If the move is intended, regenerate and say in the pull request which definitions moved and what becomes of saves made against them. If it is not intended, the generator or definition change is the bug. Note what does NOT move a fingerprint, so a diff here is never dismissed as noise: labels, descriptions, presentation metadata and aliases are all excluded by design. Unlike gen:commands this reads only committed data, so it works offline and has no legitimate skip.",
+        "reference": "docs/persistence.md"
       },
       {
         "regenerate": "pnpm gen:tokens",
         "expectCleanDiff": ["src/styles/tokens.css"],
         "requiresNetwork": false,
-        "diagnosis": "A non-empty diff means either src/styles/tokens.css was hand-edited, or tokens.source.json was refreshed without regenerating. Both are bugs, for the same reason as gen:commands. Unlike that generator, this one reads a committed local file — tokens.source.json — so it works offline and has no legitimate skip.",
+        "diagnosis": "A non-empty diff means either src/styles/tokens.css was hand-edited, or tokens.source.json was refreshed without regenerating. Both are bugs, for the same reason as gen:commands. Unlike that generator, this one reads a committed local file \u2014 tokens.source.json \u2014 so it works offline and has no legitimate skip.",
         "reference": "docs/design-tokens.md"
       }
     ]

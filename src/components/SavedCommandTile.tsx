@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { SavedCommand } from '../schema/saved'
+import type { SavedCommand, StructureState } from '../schema/saved'
 import { resumability } from '../schema/saved'
 import { findVersion } from '../data/versions'
 import { v1_21_1 } from '../data/versions/1.21.1'
@@ -14,6 +14,19 @@ const RESUMABILITY_NOTE = {
   ready: null,
   retraited: 'Authored for a version that writes this differently',
   'unknown-version': 'Authored for a version this build does not know',
+} as const
+
+/**
+ * What the structural verdict says here — shorter than the editor's wording in
+ * `CommandEditor.REFUSAL`, and deliberately so: this is a badge on a tile, and the
+ * full explanation belongs at the moment of the refusal rather than in a grid of
+ * twelve of them. The outcome is identical either way; the tile only says it sooner.
+ */
+const STRUCTURE_NOTE = {
+  verified: null,
+  stale: 'Saved against an older shape of this command — opens empty',
+  'unknown-command': 'The command this was built for is not in this build',
+  unverified: 'Saved before Kommands recorded command shapes — opens empty',
 } as const
 
 /**
@@ -35,6 +48,7 @@ export function SavedCommandTile({
   onRemove,
   onPin,
   linkable,
+  structure,
 }: {
   saved: SavedCommand
   /** Given the tile's own element, so the caller can capture the rect it grows from. */
@@ -51,11 +65,35 @@ export function SavedCommandTile({
    * it is given.
    */
   linkable: boolean
+  /**
+   * Whether the definition still has the shape this tree was built against, judged
+   * against the committed fingerprint index rather than the definition itself.
+   *
+   * `undefined` while that index is still loading. Passed in for the same reason
+   * `linkable` is: the index is fetched once for the dashboard, not once per tile.
+   */
+  structure?: StructureState
 }) {
   const [renaming, setRenaming] = useState(false)
   const [draft, setDraft] = useState(saved.name)
 
-  const note = RESUMABILITY_NOTE[resumability(saved, v1_21_1, findVersion)]
+  // One note, and *version* outranks structure — which is the opposite of what tile
+  // real-estate would suggest and is the honest order. The index this build ships
+  // describes the *active* version's definitions, so comparing a tree authored for
+  // another version against it is a comparison across two catalogues: it can report
+  // "the shape moved" when what actually moved is the version. Where the version is
+  // foreign, that is the fact to state, and the structural verdict is not evidence.
+  //
+  // So the structural note speaks only once the version question is settled — and
+  // `structure` is undefined while the index is still loading, the one case with
+  // nothing honest to say yet.
+  const version = resumability(saved, v1_21_1, findVersion)
+  const note =
+    version === 'ready'
+      ? structure
+        ? STRUCTURE_NOTE[structure]
+        : null
+      : RESUMABILITY_NOTE[version]
 
   return (
     <li

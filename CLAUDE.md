@@ -14,21 +14,22 @@ Package manager: **pnpm**.
 
 ## Commands
 
-| Command             | Does                                                         |
-| ------------------- | ------------------------------------------------------------ |
-| `pnpm dev`          | Dev server                                                   |
-| `pnpm build`        | `tsc && vite build`                                          |
-| `pnpm typecheck`    | `tsc --noEmit`                                               |
-| `pnpm lint`         | `eslint src scripts`                                         |
-| `pnpm format`       | `prettier --write .`                                         |
-| `pnpm format:check` | `prettier --check .`                                         |
-| `pnpm test`         | `vitest run`                                                 |
-| `pnpm test:watch`   | `vitest`                                                     |
-| `pnpm gen:commands` | Derive command skeletons + registries from mcmeta            |
-| `pnpm gen:tokens`   | Regenerate `src/styles/tokens.css` from `tokens.source.json` |
-| `pnpm gen:diff`     | Compare two versions' registries, removals first             |
-| `pnpm check-bundle` | Entry-chunk gzip budget                                      |
-| `pnpm gen`          | Both generators                                              |
+| Command                 | Does                                                         |
+| ----------------------- | ------------------------------------------------------------ |
+| `pnpm dev`              | Dev server                                                   |
+| `pnpm build`            | `tsc && vite build`                                          |
+| `pnpm typecheck`        | `tsc --noEmit`                                               |
+| `pnpm lint`             | `eslint src scripts`                                         |
+| `pnpm format`           | `prettier --write .`                                         |
+| `pnpm format:check`     | `prettier --check .`                                         |
+| `pnpm test`             | `vitest run`                                                 |
+| `pnpm test:watch`       | `vitest`                                                     |
+| `pnpm gen:commands`     | Derive command skeletons + registries from mcmeta            |
+| `pnpm gen:tokens`       | Regenerate `src/styles/tokens.css` from `tokens.source.json` |
+| `pnpm gen:diff`         | Compare two versions' registries, removals first             |
+| `pnpm gen:fingerprints` | Record each definition's structural fingerprint              |
+| `pnpm check-bundle`     | Entry-chunk gzip budget                                      |
+| `pnpm gen`              | All three generators                                         |
 
 Three.js and `@react-three/fiber` are dependencies, reached **only** through a dynamic
 import so they stay out of the entry chunk. `pnpm check-bundle` fails if the renderer
@@ -62,9 +63,13 @@ Four rules are not enforceable by the formatter and are checked by
    use `var(--token)` or the Tailwind semantic utilities only. Every value the
    design needs already has a named token; if one seems missing, add it to the
    shared token source rather than inlining. See `docs/design-tokens.md`.
-3. **Never hand-edit `src/data/generated/**` or `src/styles/tokens.css`.** The
-   first is derived from mcmeta by `pnpm gen:commands`, the second from
-   `tokens.source.json` by `pnpm gen:tokens`. Change the input, not the output.
+3. **Never hand-edit `src/data/generated/**` or `src/styles/tokens.css`.** Skeletons
+   and registries are derived from mcmeta by `pnpm gen:commands`, `fingerprints.json`
+   from those and the authored definitions by `pnpm gen:fingerprints`, and the token
+   sheet from `tokens.source.json` by `pnpm gen:tokens`. Change the input, not the
+   output. A `fingerprints.json` diff is the one to _read_ rather than regenerate past:
+   it means a definition's structure moved, which invalidates saved commands built
+   against it — see `docs/health-checklist.md` § 3.
 4. **Never hand-edit `tokens.source.json`.** It is vendored from
    `kollektiv/design/tokens.json` and overwritten by that repo's
    `scripts/sync-tokens.sh`. A token added here alone is lost on the next sync
@@ -105,7 +110,7 @@ before writing or changing any serializer.
 ## Definition of done
 
 Run `/suite-kit:health`. It runs lint, typecheck, tests, format and the bundle
-budget, plus this repo's three invariant greps and both of its generated-file
+budget, plus this repo's three invariant greps and all three of its generated-file
 checks, driven by `.claude/suite.json`, and reports a table. **A skipped check is
 not a passing one** — the report says so, and most of the value is in that
 distinction.

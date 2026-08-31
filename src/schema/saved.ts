@@ -247,33 +247,66 @@ export function resumability(
  * anything.
  *
  * `resumability` needs only the stored version string and the version table, both of
- * which are static. `structureState` needs the *definition*, which lives in the 560 KB
- * of command skeletons the dashboard exists not to load — the whole reason a saved
- * command carries a cached `preview`. So a tile can say "authored for a version this
- * build does not know" and cannot say "the shape moved"; the editor, which has the
- * definition in its loader data, says the second.
+ * which are static. This one needs the definition's *fingerprint*, and there are two
+ * ways to get one — which is why the answer is computed in `compareFingerprint` and
+ * reached through two entry points rather than duplicated:
  *
- * That split is not a compromise. It puts the refusal at the moment of opening, which
- * is where `persistence.md` wants it: the command still lists, still shows its text,
- * still copies — it just does not restore a tree into a form that no longer fits it.
+ * - `structureState` hashes the definition it is handed. The editor has one in its
+ *   loader data, so it pays nothing.
+ * - `structureStateFromIndex` reads the committed index instead
+ *   (`src/data/generated/<v>/fingerprints.json`, ~1.6 KB gzipped). The dashboard has
+ *   no catalogue and cannot afford one — 560 KB of skeletons to check a hash is the
+ *   exact load a saved command caches its `preview` to avoid — so a tile takes this
+ *   door.
  *
- * A missing fingerprint answers `restructured`. A record saved before fingerprints
+ * The two must agree, and `fingerprints.test.ts` asserts the index matches
+ * `fingerprintOf` over every definition, so the shared comparison below is the whole
+ * of the difference between them.
+ *
+ * The refusal itself still lands at the moment of opening, which is where
+ * `persistence.md` wants it: the command still lists, still shows its text, still
+ * copies — it just does not restore a tree into a form that no longer fits it. What
+ * the index buys is *warning* before the click, not a different outcome after it.
+ *
+ * A missing fingerprint answers `unverified`. A record saved before fingerprints
  * existed has an unknown provenance, and unknown is not a match.
  */
 export type StructureState = 'verified' | 'stale' | 'unverified' | 'unknown-command'
+
+/**
+ * The comparison itself, against whatever the caller could find out.
+ *
+ * Four answers rather than a boolean, because they want four different things said to
+ * the user. "The command is gone from this build" and "the command was reshaped" are
+ * the same refusal but not the same explanation, and "saved before Kommands recorded
+ * shapes at all" is neither — it is a record that predates the tripwire and can never
+ * be verified, however unchanged the definition actually is.
+ */
+function compareFingerprint(saved: SavedCommand, expected: string | undefined): StructureState {
+  if (expected === undefined) return 'unknown-command'
+  if (saved.fingerprint === undefined) return 'unverified'
+  return saved.fingerprint === expected ? 'verified' : 'stale'
+}
 
 export function structureState(
   saved: SavedCommand,
   definition: CommandDefinition | undefined,
 ): StructureState {
-  // Four answers rather than a boolean, because they want four different things said
-  // to the user. "The command is gone from this build" and "the command was reshaped"
-  // are the same refusal but not the same explanation, and "saved before Kommands
-  // recorded shapes at all" is neither — it is a record that predates the tripwire and
-  // can never be verified, however unchanged the definition actually is.
-  if (!definition) return 'unknown-command'
-  if (saved.fingerprint === undefined) return 'unverified'
-  return saved.fingerprint === fingerprintOf(definition) ? 'verified' : 'stale'
+  return compareFingerprint(saved, definition ? fingerprintOf(definition) : undefined)
+}
+
+/**
+ * The same verdict from the committed fingerprint index.
+ *
+ * For the caller that has no catalogue. `index` is the loaded
+ * `fingerprints.json` for the version being judged against — the *active* version,
+ * not the one the command was authored for, which is `resumability`'s question.
+ */
+export function structureStateFromIndex(
+  saved: SavedCommand,
+  index: Readonly<Record<string, string>>,
+): StructureState {
+  return compareFingerprint(saved, index[saved.definitionId])
 }
 
 /** Whether a tree may be restored. Only a positive verification qualifies. */

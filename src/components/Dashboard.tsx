@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { storageKind, useSavedCommandsStore } from '../stores/useSavedCommandsStore'
 import { useDashboardStore } from '../stores/useDashboardStore'
@@ -7,6 +7,9 @@ import { SavedCommandTile } from './SavedCommandTile'
 import { AddPanelMenu } from './dashboard/AddPanelMenu'
 import { DashboardPanel } from './dashboard/DashboardPanel'
 import { panelById } from './dashboard/panels'
+import { loadFingerprints } from '../data/loadGenerated'
+import { structureStateFromIndex } from '../schema/saved'
+import { v1_21_1 } from '../data/versions/1.21.1'
 import { LABEL, WARNING } from './editors/fieldStyles'
 
 const CTA =
@@ -51,10 +54,34 @@ export function Dashboard() {
   const openFrom = useUiStore((s) => s.openFrom)
   const navigate = useNavigate()
 
+  // The fingerprint index, so a tile can say a tree will not restore *before* it is
+  // opened. Deliberately the only generated file this view loads: ~1.6 KB gzipped
+  // against the 560 KB of command skeletons that answering the same question from a
+  // definition would cost — which is the whole reason a saved command caches a
+  // `preview`. Held as null until it arrives, and a failure leaves it null rather than
+  // surfacing: an unreachable index costs a warning the editor still gives on open, so
+  // it is not worth an error message about a file the user has never heard of.
+  const [fingerprints, setFingerprints] = useState<Readonly<Record<string, string>> | null>(null)
+
   useEffect(() => {
     void load()
     hydrate()
   }, [load, hydrate])
+
+  useEffect(() => {
+    let live = true
+    loadFingerprints(v1_21_1)
+      .then((index) => {
+        if (live) setFingerprints(index)
+      })
+      .catch(() => {
+        // Left null: tiles simply say nothing structural, as they did before the index
+        // existed. The refusal on open is unaffected — it hashes the real definition.
+      })
+    return () => {
+      live = false
+    }
+  }, [])
 
   // Selected once per render rather than per panel, and memoised on the command list —
   // these are plain array functions, and calling them inside a Zustand selector would
@@ -169,6 +196,9 @@ export function Dashboard() {
                   onRemove={() => void remove(saved.id)}
                   onPin={() => void pin(saved.id, saved.pinned !== true)}
                   linkable={linkable}
+                  structure={
+                    fingerprints ? structureStateFromIndex(saved, fingerprints) : undefined
+                  }
                 />
               ))}
             </ul>
