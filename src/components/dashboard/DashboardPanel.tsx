@@ -86,16 +86,25 @@ export function DashboardPanel({
  * to navigate than a blank box. It is also what keeps `getByRole('listitem')` meaning
  * "a command" across the dashboard tests.
  *
- * Drawn as a dashed hairline over nothing rather than as a faded copy of a real tile.
- * A ghost tile invites a click; an outline reads as a slot. The height matches a tile
- * with a name, one line of command text and a control row, so a panel does not resize
- * as it fills up.
+ * Drawn as a dashed outline over a faint fill rather than as a ghost of a real tile.
+ * A ghost invites a click; an outline reads as a slot. The height matches a tile with a
+ * name, one line of command text and a control row, so a panel does not resize as it
+ * fills up.
+ *
+ * `border-thick` rather than the hairline every real panel uses, and that inversion is
+ * deliberate. A 0.5px dashed border is the one place the hairline fails: at that width
+ * the dashes fall below a device pixel and the browser renders them as a barely-there
+ * smudge — the first attempt at this was invisible on screen while being perfectly
+ * correct in the markup. Dashes need width to read as dashes. Going the other way and
+ * *brightening* a hairline would have made the slot compete with the tiles beside it,
+ * which is the opposite of what a slot should do; a wide, dim, broken line is quiet in
+ * the way that matters and legible in the way that matters.
  */
 function EmptySlot() {
   return (
     <li
       aria-hidden="true"
-      className="border-hairline border-border-subtle rounded-panel min-h-24 border-dashed opacity-40"
+      className="border-thick border-border-subtle bg-surface rounded-panel min-h-24 border-dashed"
     />
   )
 }

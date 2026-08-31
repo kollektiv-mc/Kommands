@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
 import {
   PRODUCT_ACCENT,
+  accentFor,
   applyProductAccent,
   applyTheme,
   hueOf,
@@ -89,6 +90,35 @@ test('setting the theme repaints the canvas, because an inline skin outranks the
   expect(root.getAttribute('data-theme')).toBe('light')
   expect(root.style.getPropertyValue('--bg-base')).not.toBe(dark)
   expect(root.style.getPropertyValue('--bg-overlay')).not.toBe('')
+})
+
+test('the light theme darkens the accent, because the light canvas would swallow it', () => {
+  // 2.1:1 before this existed. The wordmark in the title bar is text-accent and is the
+  // only route back to the dashboard from inside the editor, and `bg-accent` +
+  // `text-canvas` inverts to near-white on orange — worse still.
+  const light = productSkin('light').base
+  expect(contrast(light, PRODUCT_ACCENT)).toBeLessThan(3)
+  expect(contrast(light, accentFor('light'))).toBeGreaterThan(4.5)
+
+  // Same hue, so it reads as the same accent at two lightnesses rather than as a
+  // second colour. This is the assertion that a future adjustment cannot quietly
+  // become "light mode is a different product".
+  expect(hueOf(accentFor('light'))).toBeCloseTo(hueOf(PRODUCT_ACCENT), 0)
+  // And dark is left exactly as chosen.
+  expect(accentFor('dark')).toBe(PRODUCT_ACCENT)
+})
+
+test('applying a theme is one call, not three property writes at call sites', () => {
+  // The accent, the canvas and the attribute are one decision. Splitting them across
+  // two call sites is how a half-applied theme reaches the first paint — which it did:
+  // main.tsx applied the accent and the theme separately, and light mode painted an
+  // ember wordmark on an ember-tinted white.
+  const root = document.createElement('html')
+  applyTheme('light', root)
+
+  expect(root.style.getPropertyValue('--accent-rgb')).toBe(rgbChannels(accentFor('light')))
+  applyTheme('dark', root)
+  expect(root.style.getPropertyValue('--accent-rgb')).toBe(rgbChannels(PRODUCT_ACCENT))
 })
 
 test("the shell's launch colour is the skin's, not a hex someone typed twice", () => {

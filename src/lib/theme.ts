@@ -79,6 +79,28 @@ const ELEVATED_ALPHA = 0.82
  * for. Light is the same construction against a near-white, so the pair stays a
  * theme swap rather than two unrelated palettes.
  */
+/**
+ * The accent, restated for the light theme as saturation and lightness at its own hue.
+ *
+ * Ember at `#fb923c` is chosen against a near-black and carries roughly 7.9:1 there. On
+ * the light canvas the same colour is **2.1:1** — below the 3:1 that even large text
+ * asks for. That is not a theoretical figure: the wordmark in the title bar is
+ * `text-accent`, and it is the only route back to the dashboard from inside the editor.
+ * The `bg-accent` + `text-canvas` pairing is worse still, because it inverts to
+ * near-white on orange.
+ *
+ * Darkening it here is the shared source's own convention rather than a departure from
+ * it. `tokens.json` already gives `success`, `warning` and `danger` darker light-mode
+ * values "for contrast against a light canvas"; `accent` is the one status colour left
+ * out, and only because it is `userConfigurable` and a generator "must not bake it in
+ * as fixed". This product configures it at runtime, so the adjustment the source
+ * declined to make is this module's to make — at the same hue, so it is recognisably
+ * the same accent rather than a second one.
+ *
+ * Lands on `#ab5107`, which is 5.0:1 against the light base in both directions.
+ */
+const LIGHT_ACCENT: [number, number] = [0.92, 0.35]
+
 const SKIN: Record<Theme, { base: [number, number]; elevated: [number, number] }> = {
   // [saturation, lightness]
   dark: { base: [0.22, 0.09], elevated: [0.2, 0.137] },
@@ -196,6 +218,17 @@ export function productSkin(
 }
 
 /**
+ * The accent as a theme wears it: ember on dark, a darkened ember on light.
+ *
+ * Hue is preserved exactly, so the two are the same accent at two lightnesses rather
+ * than two colours. A user-chosen accent goes through the same adjustment, which is
+ * why this takes one rather than reading `PRODUCT_ACCENT` itself.
+ */
+export function accentFor(theme: Theme, accent: string = PRODUCT_ACCENT): string {
+  return theme === 'dark' ? accent : toHex(hsl(hueOf(accent), LIGHT_ACCENT[0], LIGHT_ACCENT[1]))
+}
+
+/**
  * Put the product accent on the root element.
  *
  * Only `--accent-rgb` is written. `--accent` is derived from it in the generated
@@ -211,16 +244,20 @@ export function applyProductAccent(
 }
 
 /**
- * Set the theme, and repaint the canvas for it.
+ * Set the theme, and repaint everything the theme decides.
  *
- * The two happen together because the skin is an **inline** override and an inline
- * property outranks the stylesheet in both themes. That is exactly what makes the
- * accent override work — and it is a trap here, because unlike the accent, the three
- * canvas tokens *do* have `[data-theme='light']` values in the generated sheet.
- * Writing the dark skin once at startup and then flipping `data-theme` would leave
- * light mode wearing the dark canvas, with the stylesheet's own light values
- * outranked and unreachable. So the attribute is never set without the skin being
- * rewritten for it.
+ * **The single entry point**, deliberately. The accent, the canvas and the attribute
+ * are one decision wearing three property writes, and splitting them across two call
+ * sites is how a half-applied theme happens.
+ *
+ * They have to happen together because the skin is an **inline** override, and an
+ * inline property outranks the stylesheet in both themes. That is exactly what makes
+ * the accent override work — and it is a trap for the canvas, because unlike the
+ * accent, the three canvas tokens *do* have `[data-theme='light']` values in the
+ * generated sheet. Writing the dark skin once at startup and then flipping
+ * `data-theme` would leave light mode wearing the dark canvas, with the stylesheet's
+ * own light values outranked and unreachable. So the attribute is never set without
+ * the skin being rewritten for it.
  */
 export function applyTheme(
   theme: Theme,
@@ -229,6 +266,7 @@ export function applyTheme(
 ): void {
   const skin = productSkin(theme, accent)
   root.setAttribute('data-theme', theme)
+  applyProductAccent(accentFor(theme, accent), root)
   root.style.setProperty('--bg-base', skin.base)
   root.style.setProperty('--bg-elevated', skin.elevated)
   root.style.setProperty('--bg-overlay', skin.overlay)

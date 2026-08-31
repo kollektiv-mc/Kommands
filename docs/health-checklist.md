@@ -402,6 +402,26 @@ belongs here.
 The not-yet-closed follow-ups. Keep this section short and current; everything above
 it should be stable between runs.
 
+**P2 — The organizer maximize control is drawn but does nothing**
+
+- Every dashboard panel header carries a maximize button, present and disabled with the
+  reason in its accessible name — the same call `SavedCommandTile` makes for the Konnekt
+  link, for the reason § The split must be visible gives. What is missing is the panel
+  itself: Konnekt's is a FLIP out of the tile's rect into a `p-6` container over a
+  backdrop, and this repo already has both halves — `lib/flip.ts`, and `CommandOverlay`
+  doing exactly that for the editor. The work is generalising that overlay to take any
+  panel rather than only the editor, not writing a new one. Until then the control is
+  honest rather than green.
+
+**P3 — Entry-chunk headroom is down to 5 KB**
+
+- The title bar, settings dialog, icon set, pinned-generator store and its tile cost
+  2.8 KB gzip, leaving 114.9 KB against the 120 KB ceiling. That is still a pass, and
+  it is the reason the icons are six inline paths rather than a dependency. The next UI
+  feature of this size needs either a lazy boundary or a considered budget raise — and
+  the budget is a number someone can raise, which is why `check-bundle.ts` also asserts
+  three.js is structurally absent rather than merely small enough.
+
 **P2 — The version-comparison guard cannot see a named constant**
 
 - Two layers cover version-number branching: the `no version-number comparisons`
@@ -550,25 +570,21 @@ it should be stable between runs.
   above stays unticked and this entry holds the remainder. It closes with #44, in the
   same change that produces the first artefact worth linking.
 
-**P2 — The shared type scale has no display step**
+**P3 — The splash's display size is off-scale and unenforced**
 
 - `tokens.source.json` stops at `--text-xl` (20px), which is correct for a dense tool
-  UI and leaves nothing to size a title with. Two places now reach past it, and they
-  do so differently, which is the part worth fixing.
-  `Dashboard.tsx` uses Tailwind's built-in `text-5xl`/`sm:text-6xl` and `text-4xl`.
-  Those are real utilities rather than inlined literals, so the `no literal hex or px
-in components` grep is silent and the styling rule's letter is kept — but the value
-  comes from Tailwind's default theme instead of the suite's, which is the same drift
-  the token pipeline exists to prevent, one level up.
-  The splash is a step further out: `.splash-word` in `src/styles/index.css` carries a
-  literal `clamp(48px, 9vw, 112px)`. That is a genuine one-off — a title card is not a
-  UI step and no scale should name its size — but it also sits in `src/styles/`, which
-  the grep does not cover, so nothing would catch it drifting. It is deliberate and
-  documented in place; it is not enforced.
-  The fix for the first half is a `display` step added to
-  `kollektiv/design/tokens.json` and synced, so Konnekt's site and this app size a
-  title from one source. Deliberately not done inside this change: it edits another
-  repo, and `tokens.source.json` here is vendored and must never be hand-edited.
+  UI and leaves nothing to size a title card with. One place still reaches past it:
+  `.splash-word` in `src/styles/index.css` carries a literal `clamp(48px, 9vw, 112px)`.
+  That is a genuine one-off — a title card is not a UI step and no scale should name
+  its size — but it sits in `src/styles/`, which the `no literal hex or px in
+components` grep does not cover, so nothing would catch it drifting. It is deliberate
+  and documented in place; it is not enforced.
+  The half of this item that was about `Dashboard.tsx` is **closed**: it used
+  Tailwind's built-in `text-5xl`/`sm:text-6xl`/`text-4xl` for the empty-state hero,
+  taking its values from Tailwind's default theme rather than the suite's. That hero is
+  gone — the dashboard now shows its organizers whether or not anything is saved — and
+  no file under `src/` reaches past `--text-xl` any more.
+  `grep -rn "text-[2-9]xl" src` is the check, and it finds nothing.
 
 ---
 

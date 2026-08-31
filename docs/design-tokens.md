@@ -144,6 +144,56 @@ Monospace is used heavily for generated command text and any Minecraft identifie
 
 ---
 
+## The product skin
+
+Two things about this app's look are **not** in the shared source and must not be:
+its accent, and the canvas that accent sits on. Both live in
+[`src/lib/theme.ts`](../src/lib/theme.ts), which is the one place in `src/` where a
+colour is a value rather than a token reference.
+
+The mechanism is a runtime override of shared token _names_ on
+`document.documentElement`. kollektiv's own `design/README.md` names this pattern
+and puts it exactly here — it is what Konnekt's `BUILTIN_SKINS` are, and it stays in
+the product rather than in the umbrella repo, because it is a product-local look and
+not a shared design decision.
+
+| Written at runtime                           | Why it cannot be a token                                                                          |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `--accent-rgb`                               | Both products read one source. An ember written there turns Konnekt orange too.                   |
+| `--bg-base`, `--bg-elevated`, `--bg-overlay` | Same reason, one step out: the canvas is what makes the two products distinguishable at a glance. |
+
+### The canvas is derived from the accent
+
+Only saturation and lightness are stored. **Hue is read from the accent**, so
+retinting one retints the other and the ground can never drift from the thing it is a
+ground for. The dark skin resolves to `#1c1612` / `#2a221c`, which carries white text
+at roughly 18:1 and the accent itself at roughly 7.9:1 — both asserted in
+`theme.test.ts` rather than eyeballed, because the values are computed and a nudge to
+the lightness is a one-character change that could quietly cross a line.
+
+The lift off the shared `#05060a` is the point rather than a side effect: at 3%
+lightness every hue is black, so a tint alone would have changed nothing anyone could
+see.
+
+`--bg-overlay` is **computed, never chosen** — `0.82 × elevated + 0.18 × base`, which
+is the definition this document's own source gives it. Picking a fourth colour by eye
+is how that relationship gets lost.
+
+### Two traps this arrangement sets
+
+- **An inline property outranks the stylesheet in _both_ themes.** That is what makes
+  the accent override work, and it is a trap for the canvas, because unlike the
+  accent, `bg-base` and friends _do_ have `[data-theme='light']` values in the
+  generated sheet. Writing a skin once at startup and then flipping `data-theme`
+  leaves light mode wearing the dark canvas with the sheet's own values unreachable.
+  So `applyTheme()` never sets the attribute without rewriting the skin for it.
+- **The Go shell restates `--bg-base` and cannot read it.** `main.go`'s
+  `BackgroundColour` paints the window before the webview renders anything, so a
+  stale value there is a coloured flash on every launch. `theme.test.ts` reads
+  `main.go` and asserts the two agree.
+
+---
+
 ## Adding a token
 
 The source is `kollektiv/design/tokens.json`. This repo is a **consumer** and does

@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from '@tanstack/react-router'
 import { router } from './router'
-import { applyProductAccent, applyTheme } from './lib/theme'
+import { applyTheme } from './lib/theme'
 import { initialTheme } from './components/SettingsDialog'
 import { probeLocalBackend } from './storage'
 import './styles/index.css'
@@ -11,14 +11,12 @@ const container = document.getElementById('root')
 if (!container) throw new Error('no #root element in index.html')
 
 // Before the first render, so nothing paints in the shared source's green and then
-// swaps. This is a property write on <html>, not a React concern — see lib/theme.ts
-// for why the accent cannot simply be the token source's value.
-applyProductAccent()
-
-// And immediately after, because the canvas skin is derived from the accent that was
-// just set. Order matters in one direction only: the skin reads PRODUCT_ACCENT
-// directly rather than the property, so this cannot observe a half-applied theme —
-// but keeping the two adjacent is what stops that becoming true by accident later.
+// swaps. Property writes on <html>, not a React concern — see lib/theme.ts for why
+// neither the accent nor the canvas can simply be the token source's values.
+//
+// One call, not two. The accent, the canvas and the [data-theme] attribute are one
+// decision, and the light theme adjusts the accent as well as the ground; applying
+// them separately here is how a half-applied theme reaches the first paint.
 applyTheme(initialTheme())
 
 // Also before the first render, and for the same class of reason: which storage
