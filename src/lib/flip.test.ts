@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { flipIn } from './flip'
+import { flipIn, flipOut } from './flip'
 import type { OriginRect } from '../stores/useUiStore'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -132,4 +132,62 @@ test('running twice on the same panel animates the same way both times', () => {
   const second = starts(panel, () => flipIn(panel, ORIGIN))
   expect(second).toBe(first)
   expect(first).toBe('translate(-25px, -50px) scale(0.25, 0.25)')
+})
+
+test('the exit puts the panel back over its origin, then hands back', () => {
+  vi.useFakeTimers()
+  stubReducedMotion(false)
+  const panel = panelOf({ top: 0, left: 0, width: 600, height: 400 })
+  const done = vi.fn()
+
+  flipOut(panel, ORIGIN, null, done)
+
+  expect(panel.style.transform).toBe('translate(-25px, -50px) scale(0.25, 0.25)')
+  expect(panel.style.opacity).toBe('0')
+  // Not yet — navigating before the animation finishes unmounts the thing being
+  // animated, which is the whole reason `done` is a callback rather than a return.
+  expect(done).not.toHaveBeenCalled()
+
+  // Past the 130ms transition but not past the margin. The margin is the fix for a
+  // real Chromium finding: the transition starts at the next style recalc rather than
+  // when this timer does, so handing back at exactly OUT_MS unmounted the panel with
+  // its last stretch of travel unrun — the collapse stopped two thirds of the way back
+  // to the tile. Asserting the gap is what stops that being tuned back out.
+  vi.advanceTimersByTime(130)
+  expect(done).not.toHaveBeenCalled()
+
+  vi.advanceTimersByTime(70)
+  expect(done).toHaveBeenCalledOnce()
+  vi.useRealTimers()
+})
+
+test('the exit always hands back, even when it cannot animate', () => {
+  // The one asymmetry with flipIn, and the reason it matters: flipIn may decline to
+  // animate and nothing is lost, but an exit that declines strands the caller
+  // mid-close. Escape would do nothing at all — in every environment without layout,
+  // which includes every test in this suite.
+  stubReducedMotion(true)
+  const reduced = vi.fn()
+  flipOut(panelOf({ top: 0, left: 0, width: 600, height: 400 }), ORIGIN, null, reduced)
+  expect(reduced).toHaveBeenCalledOnce()
+
+  stubReducedMotion(false)
+  const zeroSized = vi.fn()
+  flipOut(panelOf({ top: 0, left: 0, width: 0, height: 0 }), ORIGIN, null, zeroSized)
+  expect(zeroSized).toHaveBeenCalledOnce()
+
+  const noPanel = vi.fn()
+  flipOut(null, ORIGIN, null, noPanel)
+  expect(noPanel).toHaveBeenCalledOnce()
+})
+
+test('the backdrop fades with the panel', () => {
+  stubReducedMotion(false)
+  const backdrop = document.createElement('div')
+  flipOut(panelOf({ top: 0, left: 0, width: 600, height: 400 }), ORIGIN, backdrop, () => {})
+
+  // Driven from here rather than from a Tailwind arbitrary duration, so every bespoke
+  // timing stays in this one documented file and the duration grep finds nothing.
+  expect(backdrop.style.opacity).toBe('0')
+  expect(backdrop.style.transition).toContain('opacity')
 })

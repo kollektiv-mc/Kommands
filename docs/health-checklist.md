@@ -523,6 +523,17 @@ it should be stable between runs.
   `.claude/suite.json`). That would also turn the release gate two items above into a
   line in a PR diff, which is a better reason to build it than the badge.
 
+**P3 — The disabled link control states a reason but has nowhere to send anyone**
+
+- The web build now shows the `link` control on every tile, disabled, with the reason in
+  its accessible name and once in the dashboard header — which is the half of the
+  distribution check that could be closed today. The other half is a _route to the
+  desktop build_, and there is no build to route to: the Wails shell is
+  [#44](https://github.com/kollektiv-mc/Kommands/issues/44) and unstarted. A link to a
+  download that does not exist would be a worse answer than the sentence, so the box
+  above stays unticked and this entry holds the remainder. It closes with #44, in the
+  same change that produces the first artefact worth linking.
+
 **P2 — The shared type scale has no display step**
 
 - `tokens.source.json` stops at `--text-xl` (20px), which is correct for a dense tool

@@ -102,3 +102,65 @@ export function flipIn(panel: HTMLElement, origin: OriginRect | null): () => voi
     panel.style.transformOrigin = ''
   }
 }
+
+/**
+ * Shrink `panel` back onto `origin`, then hand back to the caller.
+ *
+ * The exit half, added when the editor became an overlay over the dashboard rather
+ * than a page that replaced it. It was written once before and deleted for being
+ * unused, which was right then and is not now: an entrance with no exit reads worse
+ * than neither, because the panel that grew out of a tile vanishes instead of
+ * returning to it.
+ *
+ * `done` is what navigates. Navigating first would unmount the very element being
+ * animated, so the order is fixed: animate, then leave.
+ *
+ * Two behaviours differ from `flipIn`, and both are deliberate:
+ *
+ * - **`done` is always called**, including under reduced motion and for a panel with
+ *   no layout. `flipIn` can decline to animate and nothing is lost; declining here
+ *   would strand the caller mid-close — Escape would do nothing at all, in every
+ *   jsdom test and in any environment without layout.
+ * - The backdrop fades alongside, driven from here rather than from a Tailwind
+ *   arbitrary duration. That keeps every bespoke timing in this one documented file,
+ *   leaves `grep -rnE '(duration|delay)-\[[0-9.]+m?s\]'` finding nothing, and keeps
+ *   the JSX free of the `style={{}}` the lint rule forbids.
+ */
+const OUT_MS = 130
+const OUT_EASE = 'cubic-bezier(0.4, 0, 1, 0.6)'
+const BACKDROP_MS = 120
+
+export function flipOut(
+  panel: HTMLElement | null,
+  origin: OriginRect | null,
+  backdrop: HTMLElement | null,
+  done: () => void,
+): () => void {
+  if (backdrop) {
+    backdrop.style.transition = `opacity ${BACKDROP_MS}ms ease-in`
+    backdrop.style.opacity = '0'
+  }
+
+  // `flipIn` stripped its transform at IN_MS + 20, so the panel measures its true box.
+  const to = panel && origin ? transformOnto(panel, origin) : ''
+
+  if (!panel || prefersReducedMotion() || to === '') {
+    done()
+    return () => {}
+  }
+
+  panel.style.transformOrigin = 'center'
+  panel.style.transition = `transform ${OUT_MS}ms ${OUT_EASE}, opacity ${OUT_MS - 10}ms ease-in`
+  panel.style.opacity = '0'
+  panel.style.transform = to
+
+  // `OUT_MS + 20`, not `OUT_MS` — the same margin `flipIn` gives its settle, and for
+  // the same reason. The styles above take effect at the next style recalc, so the
+  // transition starts up to a frame after this timer does; handing back at exactly
+  // OUT_MS unmounts the panel with the last ~15% of its travel still to run. Measured
+  // in Chromium, the collapse stopped at two thirds of the way back to the tile. The
+  // fade hid most of it — opacity is nearly zero by then — but "nearly" is what makes
+  // it the kind of bug that is noticed without being identified.
+  const settle = setTimeout(done, OUT_MS + 20)
+  return () => clearTimeout(settle)
+}

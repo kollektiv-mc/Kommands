@@ -1,5 +1,5 @@
 import { createRoute } from '@tanstack/react-router'
-import { rootRoute } from './root'
+import { dashboardRoute } from './dashboard'
 import { EditorShell } from '../components/EditorShell'
 import { loadCatalogue } from '../data/catalogue'
 import { v1_21_1 } from '../data/versions/1.21.1'
@@ -17,7 +17,7 @@ import { LABEL } from '../components/editors/fieldStyles'
  * arriving at `/c` never pays for the 668 KB an editor would.
  */
 export const editorRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => dashboardRoute,
   path: '/c',
   loader: () => loadCatalogue(v1_21_1),
   component: EditorShell,

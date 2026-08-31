@@ -78,6 +78,27 @@ export function configureStorage(override: SavedCommandStorage | null | undefine
   backend = override
 }
 
+/**
+ * Which backend this build has, or `null` when it has none.
+ *
+ * Exposed because the UI has to *say* what this build cannot do rather than let it be
+ * discovered — linking with Konnekt is standalone-only and permanently so, and a user
+ * finding nothing where they expected something is the failure `distribution.md` §
+ * The split must be visible is written against.
+ *
+ * A plain function rather than store state, because it is not state: it is fixed for
+ * the life of a build and cannot change while the app is running, so subscribing to it
+ * would be a re-render nothing can ever trigger. `storage()` memoises, so calling this
+ * during render costs a property read.
+ *
+ * It is also the *only* sanctioned way to ask. `SavedCommandStorage.kind` is the seam;
+ * a `isDesktop` or `import.meta.env.*_DESKTOP` branch elsewhere is the same class of
+ * bug as a version-number comparison, and the health checklist greps for it.
+ */
+export function storageKind(): SavedCommandStorage['kind'] | null {
+  return storage()?.kind ?? null
+}
+
 /** The message an unknown thrown value reports as. */
 function reason(error: unknown): string {
   return error instanceof Error ? error.message : String(error)

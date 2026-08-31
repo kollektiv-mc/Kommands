@@ -4,6 +4,8 @@ import { beforeEach, expect, test } from 'vitest'
 import { Dashboard } from './Dashboard'
 import { renderWithRouter } from '../test-router'
 import { configureStorage, useSavedCommandsStore } from '../stores/useSavedCommandsStore'
+import { useDashboardStore } from '../stores/useDashboardStore'
+import { DEFAULT_PLACED } from './dashboard/panels'
 import { localStorageBackend } from '../storage/local'
 import { createSaved, type SavedCommandDraft } from '../schema/saved'
 import { EMPTY_VALUE } from '../schema/serialize'
@@ -38,6 +40,12 @@ beforeEach(() => {
   backing = memoryStorage()
   configureStorage(localStorageBackend(backing))
   useSavedCommandsStore.setState({ commands: [], status: 'idle', error: null })
+  // The panel layout is a *second* persisted thing, and it lives in the real jsdom
+  // `localStorage` rather than in `backing`. Without this reset these tests would pass
+  // or fail depending on what an earlier file happened to leave there — and a panel
+  // removed by one test would hide another test's tiles.
+  window.localStorage.clear()
+  useDashboardStore.setState({ placed: DEFAULT_PLACED, removed: [], hydrated: false })
 })
 
 async function seed(...drafts: SavedCommandDraft[]) {
@@ -119,4 +127,31 @@ test('a command authored for an unknown version says so on its tile', async () =
   // Not hidden and not silently opened. There are no traits to compare against, so the
   // tile makes the uncertainty visible rather than implying the command is fine.
   expect(await screen.findByText(/version this build does not know/)).toBeDefined()
+})
+
+test('the web build says what it cannot do rather than hiding the control', async () => {
+  await seed(DRAFT)
+  await renderWithRouter(<Dashboard />)
+
+  // Present and disabled, not absent. `distribution.md` § The split must be visible
+  // names the failure this guards against: a user learning that linking is
+  // standalone-only by finding nothing where they expected something.
+  const link = await screen.findByRole('button', { name: /link — needs the desktop build/ })
+  expect(link.hasAttribute('disabled')).toBe(true)
+  // And the reason is readable without hovering anything.
+  expect(screen.getByText(/needs the standalone build/)).toBeDefined()
+})
+
+test('the standalone build offers the same control live', async () => {
+  // The positive control. Without it the test above passes just as well against a
+  // control that is disabled unconditionally — which would be the same bug wearing the
+  // fix, since the affordance would then never work anywhere.
+  const file = localStorageBackend(backing)
+  configureStorage({ ...file, kind: 'file' })
+  await seed(DRAFT)
+  await renderWithRouter(<Dashboard />)
+
+  const link = await screen.findByRole('button', { name: 'link' })
+  expect(link.hasAttribute('disabled')).toBe(false)
+  expect(screen.queryByText(/needs the standalone build/)).toBeNull()
 })

@@ -1,5 +1,6 @@
 import { createRouter } from '@tanstack/react-router'
 import { rootRoute } from './routes/root'
+import { dashboardRoute } from './routes/dashboard'
 import { indexRoute } from './routes/index'
 import { editorRoute, editorIndexRoute } from './routes/commands'
 import { commandRoute } from './routes/command'
@@ -12,10 +13,17 @@ import { commandRoute } from './routes/command'
 //
 // It is nested under `editorRoute` rather than sitting beside it, so the editor frame
 // and its navbar mount once for the whole `/c` subtree instead of once per selection.
+//
+// Both sit under `dashboardRoute`, which is pathless: it renders the dashboard and an
+// Outlet, so the editor covers the dashboard instead of replacing it. Every full path
+// is unchanged by that nesting — every route *id* beneath it is not, and gained a
+// `/dashboard` prefix. See routes/dashboard.tsx.
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
-    indexRoute,
-    editorRoute.addChildren([editorIndexRoute, commandRoute]),
+    dashboardRoute.addChildren([
+      indexRoute,
+      editorRoute.addChildren([editorIndexRoute, commandRoute]),
+    ]),
   ]),
 })
 

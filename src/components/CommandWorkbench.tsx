@@ -23,7 +23,7 @@ export function CommandWorkbench({
   version,
   registries,
   catalogue = {},
-  footer,
+  actions,
 }: {
   definition: CommandDefinition
   version: VersionDefinition
@@ -39,7 +39,7 @@ export function CommandWorkbench({
    */
   catalogue?: Catalogue
   /**
-   * Rendered under the output panel, given the serialized command.
+   * Rendered inside the output bar, given the serialized command.
    *
    * A render prop rather than a `<SaveCommandBar>` imported here, for two reasons.
    * This component is the one that already holds the serialized string, and a caller
@@ -49,7 +49,7 @@ export function CommandWorkbench({
    * would give the workbench a dependency on persistence that nothing about editing
    * needs; a fixture test renders it today with no store at all.
    */
-  footer?: (output: string) => ReactNode
+  actions?: (output: string) => ReactNode
 }) {
   const stored = useCommandStore((s) => s.value)
   const setArg = useCommandStore((s) => s.setArg)
@@ -108,18 +108,25 @@ export function CommandWorkbench({
 
   return (
     <div className="flex flex-col gap-3">
-      <CommandRenderer
-        definition={definition}
-        value={value}
-        ctx={ctx}
-        actions={{ setArg, setFlag, setChoice, addInstance, reorderRepeat, setRef }}
-        catalogue={embeddable}
-      />
+      {/*
+        The output first, above the form that produces it.
 
+        It sat underneath until now, which is the arrangement a form suggests and the
+        wrong one for this app: the command *is* the product, and the editors are how
+        you reach it. Putting it at the top means it never moves as the form grows,
+        never scrolls out from under a long `/give`, and is the first thing on screen
+        when a command opens.
+
+        Still the only `<code>` in this component, and still ahead of the preview —
+        `.claude/rules/previews.md` requires that output never sit downstream of preview
+        state, and moving it earlier strengthens that rather than straining it.
+      */}
       <div className="border-hairline border-border-subtle bg-elevated rounded-panel flex flex-col gap-1 p-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className={LABEL}>{`Output · ${version.id}`}</span>
           <CopyButton text={output} />
+          <span className="flex-1" />
+          {actions?.(output)}
         </div>
         <code className="text-text-primary text-1xs font-mono break-all">
           {output || <span className="text-text-faint">nothing yet</span>}
@@ -131,7 +138,13 @@ export function CommandWorkbench({
         ))}
       </div>
 
-      {footer?.(output)}
+      <CommandRenderer
+        definition={definition}
+        value={value}
+        ctx={ctx}
+        actions={{ setArg, setFlag, setChoice, addInstance, reorderRepeat, setRef }}
+        catalogue={embeddable}
+      />
 
       {/* Last, and a sibling of the output panel rather than a wrapper around it. The
           preview is an aid and the command is the product, so nothing above can be

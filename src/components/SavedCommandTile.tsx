@@ -4,7 +4,10 @@ import { resumability } from '../schema/saved'
 import { findVersion } from '../data/versions'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import { FIELD, LABEL, WARNING } from './editors/fieldStyles'
-import { ROW_REMOVE } from './editors/rowStyles'
+import { ROW_ADD, ROW_REMOVE } from './editors/rowStyles'
+
+/** A control that is present on purpose and cannot be used yet. */
+const DISABLED = 'text-text-faint text-2xs cursor-not-allowed'
 
 /** What the three resumability answers say to someone looking at a tile. */
 const RESUMABILITY_NOTE = {
@@ -30,12 +33,24 @@ export function SavedCommandTile({
   onOpen,
   onRename,
   onRemove,
+  onPin,
+  linkable,
 }: {
   saved: SavedCommand
   /** Given the tile's own element, so the caller can capture the rect it grows from. */
   onOpen: (element: HTMLElement) => void
   onRename: (name: string) => void
   onRemove: () => void
+  /** Toggle the pin that puts this command in the Quick panel. */
+  onPin: () => void
+  /**
+   * Whether this build can send a command to Konnekt at all.
+   *
+   * Passed in rather than read here, so the answer is fetched once for the dashboard
+   * instead of once per tile — and so this component stays something that renders what
+   * it is given.
+   */
+  linkable: boolean
 }) {
   const [renaming, setRenaming] = useState(false)
   const [draft, setDraft] = useState(saved.name)
@@ -87,13 +102,35 @@ export function SavedCommandTile({
 
       <div className="mt-auto flex items-center gap-2">
         <span className={LABEL}>{`${saved.definitionId} · rev ${saved.revision}`}</span>
-        {/*
-          Where a link badge goes once the standalone build can participate in linking
-          (#45). Deliberately a designed gap rather than nothing: #42 asks for the
-          split between a build that can link and one that cannot to be visible rather
-          than discovered, and leaving no room for it now is how it ends up bolted on.
-        */}
         <span className="flex-1" />
+        {/*
+          Present and disabled rather than absent. Linking is standalone-only and
+          permanently so, and `distribution.md` § The split must be visible names the
+          failure to design against: a user discovering that by finding nothing where
+          they expected something. A control that is there and says why is a smaller
+          disappointment than one that never appears.
+
+          The reason lives in the accessible name as well as in the header line above,
+          because a `title` is discovered on hover — which is the same failure one level
+          down. `SavedCommandStorage.kind` is what decides; nothing here sniffs a user
+          agent or a build flag.
+        */}
+        <button
+          type="button"
+          className={linkable ? ROW_ADD : DISABLED}
+          disabled={!linkable}
+          aria-label={linkable ? 'link' : 'link — needs the desktop build'}
+        >
+          link
+        </button>
+        <button
+          type="button"
+          className={saved.pinned === true ? ROW_ADD : ROW_REMOVE}
+          onClick={onPin}
+          aria-pressed={saved.pinned === true}
+        >
+          {saved.pinned === true ? 'pinned' : 'pin'}
+        </button>
         {!renaming && (
           <button type="button" className={ROW_REMOVE} onClick={() => setRenaming(true)}>
             rename

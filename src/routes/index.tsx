@@ -1,17 +1,21 @@
 import { createRoute } from '@tanstack/react-router'
-import { rootRoute } from './root'
-import { Dashboard } from '../components/Dashboard'
+import { dashboardRoute } from './dashboard'
 
+/**
+ * The dashboard's own route, which renders **nothing**.
+ *
+ * Not a mistake and not a placeholder. `dashboardRoute` draws the dashboard and then an
+ * Outlet for whatever covers it; at `/` nothing covers it, so the correct content for
+ * this route is empty. The page you see at `/` is its parent.
+ *
+ * Still no loader, and now for a stronger reason than before: the dashboard renders on
+ * every route, so anything loaded here would be loaded on the way to the editor too.
+ * Tiles draw from the `preview` string cached on each saved command, which is why
+ * neither the 560 KB of command skeletons nor the 668 KB of registries is reachable
+ * from this screen.
+ */
 export const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => dashboardRoute,
   path: '/',
-  // Still no loader. The dashboard reads saved commands from storage through their
-  // store, and draws each tile from the `preview` string saved alongside the tree —
-  // so the app's first screen pulls neither the 560 KB of command skeletons nor the
-  // 668 KB of registries. That is what the cached projection is for.
-  component: () => (
-    <div className="h-full overflow-auto p-3">
-      <Dashboard />
-    </div>
-  ),
+  component: () => null,
 })
