@@ -252,10 +252,14 @@ belongs here.
       serialize to **byte-identical** command text; the same for encode → decode →
       serialize on a link. This is the one assertion that holds the whole chain to the
       only thing a user observes.
-- [ ] The shared file is written atomically — temp file in the same directory, renamed
+- [x] The shared file is written atomically — temp file in the same directory, renamed
       over the target — and a rewrite that changes nothing does not move the mtime.
       Konnekt polls `os.Stat`, so a partial write **will** be caught eventually, and a
       spurious mtime bump makes every poll interval a re-read on the other side.
+      `shell/atomicfile` owns both rules for every file the shell persists, and
+      `shell/store`'s tests pin the harder consequence: a store-only change rewrites
+      `store.json` and leaves the shared file's mtime alone.
+      Verify: `go test ./shell/...`.
       [#45](https://github.com/kollektiv-mc/Kommands/issues/45)
 - [ ] Adding a Minecraft version touches only version data and generated files.
       Adding 1.21.5 flips two of the three trait flags; 1.21.2 flips none. Neither
@@ -509,10 +513,13 @@ it should be stable between runs.
   canonical `store.json` holds everything and the shared file is a projection of
   the fields Konnekt reads — see [`persistence.md`](persistence.md) § The shared
   file. Store-only churn projects to identical bytes and `shell/store`'s tests
-  pin that the shared file's mtime holds still through it. What keeps this entry
-  open is [#45](https://github.com/kollektiv-mc/Kommands/issues/45)'s remaining
-  half: no frontend backend drives these writers yet, so the property holds in
-  tests but not yet in the product.
+  pin that the shared file's mtime holds still through it. The frontend now drives these
+  writers — `src/storage/file.ts` behind `resolveStorage` — so opening a command
+  on the standalone rewrites `store.json` and leaves `saved-commands.json`
+  untouched, which is this entry satisfied. It closes with
+  [#45](https://github.com/kollektiv-mc/Kommands/issues/45); what remains is
+  only seeing it hold against a real Konnekt install rather than its test
+  suite.
 
 **P2 — The fingerprint is checked in the editor but not on a tile**
 

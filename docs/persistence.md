@@ -302,9 +302,9 @@ except where it constrains this side, which it does in three places:
 All three are implemented and pinned by tests: `shell/atomicfile` owns the
 atomic rename and the unchanged-write skip, and `shell/store` writes the version
 field, projects per entry, and stays inside the reader's entry and byte bounds.
-What does not exist yet is the frontend driving them — the `file` backend behind
-`resolveStorage` is [#45](https://github.com/kollektiv-mc/Kommands/issues/45)'s
-remaining half.
+The frontend drives them through `src/storage/file.ts` — the `file` backend
+behind `resolveStorage`, chosen when the startup probe finds a local backend —
+so a save in either surface of the local install lands in both files.
 
 ### What Konnekt does with it
 
