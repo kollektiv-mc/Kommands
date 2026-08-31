@@ -5,6 +5,7 @@ import { Dashboard } from './Dashboard'
 import { renderWithRouter } from '../test-router'
 import { configureStorage, useSavedCommandsStore } from '../stores/useSavedCommandsStore'
 import { useDashboardStore } from '../stores/useDashboardStore'
+import { usePinnedGeneratorsStore } from '../stores/usePinnedGeneratorsStore'
 import { DEFAULT_PLACED } from './dashboard/panels'
 import { localStorageBackend } from '../storage/local'
 import { createSaved, type SavedCommandDraft } from '../schema/saved'
@@ -47,6 +48,10 @@ beforeEach(() => {
   // removed by one test would hide another test's tiles.
   window.localStorage.clear()
   useDashboardStore.setState({ placed: DEFAULT_PLACED, removed: [], hydrated: false })
+  // A *third* persisted thing, on its own key. `hydrated` has to be reset with the
+  // rest or the second test in this file reads the first one's pins out of a store
+  // that believes it has already loaded.
+  usePinnedGeneratorsStore.setState({ pinned: [], hydrated: false })
 })
 
 async function seed(...drafts: SavedCommandDraft[]) {
@@ -63,13 +68,95 @@ async function seed(...drafts: SavedCommandDraft[]) {
   }
 }
 
-test('with nothing saved, it points at the generator instead of showing an empty grid', async () => {
+test('with nothing saved, the organizers are still there rather than replaced by a splash', async () => {
   await renderWithRouter(<Dashboard />)
 
-  expect(await screen.findByText(/Nothing saved yet/)).toBeDefined()
-  // The empty state is the first thing most visitors see, so it has to lead somewhere.
-  // A grid with no tiles and no way forward is where the placeholder page failed.
+  // There used to be a full-page hero here — wordmark, sentence, button — shown
+  // whenever nothing was saved. It hid the dashboard's whole shape from exactly the
+  // person who had never seen it, so the organizers were a thing you discovered by
+  // saving something first.
+  expect(await screen.findByRole('heading', { name: 'Pinned generators' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Saved commands' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Recent' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Quick' })).toBeDefined()
+
+  // Each still says what would fill it. The empty slots show there is room; only the
+  // sentence can say what the room is for.
+  expect(screen.getByText(/Nothing saved yet/)).toBeDefined()
+  // And the way forward is where it now always is, rather than only on this screen.
   expect(screen.getByRole('link', { name: 'New command' }).getAttribute('href')).toBe('/c')
+})
+
+test('empty slots are drawn but not announced', async () => {
+  await renderWithRouter(<Dashboard />)
+  await screen.findByRole('heading', { name: 'Saved commands' })
+
+  // Four organizers × five slots are in the markup, and none of them is a listitem.
+  // A screen reader counting twenty empty entries before the first real one would make
+  // an empty dashboard worse to navigate than a blank box — which is why the slots are
+  // aria-hidden, and why `getByRole('listitem')` still means "a command" everywhere
+  // else in this file.
+  expect(screen.queryAllByRole('listitem')).toHaveLength(0)
+})
+
+test('a pinned generator becomes a tile that opens its editor', async () => {
+  usePinnedGeneratorsStore.setState({
+    pinned: [{ id: 'vanilla:give', label: '/give' }],
+    hydrated: true,
+  })
+  await renderWithRouter(<Dashboard />)
+
+  const tile = await screen.findByRole('listitem')
+  // The label is the snapshot taken at pin time, never resolved from the catalogue:
+  // the dashboard does not load the 560 KB of command skeletons and must not start.
+  const link = within(tile).getByRole('link', { name: '/give' })
+  expect(link.getAttribute('href')).toBe('/c/vanilla%3Agive')
+})
+
+test('unpinning a generator empties the panel and the storage behind it', async () => {
+  const user = userEvent.setup()
+  usePinnedGeneratorsStore.setState({
+    pinned: [{ id: 'vanilla:give', label: '/give' }],
+    hydrated: true,
+  })
+  await renderWithRouter(<Dashboard />)
+
+  await user.click(await screen.findByRole('button', { name: 'Unpin /give' }))
+
+  expect(screen.queryByRole('listitem')).toBeNull()
+  expect(usePinnedGeneratorsStore.getState().pinned).toEqual([])
+})
+
+test('a pinned generator is not the same thing as a pinned command', async () => {
+  // Quick holds finished commands someone wants again; Pinned generators holds the
+  // commands they build often. Collapsing the two onto SavedCommand.pinned would break
+  // the first time someone pinned a generator they had never saved from — so the two
+  // panels must not answer each other's question.
+  await seed(DRAFT)
+  usePinnedGeneratorsStore.setState({
+    pinned: [{ id: 'vanilla:give', label: '/give' }],
+    hydrated: true,
+  })
+  await renderWithRouter(<Dashboard />)
+
+  const quick = (await screen.findByRole('heading', { name: 'Quick' })).closest('section')!
+  const generators = screen.getByRole('heading', { name: 'Pinned generators' }).closest('section')!
+
+  expect(within(generators).getAllByRole('listitem')).toHaveLength(1)
+  expect(within(quick).queryAllByRole('listitem')).toHaveLength(0)
+})
+
+test('the maximize control is present and says it does nothing yet', async () => {
+  await renderWithRouter(<Dashboard />)
+
+  // Present and disabled rather than absent — the same call SavedCommandTile makes for
+  // the Konnekt link, and for the reason distribution.md § The split must be visible
+  // gives: someone learning a thing is missing by finding nothing where they expected
+  // something. The reason lives in the accessible name, not only in a tooltip.
+  const maximize = await screen.findByRole('button', {
+    name: /Maximize Saved commands — not yet available/,
+  })
+  expect(maximize.hasAttribute('disabled')).toBe(true)
 })
 
 test('a saved command becomes a tile showing its cached text', async () => {

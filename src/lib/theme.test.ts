@@ -1,5 +1,13 @@
+import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
-import { PRODUCT_ACCENT, applyProductAccent, rgbChannels } from './theme'
+import {
+  PRODUCT_ACCENT,
+  applyProductAccent,
+  applyTheme,
+  hueOf,
+  productSkin,
+  rgbChannels,
+} from './theme'
 
 test('a hex becomes the space-separated channels --accent-rgb holds', () => {
   // Space-separated, not comma-separated: the token source stores status colours this
@@ -34,3 +42,78 @@ test('the product accent is the one Kommands ships, not the shared default', () 
   expect(PRODUCT_ACCENT).toBe('#fb923c')
   expect(rgbChannels(PRODUCT_ACCENT)).not.toBe(rgbChannels('#4ade80'))
 })
+
+test('the canvas takes the accent hue, so retinting one retints the other', () => {
+  // The property a pair of hard-coded hexes would not have. Konnekt's green and this
+  // product's ember must not produce the same ground, or the skin is decoration rather
+  // than identity.
+  expect(hueOf('#fb923c')).toBeCloseTo(27, 0)
+  expect(productSkin('dark', '#fb923c').base).not.toBe(productSkin('dark', '#4ade80').base)
+})
+
+test('the dark canvas carries white text far past what this UI needs', () => {
+  // 12px body text on a full-screen ground. WCAG AA asks 4.5:1; a dense UI wants more.
+  // Asserted rather than eyeballed because the skin is computed, so a nudge to the
+  // lightness in SKIN is a one-character change that could quietly cross the line.
+  expect(contrast(productSkin('dark').base, '#ffffff')).toBeGreaterThan(7)
+  // And the accent has to stay legible *on* the ground it now shares a hue with —
+  // the failure mode of tinting a canvas toward its own accent.
+  expect(contrast(productSkin('dark').base, PRODUCT_ACCENT)).toBeGreaterThan(4.5)
+})
+
+test('bg-overlay is derived from the other two, not chosen', () => {
+  // kollektiv/design/README.md defines bg-overlay as bg-elevated composited over
+  // bg-base. Recomputing it here is what keeps the two agreeing where a panel happens
+  // to sit on the canvas; picking a fourth colour by eye is how that is lost.
+  const { base, elevated, overlay } = productSkin('dark')
+  const [er, eg, eb] = (/rgba\((\d+), (\d+), (\d+)/.exec(elevated) ?? []).slice(1).map(Number)
+  const [br, bg, bb] = [1, 3, 5].map((i) => parseInt(base.slice(i, i + 2), 16))
+  const expected = [
+    [er, br],
+    [eg, bg],
+    [eb, bb],
+  ].map(([e, b]) => Math.round(e! * 0.82 + b! * 0.18))
+  expect(overlay).toBe(`#${expected.map((c) => c.toString(16).padStart(2, '0')).join('')}`)
+})
+
+test('setting the theme repaints the canvas, because an inline skin outranks the sheet', () => {
+  // The trap this guards: unlike --accent-rgb, the three canvas tokens *do* have
+  // [data-theme='light'] values in the generated sheet. A skin written once at startup
+  // would outrank them, and light mode would wear the dark canvas.
+  const root = document.createElement('html')
+
+  applyTheme('dark', root)
+  const dark = root.style.getPropertyValue('--bg-base')
+  applyTheme('light', root)
+
+  expect(root.getAttribute('data-theme')).toBe('light')
+  expect(root.style.getPropertyValue('--bg-base')).not.toBe(dark)
+  expect(root.style.getPropertyValue('--bg-overlay')).not.toBe('')
+})
+
+test("the shell's launch colour is the skin's, not a hex someone typed twice", () => {
+  // main.go paints the window before the webview has rendered anything, so its
+  // BackgroundColour has to be --bg-base or launch shows a coloured flash. Neither the
+  // token pipeline nor the skin can reach Go, so the value is restated there by hand —
+  // and a restated value is one that drifts. This is the check that it has not.
+  const go = readFileSync('main.go', 'utf8')
+  const match = /BackgroundColour: &options\.RGBA\{R: (\d+), G: (\d+), B: (\d+), A: 255\}/.exec(go)
+  expect(match).not.toBeNull()
+
+  const base = productSkin('dark').base
+  const expected = [1, 3, 5].map((i) => parseInt(base.slice(i, i + 2), 16))
+  expect(match!.slice(1, 4).map(Number)).toEqual(expected)
+})
+
+/** WCAG relative-luminance contrast between two `#rrggbb` colours. */
+function contrast(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const channels = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    const [r, g, bl] = channels.map((c) =>
+      c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4,
+    )
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * bl!
+  }
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+  return (hi! + 0.05) / (lo! + 0.05)
+}

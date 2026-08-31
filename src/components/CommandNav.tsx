@@ -1,9 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { CommandDefinition } from '../schema/types'
 import { catalogueList } from '../data/catalogue'
+import { usePinnedGeneratorsStore } from '../stores/usePinnedGeneratorsStore'
 import type { Catalogue } from './CommandRenderer'
 import { FIELD, LABEL } from './editors/fieldStyles'
+import { IconButton } from './ui/IconButton'
+import { Icon } from './ui/Icon'
 
 /**
  * The dialect groups, in the order they are drawn.
@@ -44,6 +47,13 @@ function matches(definition: CommandDefinition, needle: string): boolean {
  * A row is a `<Link>` rather than a button with a handler, so the browser's own
  * affordances work: middle-click, open in a new tab, and the address bar all keep
  * meaning something.
+ *
+ * It is also **where a generator gets pinned**, and that is not an arbitrary place to
+ * put the control. Pinning stores the command's label beside its id, because the
+ * dashboard must never load the catalogue to resolve one (`routes/index.tsx` and
+ * `storage/preferences.ts` § PinnedGenerator both say why). Here the catalogue is
+ * already in hand — this component is rendering from it — so the snapshot costs
+ * nothing and is taken from the authoritative copy rather than from a guess.
  */
 export function CommandNav({
   catalogue,
@@ -55,6 +65,20 @@ export function CommandNav({
 }) {
   const [filter, setFilter] = useState('')
   const all = useMemo(() => catalogueList(catalogue), [catalogue])
+
+  const pinned = usePinnedGeneratorsStore((s) => s.pinned)
+  const hydratePins = usePinnedGeneratorsStore((s) => s.hydrate)
+  const togglePin = usePinnedGeneratorsStore((s) => s.toggle)
+
+  // The editor is reachable by URL without the dashboard ever having mounted, so the
+  // pins cannot be assumed hydrated by the time this renders. `hydrate` is idempotent
+  // — only the first call does work — which is what makes calling it from both places
+  // a guarantee rather than a double read.
+  useEffect(() => {
+    hydratePins()
+  }, [hydratePins])
+
+  const pinnedIds = useMemo(() => new Set(pinned.map((entry) => entry.id)), [pinned])
 
   const groups = useMemo(
     () =>
@@ -94,21 +118,47 @@ export function CommandNav({
               {group.label}
             </h2>
             <ul>
-              {group.commands.map((command) => (
-                <li key={command.id}>
-                  <Link
-                    to="/c/$commandId"
-                    params={{ commandId: command.id }}
-                    aria-current={command.id === activeId ? 'page' : undefined}
-                    className={
-                      'border-b-hairline border-border-subtle hover:bg-hover text-1xs block px-2 py-1 font-mono ' +
-                      (command.id === activeId ? 'text-accent' : 'text-text-secondary')
-                    }
+              {group.commands.map((command) => {
+                const isPinned = pinnedIds.has(command.id)
+                return (
+                  <li
+                    key={command.id}
+                    className="border-b-hairline border-border-subtle hover:bg-hover group flex items-center pr-1"
                   >
-                    {command.label}
-                  </Link>
-                </li>
-              ))}
+                    <Link
+                      to="/c/$commandId"
+                      params={{ commandId: command.id }}
+                      aria-current={command.id === activeId ? 'page' : undefined}
+                      className={
+                        'text-1xs min-w-0 flex-1 truncate px-2 py-1 font-mono ' +
+                        (command.id === activeId ? 'text-accent' : 'text-text-secondary')
+                      }
+                    >
+                      {command.label}
+                    </Link>
+                    {/*
+                      Revealed on hover, and kept visible once it is on. Eighty rows
+                      each showing a pin would make the list read as a settings screen;
+                      a pin that vanished when the pointer left would make the state
+                      unreadable. `focus-within` on the row is what keeps it reachable
+                      by keyboard, since a control that only appears on hover is one
+                      that only exists for a mouse.
+                    */}
+                    <IconButton
+                      onClick={() => togglePin({ id: command.id, label: command.label })}
+                      title={`${isPinned ? 'Unpin' : 'Pin'} ${command.label}`}
+                      aria-pressed={isPinned}
+                      className={
+                        isPinned
+                          ? 'text-accent'
+                          : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'
+                      }
+                    >
+                      <Icon name="pin" size="sm" />
+                    </IconButton>
+                  </li>
+                )
+              })}
             </ul>
           </section>
         ))}

@@ -54,6 +54,35 @@ body {
   scrollbar-color: var(--border-hover) transparent;
 }
 
+/* ── Window chrome ───────────────────────────────────────────────────────────
+   Which parts of the app's own title bar drag the window, on the desktop
+   build. See src/components/TitleBar.tsx for the bar itself.
+
+   Wails decides whether a press drags by reading one CSS custom property off
+   the press target — `--wails-draggable`, which has to compute to exactly
+   `drag`. It reads the *target* and never walks up the tree, but the property
+   is a custom property, so it inherits: setting it once on the bar covers
+   everything drawn inside it, the `<svg>` a click on an icon actually lands on
+   included.
+
+   That inheritance is the reason the second class exists. Without it the close
+   button would be as draggable as the empty bar around it, and pressing it
+   would move the window instead. Any value other than `drag` switches the
+   behaviour off; `no-drag` is what Wails' own docs name it. The property name
+   is Wails' default (options.CSSDragProperty), left unset in main.go — change
+   one and this has to change with it.
+
+   Both live here rather than as inline styles because they are static values,
+   and because this is the file that already holds this app's hand-written CSS.
+   Konnekt carries the identical pair in its own style.css. */
+.titlebar-drag {
+  --wails-draggable: drag;
+}
+
+.titlebar-no-drag {
+  --wails-draggable: no-drag;
+}
+
 /* ── Startup splash ──────────────────────────────────────────────────────────
    The opening sequence, matching Konnekt's so both products start the same way.
    See src/components/SplashScreen.tsx, which owns the mount and holds the
