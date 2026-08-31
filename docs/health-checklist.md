@@ -504,13 +504,15 @@ it should be stable between runs.
   the writer says a rewrite that changes nothing must not move the mtime, because
   Konnekt polls `os.Stat` and re-reads when it moves. Merely _opening_ a command would
   rewrite the file and cost Konnekt a full re-read, for a field it has no interest in.
-  The fix belongs to the file backend when it lands ([#45](https://github.com/kollektiv-mc/Kommands/issues/45)): project `lastOpenedAt`
-  out when writing the shared file, and keep it in a local sidecar. Deciding what a
-  backend writes to its own file is not the behavioural branching on `kind` the
-  capability-interface item forbids — that rule is about serializers and editors, not
-  about a writer choosing its own format.
-  Recorded now rather than at #45 because the field lands with the dashboard and the
-  obligation is invisible from this side of the interface.
+  **The writer half is landed**, in the inverse of the shape first sketched here:
+  rather than a canonical shared file with a sidecar for the noisy fields, the
+  canonical `store.json` holds everything and the shared file is a projection of
+  the fields Konnekt reads — see [`persistence.md`](persistence.md) § The shared
+  file. Store-only churn projects to identical bytes and `shell/store`'s tests
+  pin that the shared file's mtime holds still through it. What keeps this entry
+  open is [#45](https://github.com/kollektiv-mc/Kommands/issues/45)'s remaining
+  half: no frontend backend drives these writers yet, so the property holds in
+  tests but not yet in the product.
 
 **P2 — The fingerprint is checked in the editor but not on a tile**
 

@@ -34,11 +34,13 @@ Three.js and `@react-three/fiber` are dependencies, reached **only** through a d
 import so they stay out of the entry chunk. `pnpm check-bundle` fails if the renderer
 appears there. See `docs/adding-a-preview.md`.
 
-The desktop shell is a Go/Wails v2 module that does not exist yet
-([#44](https://github.com/kollektiv-mc/Kommands/issues/44)). When it lands
-this repo has two toolchains and `.claude/suite.json` gains the Go checks — until then
-its `distribution` block records the pending change rather than declaring a check that
-cannot run.
+The desktop shell is a Go/Wails v2 module at the repo root
+([#44](https://github.com/kollektiv-mc/Kommands/issues/44)): cgo-free, tested
+core packages under `shell/`, assembled by `main.go`, which embeds the Vite
+build from `dist/`. `.claude/suite.json` declares the Go checks that run
+anywhere (`go vet` / `go test` over `shell/`); compiling the shell itself needs
+`pnpm build` first plus system webkit2gtk headers, and runs as CI's `shell`
+job. See `docs/distribution.md`.
 
 Run `/suite-kit:health` before calling any task done. It runs lint, typecheck, tests,
 format and the entry-chunk bundle budget, and greps for the three things this codebase
