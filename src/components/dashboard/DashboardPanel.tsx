@@ -61,7 +61,7 @@ export function DashboardPanel({
       </div>
 
       <div className="flex flex-col gap-2 p-3">
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           {children}
           {Array.from({ length: emptySlots(count) }, (_, index) => (
             <EmptySlot key={`slot-${index}`} />
@@ -86,25 +86,26 @@ export function DashboardPanel({
  * to navigate than a blank box. It is also what keeps `getByRole('listitem')` meaning
  * "a command" across the dashboard tests.
  *
- * Drawn as a dashed outline over a faint fill rather than as a ghost of a real tile.
- * A ghost invites a click; an outline reads as a slot. The height matches a tile with a
- * name, one line of command text and a control row, so a panel does not resize as it
- * fills up.
+ * An outline over nothing, rather than a ghost of a real tile. A ghost invites a
+ * click; an outline reads as a slot. The height matches a tile with a name, one line
+ * of command text and a control row, so a panel does not resize as it fills up.
  *
- * `border-thick` rather than the hairline every real panel uses, and that inversion is
- * deliberate. A 0.5px dashed border is the one place the hairline fails: at that width
- * the dashes fall below a device pixel and the browser renders them as a barely-there
- * smudge — the first attempt at this was invisible on screen while being perfectly
- * correct in the markup. Dashes need width to read as dashes. Going the other way and
- * *brightening* a hairline would have made the slot compete with the tiles beside it,
- * which is the opposite of what a slot should do; a wide, dim, broken line is quiet in
- * the way that matters and legible in the way that matters.
+ * Two passes settled the weight, and both edges are worth recording because they are
+ * close together. A dashed `border-hairline` is invisible: at 0.5px the dashes fall
+ * below a device pixel and render as a barely-there smudge, so the affordance said
+ * nothing while being perfectly correct in the markup. `border-thick` *with* a
+ * `bg-surface` fill went too far the other way — a filled rounded rectangle is a tile,
+ * and a panel of them read as content that had failed to load rather than as room.
+ *
+ * So: the wider border, because dashes need width to read as dashes, and no fill at
+ * all, because the fill is what made it a tile. What is left is a line that says
+ * "something goes here" and nothing that says "something is here".
  */
 function EmptySlot() {
   return (
     <li
       aria-hidden="true"
-      className="border-thick border-border-subtle bg-surface rounded-panel min-h-24 border-dashed"
+      className="border-thick border-border-subtle rounded-panel min-h-28 border-dashed"
     />
   )
 }

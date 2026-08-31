@@ -17,6 +17,14 @@ import { Icon } from './ui/Icon'
  * meaning something: middle-click, open in a new tab, and the address bar all work.
  * `CommandNav` made the same call for the same reason.
  *
+ * The link is **stretched over the whole tile** — `absolute inset-0` — rather than
+ * wrapping the label alone, so the tile is the target and not just the two words on it.
+ * `SavedCommandTile` reaches the same end by a different route, and the difference is
+ * the content: that tile carries generated command text worth selecting and copying, so
+ * an invisible layer over it would cost something real. There is nothing here but a
+ * label and an id, so the link can cover it and keep middle-click working, which a
+ * click handler would not.
+ *
  * Note what is *not* here: no rect is captured and no `openFrom` is called. The
  * grow-out-of-the-tile animation belongs to opening a saved command — it is the tile
  * *becoming* the editor for that record. Starting a fresh command from a generator is
@@ -31,24 +39,38 @@ export function PinnedGeneratorTile({
   onUnpin: () => void
 }) {
   return (
-    <li className="border-hairline border-border-subtle bg-surface rounded-panel hover:border-border-hover flex min-h-24 flex-col gap-1.5 p-3">
+    <li className="border-hairline border-border-subtle bg-surface rounded-panel hover:border-border-hover relative flex min-h-28 flex-col gap-1.5 p-3">
+      {/*
+        The label snapshotted at pin time, never resolved from the catalogue. The
+        dashboard does not load the 560 KB of command skeletons and must not start —
+        see `storage/preferences.ts` § PinnedGenerator, and `routes/index.tsx` for the
+        rule it follows.
+
+        Named by the label rather than by its own (empty) text, since the visible words
+        sit outside it.
+      */}
       <Link
         to="/c/$commandId"
         params={{ commandId: generator.id }}
-        className="text-text-primary text-left font-mono text-sm font-semibold"
-      >
-        {/*
-          The label snapshotted at pin time, never resolved from the catalogue. The
-          dashboard does not load the 560 KB of command skeletons and must not start —
-          see `storage/preferences.ts` § PinnedGenerator, and `routes/index.tsx` for the
-          rule it follows.
-        */}
+        aria-label={generator.label}
+        className="rounded-panel absolute inset-0"
+      />
+
+      {/*
+        Above the stretched link in paint order but not in hit-testing: `relative`
+        raises them, `pointer-events-none` hands every press back down to the link, so
+        the tile is one target from edge to edge.
+      */}
+      <span className="text-text-primary pointer-events-none relative text-left font-mono text-sm font-semibold">
         {generator.label}
-      </Link>
+      </span>
+      <span className={`${LABEL} pointer-events-none relative font-mono break-all`}>
+        {generator.id}
+      </span>
 
-      <span className={`${LABEL} font-mono break-all`}>{generator.id}</span>
-
-      <div className="mt-auto flex items-center gap-2">
+      {/* The one thing that is not the link. `relative` puts it above, and it keeps its
+          own pointer events so it can be pressed. */}
+      <div className="relative mt-auto flex items-center gap-2">
         <span className="flex-1" />
         <IconButton
           onClick={onUnpin}

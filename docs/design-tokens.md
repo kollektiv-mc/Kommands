@@ -133,8 +133,30 @@ is the exception — it is system faces the whole way down and needs no file.
 | Segmented control | Pill container, sliding accent indicator at `--radius-lg` minus 1px    |
 | Toggle            | `20×36px` pill, `16px` knob, accent when on, `--border-hover` when off |
 | Row divider       | `border-bottom: var(--border-hairline) solid var(--border-subtle)`     |
-| Scrollbar         | `4px`, `--border-hover` thumb, transparent track                       |
+| Scrollbar         | `4px`, `--border-subtle` thumb, transparent track                      |
 | Value text        | Monospace, `text-xs`, `text-text-secondary`                            |
+
+The scrollbar thumb rests at `--border-subtle` rather than `--border-hover`, which is
+Konnekt's correction rather than this repo's choice: at `--border-hover`'s alpha a 4px
+bar is the loudest thing in a column, because alpha is not weight — the value that
+suits a 1.5px icon stroke is too much spread over a bar. Resting, the thumb is the same
+value as the hairline borders it runs alongside.
+
+**`::-webkit-scrollbar` and `scrollbar-width` are an either/or, not a pair.** Chromium
+stops applying `::-webkit-scrollbar` to any element whose `scrollbar-width` or
+`scrollbar-color` is set to anything but its initial value. Setting both — the obvious
+thing to do, for Firefox's benefit — therefore throws the 4px and the thumb colour away
+on every Chromium and WebView2 session, silently, leaving the platform's own `thin` bar.
+Konnekt measured this and dropped the standard properties outright, which it can afford
+because it only ships in a WebView. This app also ships hosted, so instead the standard
+properties are gated behind `@supports not selector(::-webkit-scrollbar)`: engines that
+have the pseudo-element take the webkit path, engines that do not take the standard one,
+and neither cancels the other.
+
+The bar does **not** float over content — Chromium removed `overflow: overlay` in 106
+and a styled `::-webkit-scrollbar` is always classic, so there is nothing to float
+with. A 4px bar at 6% alpha over a transparent track is most of what "floating" was
+after anyway.
 
 The sliding-indicator radius is `--radius-lg` minus 1px so it sits concentrically
 inside the container border. Concentric radii matter at hairline weights —

@@ -93,12 +93,21 @@ export function panelById(id: PanelId): PanelDescriptor | undefined {
 /**
  * How many tiles fit on one line of a panel at the widest breakpoint.
  *
- * The grid steps 1 → 2 → 3 → 4 → 5 with the viewport, so this is the top of that ramp
- * rather than a fixed column count — five tiles across a narrow window would be five
- * unreadable slivers. It lives here rather than in the component because the
- * placeholder arithmetic below is the other half of the same decision.
+ * Six rather than five, and the number is chosen for its factors rather than for the
+ * width. The grid steps 1 → 2 → 3 → 6 with the viewport, and six divides evenly by
+ * every one of those, so a full row at the widest breakpoint stays a whole number of
+ * full rows at every narrower one: six across becomes two rows of three, then three
+ * rows of two. Five did not — at three columns it left a row of three and a row of
+ * two, which reads as a layout that ran out rather than as a grid.
+ *
+ * That is also why the ramp skips four. Four is the natural step between three and
+ * six and is the one width six does not divide by, so a four-column breakpoint would
+ * reintroduce exactly the ragged row the six is here to remove.
+ *
+ * It lives here rather than in the component because the placeholder arithmetic below
+ * is the other half of the same decision.
  */
-export const SLOTS_PER_ROW = 5
+export const SLOTS_PER_ROW = 6
 
 /**
  * How many empty slots to draw after `filled` tiles.
@@ -108,8 +117,8 @@ export const SLOTS_PER_ROW = 5
  * drawn as a bare sentence reads as a missing feature, and one drawn as five faded
  * outlines reads as five places to put something.
  *
- * Deliberately not "always pad to five rows" or any other fixed height. A panel with
- * seven tiles gets three slots, not twenty-three; the affordance is worth one row of
+ * Deliberately not "always pad to six rows" or any other fixed height. A panel with
+ * seven tiles gets five slots, not forty-one; the affordance is worth one row of
  * space and no more, at this UI's density.
  */
 export function emptySlots(filled: number): number {

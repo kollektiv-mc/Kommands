@@ -402,6 +402,19 @@ belongs here.
 The not-yet-closed follow-ups. Keep this section short and current; everything above
 it should be stable between runs.
 
+**P3 — The scrollbar cannot be verified in this repo's own tooling**
+
+- `styles/index.css` now takes the `::-webkit-scrollbar` path for engines that have it
+  and gates `scrollbar-width`/`scrollbar-color` behind
+  `@supports not selector(::-webkit-scrollbar)`, because Chromium treats the two as an
+  either/or and setting both was discarding the 4px. That fix is Konnekt's measured
+  finding applied here, not something reproduced locally: headless Chromium reserves no
+  gutter for any of the four combinations, so a container test cannot tell a working
+  4px bar from a missing one. The engines that matter — WebKitGTK, WebView2, WKWebView
+  — are the standalone build's, and nothing in CI runs them. Worth a manual check on a
+  real desktop build before the shell's first release, and worth remembering that a
+  regression here would be invisible to `pnpm test`.
+
 **P2 — The organizer maximize control is drawn but does nothing**
 
 - Every dashboard panel header carries a maximize button, present and disabled with the

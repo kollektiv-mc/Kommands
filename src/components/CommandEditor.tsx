@@ -91,8 +91,15 @@ export function CommandEditor() {
     return <p className="text-warning text-2xs">{`${commandId} is not a command in 1.21.1.`}</p>
   }
 
+  // `max-w-5xl`, raised from `2xl`. The cap is a readable-measure limit and still is
+  // one — a form has no business running the width of a 1600px window — but 2xl was
+  // chosen when this column started immediately after the navbar and was the only thing
+  // on the page. It is now inset by a sixth of the width (see `EditorLayout`), and the
+  // output panel beside it carries the command on the left with its controls on the
+  // right, so at 672px the command had a third of a column to live in and the three
+  // top-level `/give` fields sat shoulder to shoulder.
   return (
-    <div className="flex max-w-2xl flex-col gap-3">
+    <div className="flex max-w-5xl flex-col gap-3">
       {saved && !resumes && (
         <section className="border-hairline border-border-hover bg-surface rounded-panel flex flex-col gap-1 p-3">
           <span className={WARNING}>{REFUSAL[structure]}</span>

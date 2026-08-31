@@ -6,6 +6,7 @@ import { renderWithRouter } from '../test-router'
 import { configureStorage, useSavedCommandsStore } from '../stores/useSavedCommandsStore'
 import { useDashboardStore } from '../stores/useDashboardStore'
 import { usePinnedGeneratorsStore } from '../stores/usePinnedGeneratorsStore'
+import { useUiStore } from '../stores/useUiStore'
 import { DEFAULT_PLACED } from './dashboard/panels'
 import { localStorageBackend } from '../storage/local'
 import { createSaved, type SavedCommandDraft } from '../schema/saved'
@@ -52,6 +53,7 @@ beforeEach(() => {
   // rest or the second test in this file reads the first one's pins out of a store
   // that believes it has already loaded.
   usePinnedGeneratorsStore.setState({ pinned: [], hydrated: false })
+  useUiStore.setState({ origin: null })
 })
 
 async function seed(...drafts: SavedCommandDraft[]) {
@@ -266,4 +268,64 @@ test('a tile whose fingerprint matches the index says nothing structural', async
   // …and says nothing about its shape.
   expect(screen.queryByText(/older shape of this command/)).toBeNull()
   expect(screen.queryByText(/Saved before Kommands recorded/)).toBeNull()
+})
+
+test('the whole tile opens the command, not only its name', async () => {
+  const user = userEvent.setup()
+  await seed(DRAFT)
+  await renderWithRouter(<Dashboard />)
+
+  // The command text, which is the largest thing on a tile and was dead to a click.
+  // The doc comment claimed the whole tile was the control long before it was.
+  await user.click(await screen.findByText('/give @p stone'))
+
+  expect(useUiStore.getState().origin?.key).toBe('uuid-1')
+})
+
+test('pressing a control on a tile does that control rather than opening it', async () => {
+  const user = userEvent.setup()
+  await seed(DRAFT)
+  await renderWithRouter(<Dashboard />)
+
+  // The two layers must not fight. Without the row stopping propagation, deleting a
+  // command would also navigate into the editor for the record just removed.
+  await user.click(await screen.findByRole('button', { name: 'delete' }))
+
+  expect(screen.queryByRole('listitem')).toBeNull()
+  expect(useUiStore.getState().origin).toBeNull()
+})
+
+test('selecting the command text does not open the editor', async () => {
+  const user = userEvent.setup()
+  await seed(DRAFT)
+  await renderWithRouter(<Dashboard />)
+
+  // A drag that highlights text ends in a click on the common ancestor. Without this
+  // guard the preview text would be unselectable in practice — and this app's whole
+  // product is a string you copy somewhere else.
+  const selection = window.getSelection
+  window.getSelection = () => ({ toString: () => '/give @p' }) as unknown as Selection
+  try {
+    await user.click(await screen.findByText('/give @p stone'))
+  } finally {
+    window.getSelection = selection
+  }
+
+  expect(useUiStore.getState().origin).toBeNull()
+})
+
+test('a pinned generator tile is one link from edge to edge', async () => {
+  usePinnedGeneratorsStore.setState({
+    pinned: [{ id: 'vanilla:give', label: '/give' }],
+    hydrated: true,
+  })
+  await renderWithRouter(<Dashboard />)
+
+  // Stretched over the tile rather than wrapping the label, so the target is the tile.
+  // A link rather than a click handler, unlike SavedCommandTile, because there is no
+  // text here worth selecting and a link keeps middle-click and open-in-new-tab.
+  const tile = await screen.findByRole('listitem')
+  const link = within(tile).getByRole('link', { name: '/give' })
+  expect(link.className).toContain('absolute')
+  expect(link.className).toContain('inset-0')
 })
