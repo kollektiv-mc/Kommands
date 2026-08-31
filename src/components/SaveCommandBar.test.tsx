@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, test } from 'vitest'
 import { SaveCommandBar } from './SaveCommandBar'
@@ -117,4 +117,71 @@ test('with storage off it says so instead of offering a control that cannot work
 
   expect(await screen.findByText(/Saving is off/)).toBeDefined()
   expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
+})
+
+test('the three tile verbs are here too, disabled until there is a command to act on', async () => {
+  await renderWithRouter(bar('/give @p stone'))
+
+  // Present and disabled with the reason in the accessible name, rather than appearing
+  // the moment a save succeeds. distribution.md § The split must be visible names the
+  // failure: learning a thing exists by finding nothing where you expected something.
+  for (const name of [/^pin — save the command first/, /^rename — save the command first/]) {
+    expect(await screen.findByRole('button', { name })).toHaveProperty('disabled', true)
+  }
+  // link states the *build* reason first, because that one is permanent and the other
+  // is not — a web session will never link however much it saves.
+  expect(
+    await screen.findByRole('button', { name: /^link — needs the desktop build/ }),
+  ).toHaveProperty('disabled', true)
+})
+
+test('pinning from the editor is the same pin the dashboard shows', async () => {
+  const user = userEvent.setup()
+  await renderWithRouter(bar('/give @p stone'))
+  await user.type(await screen.findByRole('textbox', { name: 'Save as' }), 'Starter kit')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
+  const [saved] = await localStorageBackend(backing).list()
+  await renderWithRouter(bar('/give @p stone', saved!.id))
+
+  await user.click(await screen.findByRole('button', { name: 'pin' }))
+
+  // One flag, two places. Quick on the dashboard reads this, so pinning here has to
+  // reach the same record rather than a second notion of pinned.
+  const [after] = await localStorageBackend(backing).list()
+  expect(after!.pinned).toBe(true)
+  expect(await screen.findByRole('button', { name: 'pinned' })).toBeDefined()
+})
+
+test('rename reuses the one field rather than growing a second one', async () => {
+  const user = userEvent.setup()
+  await renderWithRouter(bar('/give @p stone'))
+  await user.type(await screen.findByRole('textbox', { name: 'Save as' }), 'Starter kit')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
+  const [saved] = await localStorageBackend(backing).list()
+  // Scoped to this render. The first one is still mounted — cleanup runs between
+  // tests, not between renders — and its own name field would answer a bare
+  // `queryByRole('textbox')` and make the assertion below meaningless.
+  const { container } = await renderWithRouter(bar('/give @p stone', saved!.id))
+  const editor = within(container)
+
+  // A saved command shows its name and a Save changes button, with no field at all —
+  // the block is two rows and stays two rows.
+  expect(editor.queryByRole('textbox')).toBeNull()
+  await user.click(await editor.findByRole('button', { name: 'rename' }))
+
+  const field = await editor.findByRole('textbox', { name: 'Rename' })
+  // Seeded with the current name: a rename is usually an edit of what is there, and an
+  // empty field makes someone retype it to change one word.
+  expect((field as HTMLInputElement).value).toBe('Starter kit')
+  await user.clear(field)
+  await user.type(field, 'Kit v2')
+  await user.click(editor.getByRole('button', { name: 'Rename' }))
+
+  const [renamed] = await localStorageBackend(backing).list()
+  expect(renamed!.name).toBe('Kit v2')
+  // A rename emits byte-identical command text, so bumping the revision would tell
+  // every linked consumer to re-read a command that did not change.
+  expect(renamed!.revision).toBe(1)
 })

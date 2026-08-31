@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
-import { Link } from '@tanstack/react-router'
+import { useState, type ReactNode } from 'react'
+import { TitleBar } from './TitleBar'
+import { SettingsDialog, chooseTheme, initialTheme } from './SettingsDialog'
 
 interface AppShellProps {
   /** Route content. The shell owns the frame; routes own everything inside it. */
@@ -7,7 +8,7 @@ interface AppShellProps {
 }
 
 /**
- * The application frame: a hairline-bordered header over a content well.
+ * The application frame: the title bar over a content well.
  *
  * The well no longer scrolls or pads. It did both when every route was one column of
  * content, and both became wrong once the editor arrived: that route is two panes
@@ -17,6 +18,11 @@ interface AppShellProps {
  * scrolling column now say so, which is one line each and honest about which layout
  * they are.
  *
+ * The header became `TitleBar`, which on the desktop build *is* the window's title bar
+ * (`Frameless: true` in main.go). The shell owns the theme state that its gear opens,
+ * because the shell is the only thing mounted on every route and a dialog owned by a
+ * route would close itself on navigation.
+ *
  * This component is deliberately styled with nothing but semantic utilities backed
  * by the generated token layer — no literal hex, no arbitrary pixel value, no inline
  * style. docs/design-tokens.md names that as the goal of the token pipeline, and
@@ -24,20 +30,26 @@ interface AppShellProps {
  * directory for violations.
  */
 export function AppShell({ children }: AppShellProps) {
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  // Seeded from storage rather than from the DOM. `main.tsx` has already applied this
+  // same value before the first paint, so the two agree without this having to read
+  // back a custom property it just wrote.
+  const [theme, setTheme] = useState(initialTheme)
+
   return (
     <div className="bg-canvas text-text-primary flex h-full flex-col">
-      <header className="border-b-hairline border-border-subtle bg-surface flex items-center gap-3 px-3 py-2">
-        {/*
-          A link, not a label. The editor fills the viewport and the dashboard is the
-          only way back to what has been saved, so the product name has to be the way
-          there — it is where everyone reaches for it anyway.
-        */}
-        <Link to="/" className="font-display text-sm tracking-tight">
-          Kommands
-        </Link>
-        <span className="text-text-muted text-2xs font-mono">Java Edition 1.21.1</span>
-      </header>
+      <TitleBar onOpenSettings={() => setSettingsOpen(true)} />
       <main className="min-h-0 flex-1">{children}</main>
+      {settingsOpen && (
+        <SettingsDialog
+          theme={theme}
+          onTheme={(next) => {
+            setTheme(next)
+            chooseTheme(next)
+          }}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </div>
   )
 }

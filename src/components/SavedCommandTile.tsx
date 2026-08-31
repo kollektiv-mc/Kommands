@@ -38,7 +38,22 @@ const STRUCTURE_NOTE = {
  *
  * The whole tile is the control that opens it, which is what makes the expand
  * animation read as the tile becoming the editor rather than as a button being
- * pressed. Rename and delete sit inside it and stop propagation, so the two never
+ * pressed. That was the intent from the start and only the name was actually wired,
+ * so most of a tile did nothing when clicked.
+ *
+ * It is a handler on the `<li>` rather than a link stretched across it with
+ * `absolute inset-0`, which is the other standard way to do this. The stretched link
+ * would put an invisible element over the command text, and the command text is the
+ * one thing on this tile someone might want to select and copy — this app's entire
+ * product is a string you paste somewhere else. So the tile listens for the click and
+ * lets the text stay text.
+ *
+ * The cost of that choice is one guard: a drag that selects text ends in a `click` on
+ * the common ancestor, so opening on any click would open the editor every time
+ * someone highlighted a command. `getSelection()` is what tells the two apart.
+ *
+ * The name stays a real `<button>`, because a `<li>` with a handler is unreachable by
+ * keyboard. Rename and delete sit inside and stop propagation, so the layers never
  * fight: clicking a tile opens, clicking a control in a tile does that control.
  */
 export function SavedCommandTile({
@@ -95,14 +110,33 @@ export function SavedCommandTile({
         : null
       : RESUMABILITY_NOTE[version]
 
+  const open = (element: HTMLElement) => {
+    // A drag that highlighted the command text ends in a click here. Opening on it
+    // would make the preview text unselectable in practice, which is the whole reason
+    // this is a handler rather than a link stretched over the tile.
+    if ((window.getSelection()?.toString() ?? '') !== '') return
+    onOpen(element)
+  }
+
   return (
     <li
-      className="border-hairline border-border-subtle bg-surface rounded-panel hover:border-border-hover flex flex-col gap-1.5 p-3"
+      // The pointer affordance only. The keyboard path is the name button below, which
+      // is why a handler on a non-interactive element is not the accessibility hole it
+      // usually is — nothing here is reachable *only* this way.
+      onClick={(e) => open(e.currentTarget)}
+      className={
+        'border-hairline border-border-subtle bg-surface rounded-panel hover:border-border-hover ' +
+        'flex min-h-28 flex-col gap-1.5 p-3' +
+        (renaming ? '' : ' cursor-pointer')
+      }
       data-saved-id={saved.id}
     >
       {renaming ? (
         <form
           className="flex items-center gap-2"
+          // The rename form is inside the tile's click target, so every press in it —
+          // the field included — would otherwise open the editor underneath.
+          onClick={(e) => e.stopPropagation()}
           onSubmit={(e) => {
             e.preventDefault()
             const next = draft.trim()
@@ -126,8 +160,13 @@ export function SavedCommandTile({
           type="button"
           // The tile's own element rather than the button's: the rect the editor grows
           // from should be the panel the user sees, and a button laid out inside it is
-          // a different, smaller box.
-          onClick={(e) => onOpen(e.currentTarget.closest('li')!)}
+          // a different, smaller box. Kept as a button purely so the tile is reachable
+          // by keyboard — a pointer press anywhere lands on the `<li>` above, and this
+          // one would bubble there too, which is why it stops.
+          onClick={(e) => {
+            e.stopPropagation()
+            open(e.currentTarget.closest('li')!)
+          }}
           className="text-text-primary text-left font-mono text-sm font-semibold"
         >
           {saved.name}
@@ -138,7 +177,11 @@ export function SavedCommandTile({
         {saved.preview || <span className="text-text-faint">empty command</span>}
       </code>
 
-      <div className="mt-auto flex items-center gap-2">
+      {/* Every control below acts on this tile rather than opening it, so the row as a
+          whole stops the click. One handler here rather than five on the buttons: they
+          all want the same thing, and a control added later gets it by being in the
+          row rather than by remembering. */}
+      <div onClick={(e) => e.stopPropagation()} className="mt-auto flex items-center gap-2">
         <span className={LABEL}>{`${saved.definitionId} · rev ${saved.revision}`}</span>
         <span className="flex-1" />
         {/*

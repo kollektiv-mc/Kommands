@@ -133,14 +133,86 @@ is the exception — it is system faces the whole way down and needs no file.
 | Segmented control | Pill container, sliding accent indicator at `--radius-lg` minus 1px    |
 | Toggle            | `20×36px` pill, `16px` knob, accent when on, `--border-hover` when off |
 | Row divider       | `border-bottom: var(--border-hairline) solid var(--border-subtle)`     |
-| Scrollbar         | `4px`, `--border-hover` thumb, transparent track                       |
+| Scrollbar         | `4px`, `--border-subtle` thumb, transparent track                      |
 | Value text        | Monospace, `text-xs`, `text-text-secondary`                            |
+
+The scrollbar thumb rests at `--border-subtle` rather than `--border-hover`, which is
+Konnekt's correction rather than this repo's choice: at `--border-hover`'s alpha a 4px
+bar is the loudest thing in a column, because alpha is not weight — the value that
+suits a 1.5px icon stroke is too much spread over a bar. Resting, the thumb is the same
+value as the hairline borders it runs alongside.
+
+**`::-webkit-scrollbar` and `scrollbar-width` are an either/or, not a pair.** Chromium
+stops applying `::-webkit-scrollbar` to any element whose `scrollbar-width` or
+`scrollbar-color` is set to anything but its initial value. Setting both — the obvious
+thing to do, for Firefox's benefit — therefore throws the 4px and the thumb colour away
+on every Chromium and WebView2 session, silently, leaving the platform's own `thin` bar.
+Konnekt measured this and dropped the standard properties outright, which it can afford
+because it only ships in a WebView. This app also ships hosted, so instead the standard
+properties are gated behind `@supports not selector(::-webkit-scrollbar)`: engines that
+have the pseudo-element take the webkit path, engines that do not take the standard one,
+and neither cancels the other.
+
+The bar does **not** float over content — Chromium removed `overflow: overlay` in 106
+and a styled `::-webkit-scrollbar` is always classic, so there is nothing to float
+with. A 4px bar at 6% alpha over a transparent track is most of what "floating" was
+after anyway.
 
 The sliding-indicator radius is `--radius-lg` minus 1px so it sits concentrically
 inside the container border. Concentric radii matter at hairline weights —
 mismatched values rasterise unevenly and read as a rendering bug.
 
 Monospace is used heavily for generated command text and any Minecraft identifier.
+
+---
+
+## The product skin
+
+Two things about this app's look are **not** in the shared source and must not be:
+its accent, and the canvas that accent sits on. Both live in
+[`src/lib/theme.ts`](../src/lib/theme.ts), which is the one place in `src/` where a
+colour is a value rather than a token reference.
+
+The mechanism is a runtime override of shared token _names_ on
+`document.documentElement`. kollektiv's own `design/README.md` names this pattern
+and puts it exactly here — it is what Konnekt's `BUILTIN_SKINS` are, and it stays in
+the product rather than in the umbrella repo, because it is a product-local look and
+not a shared design decision.
+
+| Written at runtime                           | Why it cannot be a token                                                                          |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `--accent-rgb`                               | Both products read one source. An ember written there turns Konnekt orange too.                   |
+| `--bg-base`, `--bg-elevated`, `--bg-overlay` | Same reason, one step out: the canvas is what makes the two products distinguishable at a glance. |
+
+### The canvas is derived from the accent
+
+Only saturation and lightness are stored. **Hue is read from the accent**, so
+retinting one retints the other and the ground can never drift from the thing it is a
+ground for. The dark skin resolves to `#1c1612` / `#2a221c`, which carries white text
+at roughly 18:1 and the accent itself at roughly 7.9:1 — both asserted in
+`theme.test.ts` rather than eyeballed, because the values are computed and a nudge to
+the lightness is a one-character change that could quietly cross a line.
+
+The lift off the shared `#05060a` is the point rather than a side effect: at 3%
+lightness every hue is black, so a tint alone would have changed nothing anyone could
+see.
+
+`--bg-overlay` is **computed, never chosen** — `0.82 × elevated + 0.18 × base`, which
+is the definition this document's own source gives it. Picking a fourth colour by eye
+is how that relationship gets lost.
+
+### Two traps this arrangement sets
+
+- **An inline property outranks the stylesheet in _both_ themes.** That is what makes
+  the accent override work, and it is a trap for the canvas, because unlike the
+  accent, `bg-base` and friends _do_ have `[data-theme='light']` values in the
+  generated sheet. Writing a skin once at startup and then flipping `data-theme`
+  leaves light mode wearing the dark canvas with the sheet's own values unreachable.
+  So `applyTheme()` never sets the attribute without rewriting the skin for it.
+- **The Go shell restates `--bg-base` and cannot read it.** `main.go`'s
+  `BackgroundColour` paints the window before the webview renders anything, so a
+  stale value there is a coloured flash on every launch. `theme.test.ts` reads
+  `main.go` and asserts the two agree.
 
 ---
 

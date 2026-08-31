@@ -122,15 +122,45 @@ export function CommandWorkbench({
         state, and moving it earlier strengthens that rather than straining it.
       */}
       <div className="border-hairline border-border-subtle bg-elevated rounded-panel flex flex-col gap-1 p-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={LABEL}>{`Output · ${version.id}`}</span>
-          <CopyButton text={output} />
-          <span className="flex-1" />
-          {actions?.(output)}
+        {/*
+          Two columns, both two lines tall. The command is the product, so it gets the
+          width and the larger type; the controls that act on it sit beside rather than
+          above, where they used to push the command down a line and take a third of its
+          room for a name field.
+
+          `min-w-0` on the left is what makes the horizontal scroll below actually
+          scroll: a flex child's default `min-width: auto` refuses to shrink below its
+          content, so an unbreakable line of monospace would widen the whole panel and
+          push the controls off the edge instead of overflowing inside its own box.
+        */}
+        <div className="flex items-start gap-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className={LABEL}>{`Output · ${version.id}`}</span>
+              <CopyButton text={output} />
+            </div>
+            {/*
+              One line of text in a two-line box, which is what "a bit larger and more
+              obvious" comes to: the command is set at `text-sm` against this UI's 12px
+              body, and the box is tall enough that it reads as a field holding a value
+              rather than as a caption under a label.
+
+              `whitespace-nowrap` with `overflow-x-auto`, not `break-all`. A generated
+              command is one line by construction — `distribution.md` § The one-shot
+              handoff turns on that, since Konnekt rejects a payload containing a
+              newline — and wrapping it across three lines misrepresents the shape of
+              the thing being copied. A scrollbar is honest about the length; a wrap
+              hides it. The bar itself is 4px and dim (see `styles/index.css`), so a
+              long command shows a hairline under itself rather than a chrome bar.
+            */}
+            <div className="border-hairline border-border-subtle bg-canvas flex min-h-10 items-center overflow-x-auto rounded-md px-2 py-1">
+              <code className="text-text-primary font-mono text-sm whitespace-nowrap">
+                {output || <span className="text-text-faint">nothing yet</span>}
+              </code>
+            </div>
+          </div>
+          {actions && <div className="shrink-0">{actions(output)}</div>}
         </div>
-        <code className="text-text-primary text-1xs font-mono break-all">
-          {output || <span className="text-text-faint">nothing yet</span>}
-        </code>
         {warnings.map((w, i) => (
           <span key={i} className={WARNING}>
             {w.message}

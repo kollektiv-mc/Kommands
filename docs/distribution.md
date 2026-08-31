@@ -137,6 +137,52 @@ single-instance lock keeps it to one process per machine.
 
 ---
 
+## The window is the app's, including its title bar
+
+The desktop shell runs `Frameless: true`, and
+[`src/components/TitleBar.tsx`](../src/components/TitleBar.tsx) draws what the system
+bar used to: the wordmark, and minimize / maximize / close. Konnekt is frameless for
+the same reason and its bar has the same order, height and tone on the close button —
+the two products are one suite, and a user with both should not have to learn two
+window bars. Everything in the bar is drawn by the app, so it themes like any other
+surface, which a system bar never did.
+
+Frameless is not "no window management": the injected runtime still arms a resize
+border and the window manager still snaps. What is given up is the system's own
+wordmark and three buttons.
+
+The bar's `h-9` is the one measurement here that is load-bearing rather than
+aesthetic. Wails checks that 6px resize border before it checks anything else, so any
+part of a control inside the band presses the window edge instead of the control — and
+a 24px button centred in a 36px bar starts at exactly 6px. **Shrinking the bar
+silently breaks the close button.** That, the control order and the drag/no-drag
+contract are all currently preserved as comments in two repositories rather than as a
+suite standard, because `kollektiv/design/` holds tokens and no prose about
+components. [#58](https://github.com/kollektiv-mc/Kommands/issues/58) proposes one.
+
+**Window controls are the one thing that does not go through the HTTP API**, and that
+is not an exception being carved out. There is no window on the other side of an HTTP
+request — a `POST /api/window/minimise` has no correct implementation on the browser
+surface — so `src/lib/window.ts` reads Wails' injected `window.runtime` directly.
+`app.go` therefore still binds **no** Go methods to the frontend, and the API remains
+the one JS↔Go surface, because nothing here is an _application_ method.
+
+The bar is also the one place where **answering by presentation is right**, which is
+worth stating precisely because § One install, two surfaces forbids it everywhere
+else. "Can this session link?" must test for the backend, since the `--serve` browser
+surface can link and a user-agent sniff would say it cannot. "Is this app drawing its
+own window chrome?" is a question _about_ the presentation, and the browser surface is
+genuinely a different answer: a tab has no window to minimise, and offering a control
+that cannot work is the same failure one level down. The two questions must not be
+confused — nothing in `window.ts` is consulted about storage or linking.
+
+The gear beside the controls opens the app's settings, which are deliberately only two
+sections: the theme, and what this build is. The second is this document's § The split
+must be visible, stated as a cause rather than as a consequence — the dashboard says
+linking needs the standalone build, and Settings says which build this is.
+
+---
+
 ## Command data is bundled, not fetched
 
 Offline is the entire point, so the data ships in the binary.

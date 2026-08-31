@@ -103,11 +103,24 @@ func main() {
 			// link" must test for the backend, not for the presentation.
 			Middleware: mountAPI(apiHandler),
 		},
-		// --bg-base from the token layer (#05060a), so the instant before
-		// first paint is the same colour as the app that follows it. The token
-		// pipeline cannot reach Go; this restates it, and drift shows up as a
-		// white flash on launch rather than silently.
-		BackgroundColour: &options.RGBA{R: 5, G: 6, B: 10, A: 255},
+		// The app draws its own title bar. Frameless is not "no window
+		// management": Wails' injected runtime still arms a resize border
+		// around the webview and still honours the window manager's own
+		// snapping, so what is given up is the system bar's wordmark and its
+		// three buttons - which src/components/TitleBar.tsx now draws, themed
+		// like every other surface in the app rather than by the desktop.
+		//
+		// Konnekt is frameless for the same reason and says so in the same
+		// words. Matching it is the point: the two products are one suite, and
+		// a user with both should not have to learn two window bars.
+		Frameless: true,
+		// --bg-base as src/lib/theme.ts computes it for the dark skin
+		// (#1c1612), so the instant before first paint is the same colour as
+		// the app that follows it. Neither the token pipeline nor the skin can
+		// reach Go; this restates the result, and drift shows up as a coloured
+		// flash on launch rather than silently. productSkin() in that file is
+		// exported so the value can be read rather than guessed at.
+		BackgroundColour: &options.RGBA{R: 28, G: 22, B: 18, A: 255},
 		Linux: &linux.Options{
 			Icon: appIcon,
 			// Restates the default Wails applies when Linux options are nil —

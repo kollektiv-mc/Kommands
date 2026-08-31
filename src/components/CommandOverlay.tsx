@@ -95,7 +95,27 @@ export function CommandOverlay({
         role="dialog"
         aria-modal="true"
         aria-label={label ?? 'Command editor'}
-        className="border-hairline border-border-subtle bg-elevated rounded-panel absolute inset-2 flex flex-col overflow-hidden sm:inset-3"
+        /*
+          Opaque, and that is the fix rather than a preference. `bg-elevated` is
+          `rgba(…, 0.82)` — the shared token source makes it translucent on purpose,
+          because that is what lets a panel read as sitting *above* the canvas rather
+          than replacing it. A maximized view is the case where that stops working:
+          `kollektiv/design/README.md` § Why there are two elevated surfaces names it
+          exactly — "a layer that floats over arbitrary content cannot afford that:
+          text and controls beneath it show through and the layer becomes unreadable
+          over anything busy." Under this panel is a grid of command tiles, which is
+          about as busy as this app gets, and their text was legible through the
+          editor.
+
+          `bg-canvas` under a `bg-surface` layer, which is Konnekt's maximized
+          `TileWrapper` verbatim — the same two-line recipe, so the two products'
+          maximized panels are the same surface rather than merely similar ones. Not
+          `bg-overlay`, despite the name: the shared source defines that as the opaque
+          colour an *elevated* panel resolves to, and this is a maximized tile rather
+          than a floating one. The gradient is a token composition rather than a
+          literal, so the hex grep stays silent and a retheme still reaches it.
+        */
+        className="border-hairline border-border-subtle bg-canvas rounded-panel absolute inset-2 flex flex-col overflow-hidden bg-[linear-gradient(var(--bg-surface),var(--bg-surface))] sm:inset-3"
       >
         <div className="border-b-hairline border-border-subtle flex shrink-0 items-center gap-2 px-3 py-2">
           <span className="font-title text-text-secondary text-1xs">{label ?? 'Editor'}</span>

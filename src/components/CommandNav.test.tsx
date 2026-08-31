@@ -1,7 +1,8 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { expect, test } from 'vitest'
+import { beforeEach, expect, test } from 'vitest'
 import { CommandNav } from './CommandNav'
+import { usePinnedGeneratorsStore } from '../stores/usePinnedGeneratorsStore'
 import { renderWithRouter } from '../test-router'
 import type { Catalogue } from './CommandRenderer'
 import type { CommandDefinition } from '../schema/types'
@@ -28,6 +29,11 @@ const CATALOGUE: Catalogue = {
   'vanilla:teleport': definition('vanilla:teleport', '/teleport', 'vanilla', ['tp']),
   'worldedit:generate': definition('worldedit:generate', '//generate', 'worldedit', ['//gen']),
 }
+
+beforeEach(() => {
+  window.localStorage.clear()
+  usePinnedGeneratorsStore.setState({ pinned: [], hydrated: false })
+})
 
 test('every command in the catalogue is a link, grouped by dialect', async () => {
   await renderWithRouter(<CommandNav catalogue={CATALOGUE} />)
@@ -79,4 +85,35 @@ test('the command on screen is marked as the current page', async () => {
   // anyone who can see it, and this says the same thing to anyone who cannot.
   expect(screen.getByRole('link', { name: '/give' }).getAttribute('aria-current')).toBe('page')
   expect(screen.getByRole('link', { name: '/teleport' }).getAttribute('aria-current')).toBeNull()
+})
+
+test('a generator is pinned from here, with its label taken along', async () => {
+  const user = userEvent.setup()
+  await renderWithRouter(<CommandNav catalogue={CATALOGUE} />)
+
+  await user.click(screen.getByRole('button', { name: 'Pin /give' }))
+
+  // The label travels with the id, and this is the only place it can be snapshotted
+  // from the authoritative copy: the dashboard never loads the catalogue, because
+  // resolving one label there would pull 560 KB of command skeletons onto the app's
+  // first screen (routes/index.tsx says so).
+  expect(usePinnedGeneratorsStore.getState().pinned).toEqual([
+    { id: 'vanilla:give', label: '/give' },
+  ])
+  // And the control now reads as on, rather than only looking different.
+  const pinned = screen.getByRole('button', { name: 'Unpin /give' })
+  expect(pinned.getAttribute('aria-pressed')).toBe('true')
+})
+
+test('pinning a generator does not disturb which command is open', async () => {
+  const user = userEvent.setup()
+  await renderWithRouter(<CommandNav catalogue={CATALOGUE} activeId="vanilla:teleport" />)
+
+  await user.click(screen.getByRole('button', { name: 'Pin /give' }))
+
+  // The pin sits on the row beside the link rather than inside it, so pressing it is
+  // not a navigation. A pin that opened the command it pinned would make the control
+  // unusable for its actual purpose — shortlisting without leaving where you are.
+  expect(screen.getByRole('link', { name: '/teleport' }).getAttribute('aria-current')).toBe('page')
+  expect(screen.getByRole('link', { name: '/give' }).getAttribute('aria-current')).toBeNull()
 })

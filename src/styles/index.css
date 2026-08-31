@@ -48,10 +48,100 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* 4px thumb over a transparent track — docs/design-tokens.md § Component patterns. */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-hover) transparent;
+/* ── Scrollbars ──────────────────────────────────────────────────────────────
+   Konnekt's convention, carried over rather than re-derived. 4px over a
+   transparent track, with the thumb at --border-subtle.
+
+   --border-subtle, not --border-hover, and Konnekt's note explains the change
+   of mind worth inheriting along with the value: it sat at 25% on the reasoning
+   that this is what the UI gives ink meant to be present without being read,
+   and "that reasoning ignores mass: 25% is right for a 1.5px icon stroke, and
+   the same 25% on a bar this size was the loudest thing in the column. Alpha is
+   not weight." Resting, the thumb is therefore the same value as the hairline
+   borders it runs alongside. docs/design-tokens.md's Component patterns table
+   carries the same value.
+
+   THE ORDER OF THESE TWO BLOCKS IS LOAD-BEARING, and this file had it wrong
+   until now. Chromium treats the standard properties as an either/or: set
+   `scrollbar-width` or `scrollbar-color` to anything but its initial value and
+   it stops applying ::-webkit-scrollbar to that element at all. This file used
+   to set both on `*`, which meant every Chromium and WebView2 session — the
+   majority of both this app's surfaces — silently got the platform's own `thin`
+   bar rather than the 4px this design language specifies, and any
+   ::-webkit-scrollbar rule added later would have been dead on arrival.
+   Konnekt hit exactly this, measured it, and removed the standard properties;
+   its style.css says so in as many words.
+
+   Konnekt could simply drop them, because it ships only in a WebView. This app
+   also ships hosted, where Firefox is a real target and reaches neither the
+   pseudo-element nor a 4px bar without them. So rather than choosing one engine
+   over the other, the standard properties are gated behind
+   `@supports not selector(::-webkit-scrollbar)`: engines that have the
+   pseudo-element take the webkit path, and only the engines that do not — which
+   is what Firefox is here — take the standard one. Neither can cancel the
+   other, which is the whole failure being fixed.
+
+   What this deliberately does NOT do is float the bar over content. Chromium
+   has no way to draw a classic scrollbar on top: a styled ::-webkit-scrollbar
+   is always classic and takes its width out of the content box, and
+   `overflow: overlay`, which did put one on top, was removed in Chromium 106.
+   Konnekt faked it with a negative-margin reclaim and removed that too, because
+   it only works by knowing the reserved gutter's exact width at runtime and
+   puts content under the bar wherever that guess is wrong. A 4px bar at 6%
+   alpha over a transparent track is already most of the way to invisible, which
+   is the part of "floating" that was actually wanted. */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-subtle) transparent;
+  }
+}
+
+/* ── Window chrome ───────────────────────────────────────────────────────────
+   Which parts of the app's own title bar drag the window, on the desktop
+   build. See src/components/TitleBar.tsx for the bar itself.
+
+   Wails decides whether a press drags by reading one CSS custom property off
+   the press target — `--wails-draggable`, which has to compute to exactly
+   `drag`. It reads the *target* and never walks up the tree, but the property
+   is a custom property, so it inherits: setting it once on the bar covers
+   everything drawn inside it, the `<svg>` a click on an icon actually lands on
+   included.
+
+   That inheritance is the reason the second class exists. Without it the close
+   button would be as draggable as the empty bar around it, and pressing it
+   would move the window instead. Any value other than `drag` switches the
+   behaviour off; `no-drag` is what Wails' own docs name it. The property name
+   is Wails' default (options.CSSDragProperty), left unset in main.go — change
+   one and this has to change with it.
+
+   Both live here rather than as inline styles because they are static values,
+   and because this is the file that already holds this app's hand-written CSS.
+   Konnekt carries the identical pair in its own style.css. */
+.titlebar-drag {
+  --wails-draggable: drag;
+}
+
+.titlebar-no-drag {
+  --wails-draggable: no-drag;
 }
 
 /* ── Startup splash ──────────────────────────────────────────────────────────
