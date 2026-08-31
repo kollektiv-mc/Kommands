@@ -8,6 +8,7 @@ import {
   type InstanceId,
   type Path,
 } from '../schema/paths'
+import { nextInstanceIdFor } from '../schema/saved'
 
 /**
  * The value tree for the command currently being edited.
@@ -61,6 +62,17 @@ interface CommandState {
    * hands a serializer a value of a shape its own type never makes.
    */
   setRef: (path: Path, definitionId: string) => void
+  /**
+   * Replace the whole tree with a saved one, and resume its id counter.
+   *
+   * The counter is the reason this is an action rather than a `set` at the call site.
+   * Instance ids are handed out as `i0`, `i1`, … from `nextInstanceId`, which resets
+   * with the tree — so loading a tree that already holds `i0` and `i1` while leaving
+   * the counter at zero makes the next added clause `i0` as well. Two instances on one
+   * path is exactly the failure the generated-id model exists to prevent, and it would
+   * surface as one clause's edits appearing in another.
+   */
+  load: (value: CommandValue) => void
   reset: () => void
 }
 
@@ -115,5 +127,6 @@ export const useCommandStore = create<CommandState>((set) => ({
       const cleared = clearAt(s.value, path)
       return { value: { ...cleared, refs: { ...cleared.refs, [path]: definitionId } } }
     }),
+  load: (value) => set({ value, nextInstanceId: nextInstanceIdFor(value) }),
   reset: () => set({ value: EMPTY_VALUE, nextInstanceId: 0 }),
 }))

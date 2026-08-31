@@ -53,3 +53,86 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--border-hover) transparent;
 }
+
+/* ── Startup splash ──────────────────────────────────────────────────────────
+   The opening sequence, matching Konnekt's so both products start the same way.
+   See src/components/SplashScreen.tsx, which owns the mount and holds the
+   duration below as SPLASH_MS.
+
+   Two deliberate departures from the token layer, both of the kind Konnekt
+   already names in its own style.css: the 1s timing is a one-off decorative
+   sequence rather than a UI transition role, so it reuses neither
+   --duration-fast nor --duration-panel; and the display size is a clamp well
+   above the shared type scale's 20px ceiling, which is a scale for a dense UI
+   and has nothing to say about a title card.
+
+   The text-shadow is the sanctioned shadow exception and the only one in this
+   file: docs/design-tokens.md permits an accent-tinted glow inside a keyframe,
+   composed through --accent-rgb, and forbids drop shadows everywhere else. */
+@keyframes splash-overlay-fade {
+  0%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes splash-word-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.97);
+    text-shadow: none;
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1);
+    text-shadow: 0 0 32px rgb(var(--accent-rgb) / 0.5);
+  }
+  75% {
+    opacity: 1;
+    text-shadow: 0 0 24px rgb(var(--accent-rgb) / 0.35);
+  }
+  100% {
+    opacity: 1;
+    text-shadow: 0 0 16px rgb(var(--accent-rgb) / 0.2);
+  }
+}
+
+.splash-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-base);
+  /* Decoration in every sense: aria-hidden in the markup, inert to the pointer
+     here. The page underneath is already interactive. */
+  pointer-events: none;
+  animation: splash-overlay-fade 1s ease forwards;
+}
+
+.splash-word {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(48px, 9vw, 112px);
+  letter-spacing: -0.02em;
+  color: var(--accent);
+  animation: splash-word-in 1s ease forwards;
+}
+
+/* The component skips the overlay entirely under reduced motion, so this is a
+   backstop rather than the mechanism: it covers the case where the query flips
+   after mount, which no re-render would otherwise reach. */
+@media (prefers-reduced-motion: reduce) {
+  .splash-overlay,
+  .splash-word {
+    animation: none;
+  }
+
+  .splash-overlay {
+    opacity: 0;
+  }
+}

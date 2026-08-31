@@ -39,3 +39,22 @@ if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.sho
     this.dispatchEvent(new Event('close'))
   }
 }
+
+/**
+ * Give the router somewhere to scroll.
+ *
+ * jsdom implements no scrolling at all and logs "Not implemented: Window's scrollTo()"
+ * to stderr for every attempt. TanStack Router restores scroll position on navigation,
+ * so any test that renders a route produces that line — noise that trains the eye to
+ * skip stderr, which is where a real warning would appear.
+ *
+ * A no-op rather than a recorded position: nothing here asserts on scrolling, and a
+ * stub that pretended to implement it would be a claim no test has checked.
+ *
+ * Assigned unconditionally. jsdom *does* define `scrollTo` — it is the implementation
+ * behind it that is missing, and it announces that by logging rather than throwing —
+ * so a `!window.scrollTo` guard skips the replacement and leaves the noise in place.
+ */
+if (typeof window !== 'undefined') {
+  window.scrollTo = () => {}
+}

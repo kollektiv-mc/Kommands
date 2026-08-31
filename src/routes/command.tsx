@@ -1,26 +1,44 @@
 import { createRoute } from '@tanstack/react-router'
-import { rootRoute } from './root'
-import { CommandWorkbench } from '../components/CommandWorkbench'
+import { editorRoute } from './commands'
+import { CommandEditor } from '../components/CommandEditor'
 import { loadRegistries } from '../data/loadGenerated'
 import { loadCatalogue } from '../data/catalogue'
-import { aliasNames } from '../schema/serialize'
 import { v1_21_1 } from '../data/versions/1.21.1'
+import { useSavedCommandsStore } from '../stores/useSavedCommandsStore'
 
-// The component is inline, matching root.tsx: a route file that exported both a
-// component and its route object would trip react-refresh/only-export-components.
 export const commandRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => editorRoute,
   // One route for every command, rather than a file each. A page per command would
   // reintroduce exactly the per-command cost docs/architecture.md § The constraint
   // rules out — commands reach the UI as definitions resolved here.
-  path: '/c/$commandId',
+  //
+  // A child of the editor route, so its full path is still `/c/$commandId` while the
+  // navbar above it stays mounted across every selection.
+  path: '$commandId',
+  /**
+   * `?saved=<id>` names the saved command being edited.
+   *
+   * The id, not the tree. Putting the tree in the URL is a different feature with a
+   * different mechanism (#43, permalinks) — this one says "you are editing that
+   * record", which is what makes a reload resume it and every later save update it
+   * rather than mint a second copy under a new id.
+   */
+  validateSearch: (search: Record<string, unknown>): { saved?: string } => ({
+    saved: typeof search.saved === 'string' ? search.saved : undefined,
+  }),
+  loaderDeps: ({ search }) => ({ saved: search.saved }),
   // Fetched by the route rather than imported by the component, so neither
   // commands.json nor registries.json reaches the entry chunk. TanStack Router awaits
   // this before rendering, so the component never sees half-loaded data.
-  loader: async ({ params }) => {
+  loader: async ({ params, deps }) => {
     const [catalogue, registries] = await Promise.all([
       loadCatalogue(v1_21_1),
       loadRegistries(v1_21_1),
+      // Awaited here rather than left to an effect so the editor's first paint already
+      // has the saved tree in hand. Reading it afterwards would render the empty
+      // command for one frame, and a resumed command flashing blank looks exactly like
+      // one that failed to load.
+      deps.saved === undefined ? undefined : useSavedCommandsStore.getState().load(),
     ])
     // The whole map travels on, not just the one definition: `/execute … run` embeds
     // any other command, so the picker needs the list and the serializer needs to
@@ -28,34 +46,5 @@ export const commandRoute = createRoute({
     // required loading it — so this costs a reference, not a fetch.
     return { definition: catalogue[params.commandId], catalogue, registries }
   },
-  component: () => {
-    const { definition, catalogue, registries } = commandRoute.useLoaderData()
-    const { commandId } = commandRoute.useParams()
-
-    if (!definition) {
-      return <p className="text-warning text-2xs">{`${commandId} is not a command in 1.21.1.`}</p>
-    }
-
-    return (
-      <div className="flex max-w-2xl flex-col gap-3">
-        <section className="border-hairline border-border-subtle bg-surface rounded-panel p-3">
-          <h1 className="font-title mb-1 text-sm">{definition.label}</h1>
-          {definition.ui?.summary && (
-            <p className="text-text-secondary text-1xs leading-relaxed">{definition.ui.summary}</p>
-          )}
-          {definition.aliases && definition.aliases.length > 0 && (
-            <p className="text-text-muted text-2xs mt-1 font-mono">
-              {`also ${aliasNames(definition).join(', ')}`}
-            </p>
-          )}
-        </section>
-        <CommandWorkbench
-          definition={definition}
-          version={v1_21_1}
-          registries={registries}
-          catalogue={catalogue}
-        />
-      </div>
-    )
-  },
+  component: CommandEditor,
 })
