@@ -5,8 +5,15 @@ node_modules/
 # build output
 dist/
 dist-ssr/
-build/
 *.tsbuildinfo
+
+# The Wails shell's output and generated bindings. build/ itself is tracked —
+# it holds the packaging files and the committed icons (see #44) — and only
+# the binary output directory inside it is not. wailsjs/ is the runtime the
+# wails CLI generates into the frontend dir; nothing imports it, because the
+# JS↔Go surface is the HTTP API, not bindings.
+build/bin/
+wailsjs/
 
 # test / coverage
 coverage/

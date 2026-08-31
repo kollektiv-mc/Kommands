@@ -10,10 +10,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # One job, because there is one toolchain. Konnekt splits its runner into a
-  # separate job and excludes the `commands` section there, since its flat manifest
-  # cannot express a windows/webkit matrix. Kommands has no such matrix, so all
-  # three sections run here.
+  # The JS toolchain. This used to be the only job "because there is one
+  # toolchain"; #44 ended that — the Go shell has its own job below, because it
+  # needs system webkit headers this half never touches, and a platform failure
+  # there should not block a web check that shares nothing with it (the same
+  # argument docs/suite.md makes against a monorepo, one level down).
   check:
     runs-on: ubuntu-latest
     steps:
@@ -63,3 +64,44 @@ jobs:
       # how this repo spent its whole pre-scaffold life looking healthy.
       - name: Health manifest
         run: ./.claude/suite-check.py --require-runnable
+
+  # The Go shell (#44). The frontend is built first because main.go embeds
+  # dist/ — the zero-code-change answer to shipping command data offline — so
+  # the Go compiler cannot run before Vite has. The cgo-free checks (gofmt,
+  # go test over shell/) run before the system headers are installed,
+  # deliberately: they are the checks the health manifest declares, and running
+  # them in the same order the manifest does keeps CI and /suite-kit:health
+  # failing on the same line. Vet and the full compile come after apt, because
+  # the main package compiles against webkit2gtk — 4.1 on this runner, hence
+  # the webkit2_41 tag, and desktop,production because that is the tag set
+  # `wails build` uses for a packaged binary.
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: gofmt
+        run: test -z "$(gofmt -l . | tee /dev/stderr)"
+      - run: go test ./shell/...
+
+      - name: System webkit headers
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      - run: go vet -tags desktop,production,webkit2_41 ./...
+      - name: Compile the desktop shell
+        run: go build -tags desktop,production,webkit2_41 -o build/bin/kommands .
