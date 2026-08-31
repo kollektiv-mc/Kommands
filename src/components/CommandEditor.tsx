@@ -55,9 +55,11 @@ export function CommandEditor() {
     savedId === undefined ? undefined : s.commands.find((c) => c.id === savedId),
   )
 
-  // Whether the definition still has the shape this tree was built against. The tile
-  // could not answer this — the dashboard has no catalogue — so the refusal lands here,
-  // at the moment of opening, which is where persistence.md wants it.
+  // Whether the definition still has the shape this tree was built against, hashed from
+  // the real definition this route already loaded. A tile answers the same question from
+  // the committed fingerprint index and warns earlier, but the refusal still lands here,
+  // at the moment of opening, which is where persistence.md wants it — and here it is
+  // computed from the definition itself rather than from an index of it.
   const structure = saved ? structureState(saved, definition) : 'verified'
   const resumes = canResume(structure)
 

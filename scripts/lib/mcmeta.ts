@@ -57,14 +57,27 @@ async function getWithRetry(url: string): Promise<string> {
   throw new Error(`could not fetch ${url} after ${RETRIES} attempts: ${lastError}`)
 }
 
-/** The provenance block every generated file carries in place of a comment. */
-export function generatedHeader(tag: string, generator: string, regenerate: string) {
+/**
+ * The provenance block every generated file carries in place of a comment.
+ *
+ * `source` names where the data came from, and defaults to the mcmeta tag because
+ * that is where all of it came from originally. A generator that derives from
+ * *already-derived* output passes its own — `gen-fingerprints.ts` reads the committed
+ * catalogue rather than mcmeta, and a header claiming otherwise would send someone
+ * looking upstream for a value this repo produced.
+ */
+export function generatedHeader(
+  tag: string,
+  generator: string,
+  regenerate: string,
+  source = `misode/mcmeta@${tag}`,
+) {
   return {
     doNotEdit:
       'GENERATED FILE — DO NOT EDIT. Hand edits are reverted by the next run, and the ' +
       'underlying issue survives. If a value here is wrong, the generator is wrong.',
     generator,
-    source: `misode/mcmeta@${tag}`,
+    source,
     regenerate,
   }
 }

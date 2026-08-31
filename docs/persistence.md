@@ -203,6 +203,28 @@ that moves a definition's fingerprint for a version already shipped is a release
 event. It ships with a migration, or with an explicitly accepted loss — never
 unnoticed.
 
+**The tripwire is armed by a committed index.** `pnpm gen:fingerprints` writes
+`src/data/generated/<v>/fingerprints.json` — every definition's fingerprint, about
+1.6 KB gzipped for 79 of them — and it carries a `generated` entry in
+`.claude/suite.json` like the other generated files. Two things follow, and the second
+is the one that was missing:
+
+- A tile can say a tree will not restore **before it is opened**. `structureState`
+  needs the definition, which is 560 KB of skeletons the dashboard exists not to load;
+  `structureStateFromIndex` answers the same question from the index. Both go through
+  one comparison, so they cannot disagree, and a test holds the index to
+  `fingerprintOf` over the whole catalogue.
+- A fingerprint that moves **shows up as a line in a pull-request diff**, and CI fails
+  if the index was not regenerated. Before this, the release gate above asked a human
+  to remember to recompute fingerprints and compare them against the previous release
+  — which is a ritual, not a gate. The judgement is still a human's; the noticing is
+  not.
+
+One subtlety the index does not remove: it describes the **active** version's
+definitions. A tree authored for another version cannot be meaningfully compared
+against it, so the UI states the version problem instead and treats the structural
+verdict as no evidence at all.
+
 That rule is affordable because shape changes are **entirely within this repo's
 control**. mcmeta is pinned by immutable tag and a test asserts it, so a definition's
 shape for 1.21.1 cannot move on its own. It moves only when the deriver changes or an

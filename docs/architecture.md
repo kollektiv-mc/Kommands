@@ -197,19 +197,20 @@ trait and give every existing version an explicit value — still additive.
 
 ## Where data lives
 
-| Category                                                                       | Source                                            | Loading                        |
-| ------------------------------------------------------------------------------ | ------------------------------------------------- | ------------------------------ |
-| Items, entities, enchantments, effects, particles, attributes, potions, sounds | mcmeta → `src/data/generated/<v>/registries.json` | Lazy, per version              |
-| Block states                                                                   | mcmeta → `src/data/generated/<v>/blocks.json`     | Lazy, route-split              |
-| Command skeletons                                                              | Derived → `src/data/generated/<v>/commands.json`  | Lazy, per command route        |
-| Version traits                                                                 | `src/data/versions/<v>.ts`                        | Static                         |
-| Selectors, colour codes, item components                                       | `src/data/authored/`                              | Static                         |
-| WorldEdit pattern blocks                                                       | The `block` registry, via `isKnownBlock`          | Lazy, with blocks              |
-| WorldEdit expression grammar and built-ins                                     | `src/worldedit/expression/`                       | Static (entry chunk)           |
-| WorldEdit CSG vocabulary and its compiler                                      | `src/worldedit/csg/`                              | Not yet reached by a route     |
-| Three.js, the shared stage, and every preview module                           | `src/previews/`, `PreviewStage.tsx`               | Lazy, per preview binding      |
-| Design tokens                                                                  | Generated → `src/styles/tokens.css`               | Global CSS                     |
-| Saved commands                                                                 | `localStorage` (web) or a JSON file (standalone)  | Per backend, chosen at startup |
+| Category                                                                       | Source                                               | Loading                        |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------- | ------------------------------ |
+| Items, entities, enchantments, effects, particles, attributes, potions, sounds | mcmeta → `src/data/generated/<v>/registries.json`    | Lazy, per version              |
+| Block states                                                                   | mcmeta → `src/data/generated/<v>/blocks.json`        | Lazy, route-split              |
+| Command skeletons                                                              | Derived → `src/data/generated/<v>/commands.json`     | Lazy, per command route        |
+| Definition fingerprints                                                        | Derived → `src/data/generated/<v>/fingerprints.json` | Lazy, loaded by the dashboard  |
+| Version traits                                                                 | `src/data/versions/<v>.ts`                           | Static                         |
+| Selectors, colour codes, item components                                       | `src/data/authored/`                                 | Static                         |
+| WorldEdit pattern blocks                                                       | The `block` registry, via `isKnownBlock`             | Lazy, with blocks              |
+| WorldEdit expression grammar and built-ins                                     | `src/worldedit/expression/`                          | Static (entry chunk)           |
+| WorldEdit CSG vocabulary and its compiler                                      | `src/worldedit/csg/`                                 | Not yet reached by a route     |
+| Three.js, the shared stage, and every preview module                           | `src/previews/`, `PreviewStage.tsx`                  | Lazy, per preview binding      |
+| Design tokens                                                                  | Generated → `src/styles/tokens.css`                  | Global CSS                     |
+| Saved commands                                                                 | `localStorage` (web) or a JSON file (standalone)     | Per backend, chosen at startup |
 
 Nothing in this table is a literal inside a component. `/suite-kit:health` enforces it.
 

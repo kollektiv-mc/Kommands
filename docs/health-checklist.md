@@ -35,12 +35,16 @@ pnpm format:check                # prettier --check .
 pnpm build && pnpm check-bundle  # entry-chunk gzip budget
 ```
 
-Plus three `invariants` — greps that must find nothing — and two `generated` entries:
-`pnpm gen:commands` followed by a clean-diff check on `src/data/generated`, and
-`pnpm gen:tokens` followed by the same check on `src/styles/tokens.css`. A non-empty
-diff means the generated file was hand-edited (the next run reverts it) or its input —
-the pinned mcmeta tag, or `tokens.source.json` — was refreshed without regenerating.
-Only the first declares `requiresNetwork`, and only for a cold `.cache/mcmeta`.
+Plus three `invariants` — greps that must find nothing — and three `generated`
+entries: `pnpm gen:commands` and `pnpm gen:fingerprints`, each followed by a
+clean-diff check on `src/data/generated`, and `pnpm gen:tokens` followed by the same
+check on `src/styles/tokens.css`. A non-empty diff means the generated file was
+hand-edited (the next run reverts it) or its input — the pinned mcmeta tag, an edited
+definition, or `tokens.source.json` — was refreshed without regenerating. Only
+`gen:commands` declares `requiresNetwork`, and only for a cold `.cache/mcmeta`; the
+fingerprint index is derived from data already in the tree, so it has no skip at all.
+The `gen:fingerprints` diff is the one to read rather than regenerate past — see the
+release gate under § 3.
 
 When the Wails v2 shell lands ([#44](https://github.com/kollektiv-mc/Kommands/issues/44)) this repo has a second toolchain, and
 `health.commands` has to grow the Go checks with it — otherwise `/suite-kit:health` and
@@ -220,17 +224,25 @@ belongs here.
       Verify: load a fixture containing an unknown entry shape — expect it to load
       minus that entry. See [`persistence.md`](persistence.md).
       [#42](https://github.com/kollektiv-mc/Kommands/issues/42), [#45](https://github.com/kollektiv-mc/Kommands/issues/45)
-- [ ] A change that moves a definition's **structural fingerprint** for an
+- [x] A change that moves a definition's **structural fingerprint** for an
       already-shipped version ships with a migration or an explicitly accepted loss —
       never unnoticed. This is the release gate that makes storing raw paths safe:
       paths are positional in a structure `pnpm gen:commands` regenerates, so a deriver
       change or an edited authored definition silently invalidates every saved command
       for that definition. mcmeta being pinned by immutable tag is what keeps this rare;
       it is not what makes it safe.
-      Verify: for any diff touching `scripts/lib/derive.ts` or
-      `src/data/authored/commands/**`, recompute fingerprints across the catalogue and
-      diff them against the previous release. A moved fingerprint is a finding, not a
-      detail. See [`persistence.md`](persistence.md) § How values are keyed.
+      **Mechanised rather than remembered.** The fingerprints are committed to
+      `src/data/generated/<v>/fingerprints.json` by `pnpm gen:fingerprints`, with its
+      own `generated` entry in `.claude/suite.json` — so a fingerprint that moves
+      cannot merge without the diff appearing in the pull request, and CI fails if the
+      index was not regenerated. It reads only committed data, so unlike
+      `gen:commands` it has no legitimate skip. The judgement the gate asks for is
+      still a human's; what changed is that nobody has to remember to look.
+      `fingerprints.test.ts` holds the index to `fingerprintOf` over every definition,
+      with both negative controls — a reordered Choice moves it, a relabel does not —
+      so the index cannot quietly become a constant.
+      Verify: `pnpm gen:fingerprints` and `pnpm test`. A non-empty diff is a finding,
+      not a detail. See [`persistence.md`](persistence.md) § How values are keyed.
       [#42](https://github.com/kollektiv-mc/Kommands/issues/42)
 - [ ] Every argument type declares a versioned **value shape** — what it stores, not
       what it emits. `CommandValue.args` is `Record<Path, unknown>` and
@@ -241,17 +253,23 @@ belongs here.
       Verify: `grep -rn "unknown" src/schema/argument-types/ src/schema/serialize.ts` —
       every remaining `unknown` in a persisted position must be a declared, documented
       erasure rather than an undecided shape.
-- [ ] A saved command's `id` is stable and never reused. It is generated once at save
+- [x] A saved command's `id` is stable and never reused. It is generated once at save
       time and survives rename, re-save and reorder; a deleted command's id is retired
       permanently. A changed id breaks every Konnekt link pointing at it silently, and
       a **reused** one turns a deleted command into a replacement for a working button
-      on someone's dashboard.
+      on someone's dashboard. Asserted in `saved.test.ts`: revise and rename both keep
+      the id, and delete-then-create takes a fresh one.
       Verify: `pnpm test` — rename/reorder/re-save assert an unchanged id, and
       delete-then-create asserts a fresh one.
-- [ ] A saved command round-trips. Save a value tree, reload it, resume editing, and
+- [x] A saved command round-trips. Save a value tree, reload it, resume editing, and
       serialize to **byte-identical** command text; the same for encode → decode →
       serialize on a link. This is the one assertion that holds the whole chain to the
-      only thing a user observes.
+      only thing a user observes. Asserted in `useSavedCommandsStore.test.ts` against
+      `/execute` with two clauses — a Repeat, a Choice selection and two arguments, so
+      the tree exercises the path grammar rather than a flat argument list. The link
+      half is unwritten because links are: it lands with
+      [#43](https://github.com/kollektiv-mc/Kommands/issues/43).
+      Verify: `pnpm test`.
 - [x] The shared file is written atomically — temp file in the same directory, renamed
       over the target — and a rewrite that changes nothing does not move the mtime.
       Konnekt polls `os.Stat`, so a partial write **will** be caught eventually, and a
@@ -520,17 +538,6 @@ it should be stable between runs.
   [#45](https://github.com/kollektiv-mc/Kommands/issues/45); what remains is
   only seeing it hold against a real Konnekt install rather than its test
   suite.
-
-**P2 — The fingerprint is checked in the editor but not on a tile**
-
-- `structureState` needs the definition, which lives in the 560 KB of command skeletons
-  the dashboard exists not to load — the whole reason a saved command caches a `preview`.
-  So the editor refuses a stale tree correctly, and a tile cannot yet say that a tree is
-  stale before it is opened. The fix is a committed fingerprint index
-  (`src/data/generated/<v>/fingerprints.json`, roughly 1 KB gzip for 78 definitions,
-  regenerated by a `gen:fingerprints` script with its own `generated` entry in
-  `.claude/suite.json`). That would also turn the release gate two items above into a
-  line in a PR diff, which is a better reason to build it than the badge.
 
 **P3 — The disabled link control states a reason but has nowhere to send anyone**
 
