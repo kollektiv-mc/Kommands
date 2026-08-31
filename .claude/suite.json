@@ -1,12 +1,12 @@
 {
   "product": "Kommands",
-  "kind": "vite-web",
+  "kind": "vite-web+wails-desktop",
   "distribution": {
     "current": ["web"],
     "planned": ["desktop-wails-v2"],
     "doc": "docs/distribution.md",
     "issue": "https://github.com/kollektiv-mc/Kommands/issues/44",
-    "note": "Kommands ships two builds from one codebase: a hosted web app and a standalone Wails v2 desktop app. Only the first exists today, which is why kind is still vite-web and health.commands is JS-only. When the Go shell lands, kind becomes vite-web+wails-desktop and health.commands gains the Go checks (go vet, go test, and the Wails build) so /suite-kit:health and CI stop covering half the product. They are deliberately not declared yet: there is no go.mod, CI runs suite-check.py --require-runnable, and a check that cannot run reports skip - which this repo treats as a failure rather than as green. Declaring them early would invert that."
+    "note": "Kommands ships two builds from one codebase: a hosted web app and a standalone Wails v2 desktop app. The Go shell now exists (#44): module kommands at the repo root, with the testable core under shell/ and the Wails window in main.go. desktop-wails-v2 stays under planned until a release workflow produces installable artefacts - the shell compiling is not the same as users being able to get it. health.commands carries the Go checks that can genuinely run anywhere a Go toolchain exists: go vet and go test over the cgo-free shell/ packages. Compiling the full shell is deliberately NOT declared here: it needs the built frontend (main.go embeds dist/) plus system webkit2gtk/gtk3 headers, so in most agent containers it would report skip - and this repo treats a skip as a failure rather than as green. That check runs instead as the explicit steps of ci.yml's shell job, where the headers are installed. Same principle as before the shell landed, applied one layer up."
   },
   "tracking": "github-issues",
   "roadmap": "docs/roadmap.md",
@@ -44,6 +44,14 @@
       {
         "name": "bundle budget",
         "run": "pnpm build && pnpm check-bundle"
+      },
+      {
+        "name": "go vet",
+        "run": "go vet ./shell/... ./scripts/gen-appicon"
+      },
+      {
+        "name": "go test",
+        "run": "go test ./shell/..."
       }
     ],
     "invariants": [

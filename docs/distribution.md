@@ -87,6 +87,54 @@ this one's is `os.UserConfigDir()/kommands`, and each derives both by constructi
 Every other option would require replicating Go's per-platform path rules and keeping
 them in step by hand.
 
+The shell exists, at the repo root: module `kommands`, pinned to the same Wails
+v2.12 as Konnekt. The Go that carries behaviour lives in cgo-free packages under
+`shell/` — path derivation, the atomic writer, the store and its projection, the
+HTTP API, the localhost listener — each with its own tests, runnable in any
+container with a Go toolchain. `main.go` is assembly only: it embeds `dist/`,
+mounts the API, and hands the rest to Wails. Compiling _that_ file needs the
+built frontend and the system webkit headers, which is why the health manifest
+declares the `shell/` checks and CI's `shell` job owns the full compile —
+see `.claude/suite.json`'s `distribution` note.
+
+---
+
+## One install, two surfaces
+
+The local install offers its UI in two presentations, and they are the same
+process:
+
+- **A window of its own** — the Wails webview, the default.
+- **A local webapp** — pass `--serve` and the same process additionally serves
+  the same embedded build to a browser at `http://127.0.0.1:8642` (port via
+  `--serve-port`). Off by default; a listener nobody asked for is surface
+  nobody audits.
+
+The browser here is only a rendering surface. The Go process remains the thing
+touching the filesystem, so a session served to a browser saves, persists and
+links exactly as the window does. This is why "can this session link?" must
+never be answered by _presentation_ — a user-agent sniff, a `window.go` check —
+and is instead answered by _the presence of the local backend_: both surfaces
+reach the same HTTP API at `/api/…`, mounted once as asset-server middleware for
+the webview and once on the listener for the browser, so the frontend cannot
+tell the two apart. `GET /api/capabilities` is the probe; on the hosted site it
+simply does not exist, and that absence — not the browser — is what "web build"
+means to the frontend.
+
+Two rules bound the listener, both deliberate:
+
+- **Loopback only, by construction.** The bind address is not a flag. Serving a
+  command generator to the LAN is a feature nobody asked for, and the
+  single-instance work does not cover it.
+- **The Host header is checked anyway** (`shell/serve`). Binding loopback does
+  not stop DNS rebinding — a hostile page can point its own domain at
+  127.0.0.1 and fetch "same-origin" against it — and what this API writes feeds
+  a file another application runs against a live world.
+
+Two surfaces over one saved-commands file is not the concurrency problem it
+sounds like: both go through one handler with one lock in one process, and the
+single-instance lock keeps it to one process per machine.
+
 ---
 
 ## Command data is bundled, not fetched
@@ -120,6 +168,13 @@ servers. See [`suite.md`](suite.md).
 and never learns a server address. That restriction is permanent and is not softened
 by anything here — see [`roadmap.md`](roadmap.md) § Explicitly out of scope, which
 states it as a network boundary rather than as a limit on where output may travel.
+
+Detection runs in both directions, and neither side discovers a binary. This
+shell stats Konnekt's data directory to decide whether Konnekt-facing
+affordances lead anywhere; on every launch it writes `install.json` into its own
+data directory (`shell/marker`) so Konnekt can tell an installed standalone from
+an absent one — before anything has been saved, which is what the shared file's
+existence cannot say.
 
 What crosses the boundary is never a connection. There are exactly two mechanisms,
 and they are different features:
@@ -185,17 +240,22 @@ preference. **This is open** — see [#46](https://github.com/kollektiv-mc/Komma
 
 ## What this changes for the repo
 
-A JS-only repo grows a second toolchain: `go.mod`, `go.sum`, and a Go job in CI.
+A JS-only repo grew a second toolchain: `go.mod`, `go.sum`, and a `shell` job in
+CI. Both of the things that had to move with it have:
 
-Two things have to move with it, and neither is automatic:
-
-- **`.claude/suite.json`** gains the Go checks in `health.commands`, so
-  `/suite-kit:health` and CI cover them. Until they exist, the manifest records the
-  pending change in its `distribution` block rather than declaring a check that
-  cannot run — CI runs `suite-check.py --require-runnable`, where a skip is a
-  failure, and that is the property worth keeping.
-- **[`suite.md`](suite.md)** no longer gets to draw the line between the two products
+- **`.claude/suite.json`** declares `go vet` and `go test` over `shell/` in
+  `health.commands` — the checks that can genuinely run in any container with a
+  Go toolchain. The full shell compile is deliberately _not_ in the manifest: it
+  needs the built frontend and system webkit headers, so in most environments it
+  would report skip, and CI runs `suite-check.py --require-runnable`, where a
+  skip is a failure. It runs instead as explicit steps in CI's `shell` job,
+  where the headers are installed. The manifest's `distribution` note records
+  the same reasoning beside the checks themselves.
+- **[`suite.md`](suite.md)** no longer draws the line between the two products
   at "Konnekt is a Go module, Kommands is a Vite app". That was never the real
-  argument for separate repositories, and it stops being true here.
+  argument for separate repositories, and it stopped being true here.
 
-Tracked in [#44](https://github.com/kollektiv-mc/Kommands/issues/44).
+What remains of [#44](https://github.com/kollektiv-mc/Kommands/issues/44) is the
+release workflow: the shell compiles and passes CI, but until a workflow
+produces installable artefacts there is nothing a user can download, which is
+why the manifest still lists `desktop-wails-v2` under `planned`.

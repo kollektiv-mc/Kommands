@@ -3,15 +3,17 @@ import type { SavedCommand } from '../schema/saved'
 /**
  * Where saved commands live.
  *
- * An interface with one implementation today and a second one coming, rather than a
- * `localStorage` call at each site that needs one. The standalone desktop build
- * (#44) stores its saved commands in a JSON file under `os.UserConfigDir()/kommands`
- * — which is also the file Konnekt reads (#45) — and that swap should be one line in
- * `resolveStorage`, not a branch in every caller.
+ * An interface with two implementations, rather than a `localStorage` call at each
+ * site that needs one: the web's `local.ts`, and the standalone's `file.ts`, which
+ * speaks to the shell that keeps `os.UserConfigDir()/kommands` — the canonical
+ * `store.json` and the projection Konnekt reads (#44, #45). The swap between them is
+ * one `if` in `resolveStorage`, not a branch in every caller, exactly as this comment
+ * promised while the second implementation was still coming.
  *
  * Every method is async even though the web implementation answers synchronously.
- * The file backend cannot, and an interface that was sync-shaped first would make
- * adding it a change to every caller instead of a change here.
+ * The file backend cannot — every call is a request to the local backend — and an
+ * interface that was sync-shaped first would have made adding it a change to every
+ * caller instead of a change here.
  */
 export interface SavedCommandStorage {
   /**

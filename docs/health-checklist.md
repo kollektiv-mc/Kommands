@@ -252,10 +252,14 @@ belongs here.
       serialize to **byte-identical** command text; the same for encode → decode →
       serialize on a link. This is the one assertion that holds the whole chain to the
       only thing a user observes.
-- [ ] The shared file is written atomically — temp file in the same directory, renamed
+- [x] The shared file is written atomically — temp file in the same directory, renamed
       over the target — and a rewrite that changes nothing does not move the mtime.
       Konnekt polls `os.Stat`, so a partial write **will** be caught eventually, and a
       spurious mtime bump makes every poll interval a re-read on the other side.
+      `shell/atomicfile` owns both rules for every file the shell persists, and
+      `shell/store`'s tests pin the harder consequence: a store-only change rewrites
+      `store.json` and leaves the shared file's mtime alone.
+      Verify: `go test ./shell/...`.
       [#45](https://github.com/kollektiv-mc/Kommands/issues/45)
 - [ ] Adding a Minecraft version touches only version data and generated files.
       Adding 1.21.5 flips two of the three trait flags; 1.21.2 flips none. Neither
@@ -504,13 +508,18 @@ it should be stable between runs.
   the writer says a rewrite that changes nothing must not move the mtime, because
   Konnekt polls `os.Stat` and re-reads when it moves. Merely _opening_ a command would
   rewrite the file and cost Konnekt a full re-read, for a field it has no interest in.
-  The fix belongs to the file backend when it lands ([#45](https://github.com/kollektiv-mc/Kommands/issues/45)): project `lastOpenedAt`
-  out when writing the shared file, and keep it in a local sidecar. Deciding what a
-  backend writes to its own file is not the behavioural branching on `kind` the
-  capability-interface item forbids — that rule is about serializers and editors, not
-  about a writer choosing its own format.
-  Recorded now rather than at #45 because the field lands with the dashboard and the
-  obligation is invisible from this side of the interface.
+  **The writer half is landed**, in the inverse of the shape first sketched here:
+  rather than a canonical shared file with a sidecar for the noisy fields, the
+  canonical `store.json` holds everything and the shared file is a projection of
+  the fields Konnekt reads — see [`persistence.md`](persistence.md) § The shared
+  file. Store-only churn projects to identical bytes and `shell/store`'s tests
+  pin that the shared file's mtime holds still through it. The frontend now drives these
+  writers — `src/storage/file.ts` behind `resolveStorage` — so opening a command
+  on the standalone rewrites `store.json` and leaves `saved-commands.json`
+  untouched, which is this entry satisfied. It closes with
+  [#45](https://github.com/kollektiv-mc/Kommands/issues/45); what remains is
+  only seeing it hold against a real Konnekt install rather than its test
+  suite.
 
 **P2 — The fingerprint is checked in the editor but not on a tile**
 

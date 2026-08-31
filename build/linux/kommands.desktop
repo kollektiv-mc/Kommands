@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Kommands
+Comment=Minecraft command generator
+Exec=/usr/bin/kommands %u
+Icon=kommands
+Terminal=false
+Categories=Game;Utility;
+StartupWMClass=kommands
+MimeType=x-scheme-handler/kommands;

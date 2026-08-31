@@ -215,10 +215,18 @@ authored definition is edited, which is a reviewed commit either way.
 **Two backends, one interface**, chosen once at startup rather than branched at each
 call site:
 
-| Build          | Backend                                     | Notes                                  |
-| -------------- | ------------------------------------------- | -------------------------------------- |
-| **Web**        | `localStorage`, or IndexedDB if trees grow  | Per-browser, no sync, and that is fine |
-| **Standalone** | A JSON file on disk — the one Konnekt reads | See § The shared file                  |
+| Build          | Backend                                                     | Notes                                  |
+| -------------- | ----------------------------------------------------------- | -------------------------------------- |
+| **Web**        | `localStorage`, or IndexedDB if trees grow                  | Per-browser, no sync, and that is fine |
+| **Standalone** | `store.json` on disk, projected into the file Konnekt reads | See § The shared file                  |
+
+The standalone backend's canonical file, `os.UserConfigDir()/kommands/store.json`,
+carries **the same envelope the web backend keeps in `localStorage`** —
+`{ version, commands: [SavedCommand] }`, `src/storage/types.ts` — so the two
+backends are one format in two places rather than two formats. The shell holds
+entries as raw bytes and never interprets a saved command beyond the fields the
+projection below needs (`shell/store`), which gives the file backend the same
+unknown-field preservation `local.ts` gives the web one, structurally.
 
 The interface exposes its `kind` (`'local' | 'file'`) because the UI is required to
 make the capability split visible rather than let it be discovered — see
@@ -248,9 +256,32 @@ design, not an implementation detail — it is what makes divergence structurall
 impossible, and it is why the canonical copy lives here rather than in a neutral
 suite directory or in Konnekt's own data directory.
 
-**Content:** the saved commands above, each carrying its `id` and `revision`. Konnekt
-matches on the `id` and uses the `revision` to tell "already seen" from "changed"
-without diffing.
+**Content: a projection of the store, not the store itself.** Each entry is
+`{ id, revision, label, command, updatedAt }` — the schema Konnekt's reader pins
+in its `backend/models/kommands.go`, mirrored on
+[#45](https://github.com/kollektiv-mc/Kommands/issues/45): `label` from the
+saved command's `name`, `command` from its cached `preview` with exactly one
+leading slash stripped (console form — and the second slash of a WorldEdit
+`//set` is content, not prefix), `updatedAt` as Unix milliseconds. Konnekt
+matches on the `id` and uses the `revision` to tell "already seen" from
+"changed" without diffing.
+
+> **Decided: project, don't share the store file.** Konnekt's reader shipped
+> first and pinned its entry schema, and that schema is not `SavedCommand`:
+> different field names, a different timestamp type, and hard bounds — it
+> refuses a file over 2 MiB or 2000 entries. Writing the store verbatim would
+> mean either reshaping this repo's shipped persisted format around another
+> repo's reader, or asking that reader to change and _still_ spending its byte
+> bound on value trees it never reads. Projecting keeps each side's format its
+> own: the canonical `store.json` stays byte-compatible with the web backend,
+> and the shared file carries only what Konnekt consumes. It also solves a
+> problem sharing would have created: store-only churn — `lastOpenedAt` moving
+> because someone opened a command — projects to identical bytes, so the shared
+> file's mtime holds still and Konnekt's poll stays quiet. `shell/store` owns
+> the rules and pins each one with a test, including that entries containing
+> control characters are excluded at the writer — the sender-side half of the
+> newline rule, since this text reaches a server console and, once linked,
+> can be fired by Konnekt's scheduler with no human in between.
 
 ### What the reader's behaviour requires of the writer
 
@@ -267,6 +298,13 @@ except where it constrains this side, which it does in three places:
   be able to skip an entry it does not understand rather than reject the file. An
   all-or-nothing reader turns one new field into every linked command breaking at
   once.
+
+All three are implemented and pinned by tests: `shell/atomicfile` owns the
+atomic rename and the unchanged-write skip, and `shell/store` writes the version
+field, projects per entry, and stays inside the reader's entry and byte bounds.
+The frontend drives them through `src/storage/file.ts` — the `file` backend
+behind `resolveStorage`, chosen when the startup probe finds a local backend —
+so a save in either surface of the local install lands in both files.
 
 ### What Konnekt does with it
 
