@@ -177,7 +177,7 @@ test('renaming a tile keeps its revision', async () => {
   await seed(DRAFT)
   await renderWithRouter(<Dashboard />)
 
-  await user.click(await screen.findByRole('button', { name: 'rename' }))
+  await user.click(await screen.findByRole('button', { name: 'Rename Starter kit' }))
   const field = screen.getByRole('textbox', { name: 'Name' })
   await user.clear(field)
   await user.type(field, 'Kit v2')
@@ -189,12 +189,31 @@ test('renaming a tile keeps its revision', async () => {
   expect(useSavedCommandsStore.getState().commands[0]!.revision).toBe(1)
 })
 
+test("a tile's controls are glyphs that still name the command they act on", async () => {
+  await seed(DRAFT)
+  await renderWithRouter(<Dashboard />)
+
+  const tile = await screen.findByRole('listitem')
+
+  // Four words became four glyphs, so the visible label is gone and the accessible
+  // name is all there is. It names the *command* rather than the verb: a dashboard
+  // holding twelve saved commands would otherwise offer twelve buttons called
+  // "delete" to anyone reading it linearly, and no way to tell which was which.
+  expect(within(tile).getByRole('button', { name: 'Rename Starter kit' })).toBeDefined()
+  expect(within(tile).getByRole('button', { name: 'Delete Starter kit' })).toBeDefined()
+
+  // The pin is one glyph in two states rather than two glyphs, so `aria-pressed` is
+  // what carries "this is on" — a colour cannot.
+  const pin = within(tile).getByRole('button', { name: 'Pin Starter kit' })
+  expect(pin.getAttribute('aria-pressed')).toBe('false')
+})
+
 test('deleting a tile removes it from storage, not just from the screen', async () => {
   const user = userEvent.setup()
   await seed(DRAFT)
   await renderWithRouter(<Dashboard />)
 
-  await user.click(await screen.findByRole('button', { name: 'delete' }))
+  await user.click(await screen.findByRole('button', { name: 'Delete Starter kit' }))
 
   expect(screen.queryByRole('listitem')).toBeNull()
   expect(await localStorageBackend(backing).list()).toHaveLength(0)
@@ -226,7 +245,9 @@ test('the web build says what it cannot do rather than hiding the control', asyn
   // Present and disabled, not absent. `distribution.md` § The split must be visible
   // names the failure this guards against: a user learning that linking is
   // standalone-only by finding nothing where they expected something.
-  const link = await screen.findByRole('button', { name: /link — needs the desktop build/ })
+  const link = await screen.findByRole('button', {
+    name: /Send Starter kit to Konnekt — needs the desktop build/,
+  })
   expect(link.hasAttribute('disabled')).toBe(true)
   // And the reason is readable without hovering anything.
   expect(screen.getByText(/needs the standalone build/)).toBeDefined()
@@ -241,7 +262,7 @@ test('the standalone build offers the same control live', async () => {
   await seed(DRAFT)
   await renderWithRouter(<Dashboard />)
 
-  const link = await screen.findByRole('button', { name: 'link' })
+  const link = await screen.findByRole('button', { name: 'Send Starter kit to Konnekt' })
   expect(link.hasAttribute('disabled')).toBe(false)
   expect(screen.queryByText(/needs the standalone build/)).toBeNull()
 })
@@ -289,7 +310,7 @@ test('pressing a control on a tile does that control rather than opening it', as
 
   // The two layers must not fight. Without the row stopping propagation, deleting a
   // command would also navigate into the editor for the record just removed.
-  await user.click(await screen.findByRole('button', { name: 'delete' }))
+  await user.click(await screen.findByRole('button', { name: 'Delete Starter kit' }))
 
   expect(screen.queryByRole('listitem')).toBeNull()
   expect(useUiStore.getState().origin).toBeNull()

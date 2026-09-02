@@ -64,6 +64,34 @@ test('saving, listing, renaming and removing', async () => {
   expect(await localStorageBackend(backing).list()).toHaveLength(0)
 })
 
+test('a save that changes nothing never reaches the backend', async () => {
+  // Two obligations in one assertion, both from `persistence.md`: a no-op save does not
+  // move the revision, and a rewrite with unchanged content leaves the file alone. The
+  // second is why this counts `put` calls rather than only reading the record back —
+  // on the standalone backend that write is an mtime change, and the mtime is what
+  // Konnekt watches. A no-op notification is worse than no notification.
+  let writes = 0
+  const backend = localStorageBackend(backing)
+  configureStorage({ ...backend, put: (saved) => ((writes += 1), backend.put(saved)) })
+
+  const store = useSavedCommandsStore.getState()
+  const id = (await store.create(DRAFT))!
+  expect(writes).toBe(1)
+
+  const content = { value: DRAFT.value, preview: DRAFT.preview, fingerprint: DRAFT.fingerprint }
+  await useSavedCommandsStore.getState().revise(id, content)
+  await useSavedCommandsStore.getState().revise(id, content)
+
+  expect(writes).toBe(1)
+  expect(useSavedCommandsStore.getState().commands[0]!.revision).toBe(1)
+
+  // The positive control. Without it this passes just as well against a `revise` that
+  // never writes at all, which would be the same bug wearing the fix.
+  await useSavedCommandsStore.getState().revise(id, { ...content, preview: '/give @p diamond' })
+  expect(writes).toBe(2)
+  expect(useSavedCommandsStore.getState().commands[0]!.revision).toBe(2)
+})
+
 test('loading reads what a previous session wrote, newest first', async () => {
   // Written through the backend with timestamps a millisecond apart rather than saved
   // twice in a row. `create` stamps from the real clock, and two saves in one

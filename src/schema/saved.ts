@@ -1,6 +1,7 @@
 import type { CommandValue } from './serialize'
 import type { CommandDefinition } from './types'
 import { fingerprintOf } from './fingerprint'
+import { sameValue } from '../lib/equal'
 import type { VersionDefinition } from '../data/versions/types'
 
 /**
@@ -82,13 +83,16 @@ export interface SavedCommand {
   /** Whether the user pinned it. Drives the Quick panel. */
   readonly pinned?: boolean
   /**
-   * Bumped on every **content** change, so a consumer can tell "I have already seen
-   * this" from "this changed" without diffing the tree.
+   * Bumped when the command this record **emits** changes, so a consumer can tell "I
+   * have already seen this" from "this changed" without diffing the tree.
    *
-   * A rename does not bump it, and that asymmetry is the point rather than an
-   * oversight: what a linked consumer runs is the command, and Konnekt's presets carry
-   * their own label. Bumping on rename would tell every linked preset to re-read a
+   * Not a save counter, and the difference is the whole point: what a linked consumer
+   * runs is the command text, so a rename, a pin, and a re-save of an untouched
+   * command all leave it alone. Konnekt's presets carry their own label and re-read on
+   * a bump — bumping for any of those would tell every linked preset to re-read a
    * command that produces byte-identical output.
+   *
+   * `contentChange` is where that rule is decided; nothing else may write this field.
    */
   readonly revision: number
   /** ISO-8601. Set once. */
@@ -146,12 +150,66 @@ export function createSaved(
   }
 }
 
-/** The same command, with new content. Keeps the id; bumps the revision. */
+/**
+ * What a save would actually change about a stored command.
+ *
+ * Three answers rather than a boolean, because a save can change the *record* without
+ * changing the *command*, and `persistence.md` gives those two different consequences
+ * (§ The revision, and § Testing obligations, which requires that a no-op save move
+ * neither the revision nor the file).
+ *
+ * - `none` — the tree, the text and the fingerprint all match what is stored. Nothing
+ *   to write. Pressing Save changes twice in a row is the ordinary way to reach this,
+ *   and so is opening a command and saving it without touching anything.
+ * - `stored` — the record changed but the command text did not. Reachable when the
+ *   tree moves to a state that serializes identically (setting an optional argument to
+ *   the value it already implied), or when only the fingerprint moved because the
+ *   definition was reshaped without changing what it emits. Worth writing, because the
+ *   tree is what an edit resumes from; not worth a revision.
+ * - `emitted` — the command text is different. This is the one a consumer has to know
+ *   about, and the only one that bumps.
+ *
+ * The bump keys on `preview` rather than on the tree, which is the part worth being
+ * explicit about because the tree is the source of truth everywhere else. `revision`
+ * is not a record-changed counter: `persistence.md` § The revision defines it as
+ * "whether the command it would run has changed", and what a linked Konnekt preset
+ * fires is the text. A tree edit that emits the same string gives that consumer
+ * nothing to re-read.
+ */
+export type ContentChange = 'none' | 'stored' | 'emitted'
+
+export function contentChange(
+  saved: SavedCommand,
+  content: Pick<SavedCommandDraft, 'value' | 'preview' | 'fingerprint'>,
+): ContentChange {
+  if (content.preview !== saved.preview) return 'emitted'
+  if (content.fingerprint !== saved.fingerprint) return 'stored'
+  return sameValue(saved.value, content.value) ? 'none' : 'stored'
+}
+
+/**
+ * The same command, with new content. Keeps the id; bumps the revision if the command
+ * text moved.
+ *
+ * **Returns the argument itself when there is nothing to change**, and the identity is
+ * the contract rather than an optimisation: it is how a caller tells a save that did
+ * something from a save that did not, without re-deriving the comparison. The store
+ * reads `next === saved` to skip the write entirely, which is what keeps a no-op save
+ * from touching the standalone build's file — and that file is the one Konnekt
+ * watches, so a rewritten mtime is a notification about nothing.
+ *
+ * This used to bump unconditionally, which made `revision` a count of how many times
+ * someone had pressed the button. Konnekt's side of the link reads it as "this
+ * changed, re-read it", so every idle save was telling every linked preset to re-read
+ * a byte-identical command.
+ */
 export function reviseSaved(
   saved: SavedCommand,
   content: Pick<SavedCommandDraft, 'value' | 'preview' | 'fingerprint'>,
   clock: SaveClock = SYSTEM_CLOCK,
 ): SavedCommand {
+  const change = contentChange(saved, content)
+  if (change === 'none') return saved
   return {
     ...saved,
     value: content.value,
@@ -160,7 +218,7 @@ export function reviseSaved(
     // just held, so it was built against whatever shape is loaded now — stamping the
     // old fingerprint onto it would describe a definition this tree never saw.
     fingerprint: content.fingerprint,
-    revision: saved.revision + 1,
+    revision: change === 'emitted' ? saved.revision + 1 : saved.revision,
     updatedAt: clock.now(),
   }
 }

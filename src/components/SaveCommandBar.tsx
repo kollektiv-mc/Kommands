@@ -4,6 +4,7 @@ import type { CommandDefinition } from '../schema/types'
 import type { VersionDefinition } from '../data/versions/types'
 import type { CommandValue } from '../schema/serialize'
 import { fingerprintOf } from '../schema/fingerprint'
+import { contentChange } from '../schema/saved'
 import { storageKind, useSavedCommandsStore } from '../stores/useSavedCommandsStore'
 import { FIELD, LABEL, WARNING } from './editors/fieldStyles'
 import { ROW_ADD } from './editors/rowStyles'
@@ -107,6 +108,13 @@ export function SaveCommandBar({
   const empty = output === ''
   const pinned = saved?.pinned === true
 
+  // Whether pressing Save changes would do anything, asked of the same function that
+  // decides it — `contentChange` — rather than of a second guess that could disagree
+  // with the store. It is what greys the control out on a command nobody has touched
+  // since it was opened, which is the honest form of "this save is a no-op": the
+  // alternative is a button that reports success for having done nothing.
+  const change = saved ? contentChange(saved, { value, preview: output, fingerprint }) : 'emitted'
+
   return (
     <div className="flex w-56 flex-col gap-1">
       {/*
@@ -123,10 +131,18 @@ export function SaveCommandBar({
           <button
             type="button"
             className={BUTTON}
-            disabled={empty}
+            disabled={empty || change === 'none'}
+            aria-label={
+              change === 'none'
+                ? 'Save changes — nothing has changed since the last save'
+                : undefined
+            }
             onClick={() => {
               void revise(saved.id, { value, preview: output, fingerprint }).then(() =>
-                setNote('updated'),
+                // Not always "updated": a tree edit that emits the same text is worth
+                // storing and is deliberately not worth a revision, and saying
+                // otherwise beside a number that did not move reads as a bug.
+                setNote(change === 'emitted' ? 'updated' : 'saved · output unchanged'),
               )
             }}
           >
