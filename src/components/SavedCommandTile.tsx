@@ -4,10 +4,8 @@ import { resumability } from '../schema/saved'
 import { findVersion } from '../data/versions'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import { FIELD, LABEL, WARNING } from './editors/fieldStyles'
-import { ROW_ADD, ROW_REMOVE } from './editors/rowStyles'
-
-/** A control that is present on purpose and cannot be used yet. */
-const DISABLED = 'text-text-faint text-2xs cursor-not-allowed'
+import { IconButton } from './ui/IconButton'
+import { Icon } from './ui/Icon'
 
 /** What the three resumability answers say to someone looking at a tile. */
 const RESUMABILITY_NOTE = {
@@ -182,44 +180,85 @@ export function SavedCommandTile({
           all want the same thing, and a control added later gets it by being in the
           row rather than by remembering. */}
       <div onClick={(e) => e.stopPropagation()} className="mt-auto flex items-center gap-2">
-        <span className={LABEL}>{`${saved.definitionId} · rev ${saved.revision}`}</span>
+        {/*
+          `min-w-0` and `truncate` together, which is the pair that actually works: a
+          flex child's default `min-width: auto` refuses to shrink below its content, so
+          `truncate` alone leaves a long definition id pushing the controls off the tile
+          at the six-column breakpoint rather than ellipsing.
+        */}
+        <span className={`${LABEL} min-w-0 truncate`}>
+          {`${saved.definitionId} · rev ${saved.revision}`}
+        </span>
         <span className="flex-1" />
         {/*
-          Present and disabled rather than absent. Linking is standalone-only and
-          permanently so, and `distribution.md` § The split must be visible names the
-          failure to design against: a user discovering that by finding nothing where
-          they expected something. A control that is there and says why is a smaller
-          disappointment than one that never appears.
+          Four glyphs rather than four words, and the reason is what a tile is for.
+          These sit on a card whose subject is a line of command text, at six across on
+          a wide viewport; four lowercase labels in a row read as a sentence competing
+          with the command above them, and set the tile's width from the length of the
+          word "rename". The icons collapse that to one square each — the same
+          `IconButton` the panel header and `PinnedGeneratorTile` already use, so the
+          dashboard has one control language rather than two.
 
-          The reason lives in the accessible name as well as in the header line above,
-          because a `title` is discovered on hover — which is the same failure one level
-          down. `SavedCommandStorage.kind` is what decides; nothing here sniffs a user
-          agent or a build flag.
+          What the words carried, the accessible name now carries, and it carries more:
+          `Delete Starter kit` rather than `delete`, because a dashboard holding twelve
+          commands otherwise offers twelve identical buttons called "delete" to anyone
+          reading it linearly. `title` puts the same string in the tooltip, which is
+          what replaces the visible label for a sighted user.
         */}
-        <button
-          type="button"
-          className={linkable ? ROW_ADD : DISABLED}
-          disabled={!linkable}
-          aria-label={linkable ? 'link' : 'link — needs the desktop build'}
-        >
-          link
-        </button>
-        <button
-          type="button"
-          className={saved.pinned === true ? ROW_ADD : ROW_REMOVE}
-          onClick={onPin}
-          aria-pressed={saved.pinned === true}
-        >
-          {saved.pinned === true ? 'pinned' : 'pin'}
-        </button>
-        {!renaming && (
-          <button type="button" className={ROW_REMOVE} onClick={() => setRenaming(true)}>
-            rename
-          </button>
-        )}
-        <button type="button" className={ROW_REMOVE} onClick={onRemove}>
-          delete
-        </button>
+        <div className="flex items-center gap-0.5">
+          {/*
+            Present and disabled rather than absent. Linking is standalone-only and
+            permanently so, and `distribution.md` § The split must be visible names the
+            failure to design against: a user discovering that by finding nothing where
+            they expected something. A control that is there and says why is a smaller
+            disappointment than one that never appears.
+
+            The reason lives in the accessible name as well as in the header line above,
+            because a `title` is discovered on hover — which is the same failure one
+            level down. `SavedCommandStorage.kind` is what decides; nothing here sniffs
+            a user agent or a build flag.
+          */}
+          <IconButton
+            disabled={!linkable}
+            title={
+              linkable
+                ? `Send ${saved.name} to Konnekt`
+                : `Send ${saved.name} to Konnekt — needs the desktop build`
+            }
+          >
+            <Icon name="link" size="sm" />
+          </IconButton>
+          {/*
+            One glyph for both states, tinted and `aria-pressed` rather than swapped for
+            a `pin-off`. A toggle that changes its icon is telling the user what the
+            press would do; one that changes its colour is telling them what is true
+            now, and `PinnedGeneratorTile` already made that call for the same pin.
+          */}
+          <IconButton
+            onClick={onPin}
+            aria-pressed={saved.pinned === true}
+            title={saved.pinned === true ? `Unpin ${saved.name}` : `Pin ${saved.name}`}
+            className={saved.pinned === true ? 'text-accent' : ''}
+          >
+            <Icon name="pin" size="sm" />
+          </IconButton>
+          {/*
+            Kept in the row while the rename form is open rather than removed, so
+            pressing it is also the way *out* of renaming. The old text control
+            unmounted itself on the way in, which left the row one control narrower
+            mid-interaction and the only exit a submit or a click elsewhere.
+          */}
+          <IconButton
+            onClick={() => setRenaming((was) => !was)}
+            aria-pressed={renaming}
+            title={renaming ? `Stop renaming ${saved.name}` : `Rename ${saved.name}`}
+          >
+            <Icon name="pencil" size="sm" />
+          </IconButton>
+          <IconButton onClick={onRemove} tone="danger" title={`Delete ${saved.name}`}>
+            <Icon name="trash" size="sm" />
+          </IconButton>
+        </div>
       </div>
 
       {note && <span className={WARNING}>{note}</span>}

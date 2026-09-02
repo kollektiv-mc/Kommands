@@ -63,9 +63,21 @@
 
   /* Motion. Reuse these instead of inventing per-component durations
      (docs/health-checklist.md, Clean pillar). --ease-standard is Tailwind's
-     ease-in-out bezier, spelled out so plain CSS can reuse it. */
+     ease-in-out bezier, spelled out so plain CSS can reuse it.
+
+     Each duration is emitted twice from one source value, because the two names
+     are read by different consumers. --duration-* is what hand-written CSS and
+     a runtime getPropertyValue reach for; Tailwind v4 resolves its duration-*
+     utilities against --transition-duration-* and never against --duration-*, so
+     the alias is what makes duration-fast work as a class the way ease-standard
+     already does. Without it the utility is not an error - it emits nothing and
+     the element silently keeps Tailwind's --default-transition-duration, which is
+     the kind of miss no check can see. Konnekt's generator emits the same pair
+     from the same source, and says so in the same words. */
   --duration-fast: 150ms;
+  --transition-duration-fast: 150ms;
   --duration-panel: 280ms;
+  --transition-duration-panel: 280ms;
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Border widths. Tailwind v4 has no --border-width-* namespace, so these are

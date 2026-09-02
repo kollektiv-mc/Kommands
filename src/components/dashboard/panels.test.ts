@@ -1,12 +1,5 @@
 import { expect, test } from 'vitest'
-import {
-  PANELS,
-  SLOTS_PER_ROW,
-  emptySlots,
-  panelById,
-  type CommandPanel,
-  type PanelId,
-} from './panels'
+import { PANELS, panelById, type CommandPanel, type PanelId } from './panels'
 import type { SavedCommand } from '../../schema/saved'
 
 function command(over: Partial<SavedCommand>): SavedCommand {
@@ -85,22 +78,6 @@ test('every panel says something when it is empty', () => {
   for (const panel of LENSES) {
     expect(panel.select([])).toEqual([])
   }
-})
-
-test('an empty panel offers a whole row of space, and a full row offers none', () => {
-  // The affordance is "there is room here", not "this panel is broken". Six outlines
-  // say the first; a bare sentence says neither.
-  expect(emptySlots(0)).toBe(6)
-  expect(emptySlots(4)).toBe(2)
-  expect(emptySlots(6)).toBe(0)
-  // And it finishes the row rather than padding to some fixed height — seven tiles get
-  // five slots, not forty-one.
-  expect(emptySlots(7)).toBe(5)
-  expect(emptySlots(12)).toBe(0)
-  // Six is chosen for its factors: a full row stays a whole number of full rows at
-  // every narrower breakpoint the grid steps through. Four is the one the ramp skips,
-  // and this is why.
-  for (const columns of [1, 2, 3, 6]) expect(SLOTS_PER_ROW % columns).toBe(0)
 })
 
 test('the pinned-generators panel is not a lens over saved commands', () => {

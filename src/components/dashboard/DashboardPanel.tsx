@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import { LABEL } from '../editors/fieldStyles'
 import { IconButton } from '../ui/IconButton'
 import { Icon } from '../ui/Icon'
-import { emptySlots, type PanelDescriptor } from './panels'
+import { Collapsible } from '../ui/Collapsible'
+import type { PanelDescriptor } from './panels'
 
 /**
  * One organizer on the dashboard: a header, a count, its controls, and a grid of tiles.
@@ -17,26 +18,79 @@ import { emptySlots, type PanelDescriptor } from './panels'
  * design language is a surface and a border; there is no shadow token to reach for and
  * `.claude/rules/styling.md` says so in as many words.
  *
- * The grid lives here rather than in each caller, because the column ramp and the
- * placeholder arithmetic are one decision (`panels.ts` § SLOTS_PER_ROW) and four
- * copies of it would drift the first time one panel wanted a different width.
+ * **The grid pads nothing.** It used to draw dashed outlines to finish the row — six
+ * of them for an empty panel — on the reasoning that an outline says "there is room
+ * here" where a bare sentence says "this feature is missing". That reasoning holds for
+ * one empty panel and not for four: a dashboard nobody has saved to opened as
+ * twenty-four dashed rectangles, and every panel reserved a full row of height it had
+ * no content for, so a window small enough to need the space spent it on placeholders.
+ * A row now holds what there is, and wraps to a second line only when there is a second
+ * line's worth of commands.
  */
 export function DashboardPanel({
   panel,
   count,
+  collapsed,
+  onToggle,
   onRemove,
   children,
 }: {
   panel: PanelDescriptor
-  /** How many real tiles `children` renders. Drives the count and the empty slots. */
+  /** How many real tiles `children` renders. Drives the count and the empty sentence. */
   count: number
+  collapsed: boolean
+  onToggle: () => void
   onRemove: () => void
   children: ReactNode
 }) {
   return (
     <section className="border-hairline border-border-subtle bg-surface rounded-panel flex flex-col">
-      <div className="border-b-hairline border-border-subtle flex items-center gap-2 px-3 py-2">
-        <h2 className="font-title text-text-secondary text-1xs">{panel.title}</h2>
+      <div
+        className={`flex items-center gap-2 px-3 py-2 ${
+          // The rule separates the header from the body, so a collapsed panel has
+          // nothing for it to separate — drawn there it lands a hairline above the
+          // section's own bottom border and the two read as one thick edge. The colour
+          // goes rather than the width, so the header keeps its height and the line
+          // fades with the body instead of vanishing the instant it is clicked.
+          // Konnekt's `NavSection` reaches the same conclusion in the same words.
+          collapsed
+            ? 'border-b-hairline border-b-transparent'
+            : 'border-b-hairline border-b-border-subtle'
+        }`}
+      >
+        {/*
+          The heading wraps the button rather than the other way round. A `<button>`
+          takes phrasing content and an `<h2>` is flow content, so a heading inside a
+          control is invalid HTML — and the alternative, dropping the heading for a
+          span, would take `getByRole('heading')` away from every dashboard test and
+          the section landmark structure away from anyone navigating by heading.
+
+          The count stays outside it for the same naming reason: inside, the heading
+          would be called "Saved commands 1" and change its own accessible name every
+          time a command was saved.
+
+          One glyph that rotates rather than two that swap. A lucide chevron's ink is
+          centred in its box, so the rotation is a turn rather than a lurch, and a
+          disclosure marker that *travels* between its two states is the part that
+          reads as a hinge.
+        */}
+        <h2 className="min-w-0">
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={!collapsed}
+            className="hover:text-text-primary flex cursor-pointer items-center gap-2 text-left select-none"
+          >
+            <Icon
+              name="chevronDown"
+              size="sm"
+              className={`text-text-faint duration-fast shrink-0 transition-transform ${
+                collapsed ? '-rotate-90' : ''
+              }`}
+            />
+            <span className="font-title text-text-secondary text-1xs truncate">{panel.title}</span>
+          </button>
+        </h2>
         <span className={LABEL}>{count}</span>
         <span className="flex-1" />
         {/*
@@ -60,52 +114,23 @@ export function DashboardPanel({
         </IconButton>
       </div>
 
-      <div className="flex flex-col gap-2 p-3">
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
-          {children}
-          {Array.from({ length: emptySlots(count) }, (_, index) => (
-            <EmptySlot key={`slot-${index}`} />
-          ))}
-        </ul>
-        {/*
-          Still said, and now underneath the slots rather than instead of them. The
-          outlines show there is room; this says what would fill it, which an outline
-          cannot. `panels.ts` has carried the sentence since the panels did.
-        */}
-        {count === 0 && <p className={LABEL}>{panel.empty}</p>}
-      </div>
+      {/*
+        Collapsed hides the body, it does not unmount it. The height has to be
+        measurable for the animation to travel anywhere, and a panel that threw its
+        tiles away would re-mount every one of them — remeasuring the fingerprint
+        verdict and losing any half-typed rename — the moment it was opened again.
+      */}
+      <Collapsible open={!collapsed}>
+        <div className="flex flex-col gap-2 p-3">
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+            {children}
+          </ul>
+          {/* The only thing an empty panel draws now. An outline could show there was
+              room; only a sentence can say what the room is for, and it turns out to be
+              the half worth keeping. */}
+          {count === 0 && <p className={LABEL}>{panel.empty}</p>}
+        </div>
+      </Collapsible>
     </section>
-  )
-}
-
-/**
- * Space for a tile that is not there.
- *
- * `aria-hidden`, and that is not a detail: these are decoration, and a screen reader
- * counting five empty list items before the real one would make an empty panel *worse*
- * to navigate than a blank box. It is also what keeps `getByRole('listitem')` meaning
- * "a command" across the dashboard tests.
- *
- * An outline over nothing, rather than a ghost of a real tile. A ghost invites a
- * click; an outline reads as a slot. The height matches a tile with a name, one line
- * of command text and a control row, so a panel does not resize as it fills up.
- *
- * Two passes settled the weight, and both edges are worth recording because they are
- * close together. A dashed `border-hairline` is invisible: at 0.5px the dashes fall
- * below a device pixel and render as a barely-there smudge, so the affordance said
- * nothing while being perfectly correct in the markup. `border-thick` *with* a
- * `bg-surface` fill went too far the other way — a filled rounded rectangle is a tile,
- * and a panel of them read as content that had failed to load rather than as room.
- *
- * So: the wider border, because dashes need width to read as dashes, and no fill at
- * all, because the fill is what made it a tile. What is left is a line that says
- * "something goes here" and nothing that says "something is here".
- */
-function EmptySlot() {
-  return (
-    <li
-      aria-hidden="true"
-      className="border-thick border-border-subtle rounded-panel min-h-28 border-dashed"
-    />
   )
 }

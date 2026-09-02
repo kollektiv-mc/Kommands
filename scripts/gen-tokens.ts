@@ -247,9 +247,21 @@ function emitCss(src: TokenSource): string {
   push()
   push(`  /* Motion. Reuse these instead of inventing per-component durations`)
   push(`     (docs/health-checklist.md, Clean pillar). --ease-standard is Tailwind's`)
-  push(`     ease-in-out bezier, spelled out so plain CSS can reuse it. */`)
+  push(`     ease-in-out bezier, spelled out so plain CSS can reuse it.`)
+  push()
+  push(`     Each duration is emitted twice from one source value, because the two names`)
+  push(`     are read by different consumers. --duration-* is what hand-written CSS and`)
+  push(`     a runtime getPropertyValue reach for; Tailwind v4 resolves its duration-*`)
+  push(`     utilities against --transition-duration-* and never against --duration-*, so`)
+  push(`     the alias is what makes duration-fast work as a class the way ease-standard`)
+  push(`     already does. Without it the utility is not an error - it emits nothing and`)
+  push(`     the element silently keeps Tailwind's --default-transition-duration, which is`)
+  push(`     the kind of miss no check can see. Konnekt's generator emits the same pair`)
+  push(`     from the same source, and says so in the same words. */`)
   for (const [name, value] of Object.entries(src.motion.duration.scale)) {
-    push(`  --duration-${name}: ${scalar(value, src.motion.duration.unit)};`)
+    const emitted = scalar(value, src.motion.duration.unit)
+    push(`  --duration-${name}: ${emitted};`)
+    push(`  --transition-duration-${name}: ${emitted};`)
   }
   for (const [name, points] of Object.entries(src.motion.easing)) {
     push(`  --ease-${name}: cubic-bezier(${points.join(', ')});`)

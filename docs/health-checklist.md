@@ -389,7 +389,7 @@ belongs here.
       This is the headless half of capping the evaluated volume.
 - [x] There is an agreed production bundle budget, checked in CI. 120 KB gzip on the
       entry chunk, via `pnpm check-bundle`, run by `.github/workflows/ci.yml` on every
-      push. Currently 105.4 KB. Konnekt's equivalent is 165 KB. It was 550 KB
+      push. Currently 116.6 KB. Konnekt's equivalent is 165 KB. It was 550 KB
       before its scheduler/config/mods code split, and that gap used to be the
       point: this app's data was lazy and Konnekt's dependencies were not. Both
       lazy-load now, so what is left is a much narrower difference.
@@ -429,7 +429,10 @@ it should be stable between runs.
 **P3 — Entry-chunk headroom is down to 5 KB**
 
 - The title bar, settings dialog, icon set, pinned-generator store and its tile cost
-  2.8 KB gzip, leaving 114.9 KB against the 120 KB ceiling. That is still a pass, and
+  2.8 KB gzip; the dashboard tile's icon controls and the content-change comparison
+  behind `revision` added 0.5 KB, and the collapse (`ui/Collapsible`, `lib/motion`, the
+  chevron) plus the web build's floating frame another 0.7 KB, leaving 116.6 KB against
+  the 120 KB ceiling. **3.4 KB of headroom.** That is still a pass, and
   it is the reason the icons are six inline paths rather than a dependency. The next UI
   feature of this size needs either a lazy boundary or a considered budget raise — and
   the budget is a number someone can raise, which is why `check-bundle.ts` also asserts

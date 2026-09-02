@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest'
 import {
   canResume,
+  contentChange,
   createSaved,
   nextInstanceIdFor,
   renameSaved,
@@ -62,6 +63,78 @@ test('revising keeps the id and bumps the revision', () => {
   expect(next.revision).toBe(2)
   expect(next.createdAt).toBe(saved.createdAt)
   expect(next.updatedAt).not.toBe(saved.updatedAt)
+})
+
+test('re-saving an untouched command changes nothing at all', () => {
+  const clock = fixedClock()
+  const saved = createSaved(DRAFT, clock)
+  const next = reviseSaved(
+    saved,
+    { value: EMPTY_VALUE, preview: DRAFT.preview, fingerprint: DRAFT.fingerprint },
+    clock,
+  )
+
+  // The identity is the contract, not an optimisation: it is how the store knows to
+  // skip the write entirely, which is what keeps a no-op save from touching the file
+  // Konnekt watches. `persistence.md` § Testing obligations asks for exactly this.
+  expect(next).toBe(saved)
+  expect(next.revision).toBe(1)
+  expect(next.updatedAt).toBe(saved.updatedAt)
+})
+
+test('a tree rebuilt in a different key order is not a change', () => {
+  // The realistic no-op. A saved tree read back out of storage and re-serialized by
+  // the workbench is equal but not identical, and its keys are in the file's order
+  // rather than the editor's. A stringify comparison would call this a content change
+  // and bump the revision for having opened the command.
+  const clock = fixedClock()
+  const value: CommandValue = {
+    args: { 'root.0': 'a', 'root.1': 'b' },
+    flags: {},
+    choices: {},
+    repeats: {},
+    refs: {},
+  }
+  const saved = createSaved({ ...DRAFT, value }, clock)
+  const rebuilt: CommandValue = {
+    refs: {},
+    repeats: {},
+    choices: {},
+    flags: {},
+    args: { 'root.1': 'b', 'root.0': 'a' },
+  }
+
+  expect(reviseSaved(saved, { ...DRAFT, value: rebuilt }, clock)).toBe(saved)
+})
+
+test('a tree edit that emits the same text is stored without a revision', () => {
+  const clock = fixedClock()
+  const saved = createSaved(DRAFT, clock)
+  const value: CommandValue = { ...EMPTY_VALUE, flags: { 'root.2': false } }
+  const next = reviseSaved(
+    saved,
+    { value, preview: DRAFT.preview, fingerprint: DRAFT.fingerprint },
+    clock,
+  )
+
+  // `revision` answers one question — has what this command runs changed — so a tree
+  // that moved to a state serializing identically is worth keeping (it is what an edit
+  // resumes from) and is not worth telling a linked consumer about.
+  expect(next).not.toBe(saved)
+  expect(next.value).toBe(value)
+  expect(next.revision).toBe(1)
+  expect(next.updatedAt).not.toBe(saved.updatedAt)
+})
+
+test('contentChange names which of the three cases a save is', () => {
+  const saved = createSaved(DRAFT, fixedClock())
+  const same = { value: EMPTY_VALUE, preview: DRAFT.preview, fingerprint: DRAFT.fingerprint }
+
+  expect(contentChange(saved, same)).toBe('none')
+  expect(contentChange(saved, { ...same, preview: '/give @p diamond' })).toBe('emitted')
+  // A definition reshaped without changing what it emits: the record has to record the
+  // new shape, and a consumer running the text has nothing to re-read.
+  expect(contentChange(saved, { ...same, fingerprint: 'fp-give-v2' })).toBe('stored')
 })
 
 test('renaming moves updatedAt but not the revision', () => {

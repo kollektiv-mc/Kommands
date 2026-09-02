@@ -82,23 +82,64 @@ test('with nothing saved, the organizers are still there rather than replaced by
   expect(screen.getByRole('heading', { name: 'Recent' })).toBeDefined()
   expect(screen.getByRole('heading', { name: 'Quick' })).toBeDefined()
 
-  // Each still says what would fill it. The empty slots show there is room; only the
-  // sentence can say what the room is for.
+  // Each still says what would fill it, in one sentence and nothing else.
   expect(screen.getByText(/Nothing saved yet/)).toBeDefined()
   // And the way forward is where it now always is, rather than only on this screen.
   expect(screen.getByRole('link', { name: 'New command' }).getAttribute('href')).toBe('/c')
 })
 
-test('empty slots are drawn but not announced', async () => {
+test('an empty panel draws nothing but its sentence', async () => {
   await renderWithRouter(<Dashboard />)
   await screen.findByRole('heading', { name: 'Saved commands' })
 
-  // Four organizers × five slots are in the markup, and none of them is a listitem.
-  // A screen reader counting twenty empty entries before the first real one would make
-  // an empty dashboard worse to navigate than a blank box — which is why the slots are
-  // aria-hidden, and why `getByRole('listitem')` still means "a command" everywhere
-  // else in this file.
+  // There used to be six dashed placeholders per panel — twenty-four on a dashboard
+  // nobody had saved to — reserving a full row of height each. Every one of them was
+  // aria-hidden, so this assertion passed before the removal too; what it now also
+  // pins is that a row wraps for commands and never for scenery. The grid holds only
+  // what `children` puts in it.
   expect(screen.queryAllByRole('listitem')).toHaveLength(0)
+  const saved = screen.getByRole('heading', { name: 'Saved commands' }).closest('section')!
+  expect(within(saved).getByRole('list').children).toHaveLength(0)
+})
+
+test('a panel closes, stays closed, and says which it is', async () => {
+  const user = userEvent.setup()
+  await seed(DRAFT)
+  await renderWithRouter(<Dashboard />)
+
+  // Konnekt's navbar sections are the model: the chevron beside the title is the
+  // control, `aria-expanded` carries the state, and the choice is remembered.
+  const toggle = await screen.findByRole('button', { name: 'Saved commands', expanded: true })
+  await user.click(toggle)
+
+  expect(toggle.getAttribute('aria-expanded')).toBe('false')
+  expect(useDashboardStore.getState().collapsed).toEqual(['saved'])
+
+  // Hidden, not unmounted. The height has to stay measurable for the collapse to
+  // travel anywhere, and throwing the tiles away would remount every one of them —
+  // losing a half-typed rename — the moment the panel was opened again.
+  const saved = screen.getByRole('heading', { name: 'Saved commands' }).closest('section')!
+  expect(within(saved).getAllByRole('listitem')).toHaveLength(1)
+})
+
+test('closing a panel is not the same decision as removing it', async () => {
+  const user = userEvent.setup()
+  await renderWithRouter(<Dashboard />)
+
+  await user.click(await screen.findByRole('button', { name: 'Saved commands', expanded: true }))
+  expect(useDashboardStore.getState().placed).toContain('saved')
+
+  // Removing a closed panel forgets that it was closed. A restore is someone asking to
+  // see the panel again, and `AddPanelMenu` gives no hint that what comes back would
+  // be shut — so bringing one back in that state would look like the restore failing.
+  await user.click(screen.getByRole('button', { name: 'Remove Saved commands panel' }))
+  await user.click(screen.getByRole('button', { name: /^Add panel/ }))
+  await user.click(screen.getByRole('button', { name: 'Saved commands' }))
+
+  expect(useDashboardStore.getState().collapsed).toEqual([])
+  expect(screen.getByRole('button', { name: 'Saved commands' }).getAttribute('aria-expanded')).toBe(
+    'true',
+  )
 })
 
 test('a pinned generator becomes a tile that opens its editor', async () => {
@@ -177,7 +218,7 @@ test('renaming a tile keeps its revision', async () => {
   await seed(DRAFT)
   await renderWithRouter(<Dashboard />)
 
-  await user.click(await screen.findByRole('button', { name: 'rename' }))
+  await user.click(await screen.findByRole('button', { name: 'Rename Starter kit' }))
   const field = screen.getByRole('textbox', { name: 'Name' })
   await user.clear(field)
   await user.type(field, 'Kit v2')
@@ -189,12 +230,31 @@ test('renaming a tile keeps its revision', async () => {
   expect(useSavedCommandsStore.getState().commands[0]!.revision).toBe(1)
 })
 
+test("a tile's controls are glyphs that still name the command they act on", async () => {
+  await seed(DRAFT)
+  await renderWithRouter(<Dashboard />)
+
+  const tile = await screen.findByRole('listitem')
+
+  // Four words became four glyphs, so the visible label is gone and the accessible
+  // name is all there is. It names the *command* rather than the verb: a dashboard
+  // holding twelve saved commands would otherwise offer twelve buttons called
+  // "delete" to anyone reading it linearly, and no way to tell which was which.
+  expect(within(tile).getByRole('button', { name: 'Rename Starter kit' })).toBeDefined()
+  expect(within(tile).getByRole('button', { name: 'Delete Starter kit' })).toBeDefined()
+
+  // The pin is one glyph in two states rather than two glyphs, so `aria-pressed` is
+  // what carries "this is on" — a colour cannot.
+  const pin = within(tile).getByRole('button', { name: 'Pin Starter kit' })
+  expect(pin.getAttribute('aria-pressed')).toBe('false')
+})
+
 test('deleting a tile removes it from storage, not just from the screen', async () => {
   const user = userEvent.setup()
   await seed(DRAFT)
   await renderWithRouter(<Dashboard />)
 
-  await user.click(await screen.findByRole('button', { name: 'delete' }))
+  await user.click(await screen.findByRole('button', { name: 'Delete Starter kit' }))
 
   expect(screen.queryByRole('listitem')).toBeNull()
   expect(await localStorageBackend(backing).list()).toHaveLength(0)
@@ -226,7 +286,9 @@ test('the web build says what it cannot do rather than hiding the control', asyn
   // Present and disabled, not absent. `distribution.md` § The split must be visible
   // names the failure this guards against: a user learning that linking is
   // standalone-only by finding nothing where they expected something.
-  const link = await screen.findByRole('button', { name: /link — needs the desktop build/ })
+  const link = await screen.findByRole('button', {
+    name: /Send Starter kit to Konnekt — needs the desktop build/,
+  })
   expect(link.hasAttribute('disabled')).toBe(true)
   // And the reason is readable without hovering anything.
   expect(screen.getByText(/needs the standalone build/)).toBeDefined()
@@ -241,7 +303,7 @@ test('the standalone build offers the same control live', async () => {
   await seed(DRAFT)
   await renderWithRouter(<Dashboard />)
 
-  const link = await screen.findByRole('button', { name: 'link' })
+  const link = await screen.findByRole('button', { name: 'Send Starter kit to Konnekt' })
   expect(link.hasAttribute('disabled')).toBe(false)
   expect(screen.queryByText(/needs the standalone build/)).toBeNull()
 })
@@ -289,7 +351,7 @@ test('pressing a control on a tile does that control rather than opening it', as
 
   // The two layers must not fight. Without the row stopping propagation, deleting a
   // command would also navigate into the editor for the record just removed.
-  await user.click(await screen.findByRole('button', { name: 'delete' }))
+  await user.click(await screen.findByRole('button', { name: 'Delete Starter kit' }))
 
   expect(screen.queryByRole('listitem')).toBeNull()
   expect(useUiStore.getState().origin).toBeNull()

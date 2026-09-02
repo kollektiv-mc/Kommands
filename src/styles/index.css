@@ -144,6 +144,31 @@ body {
   --wails-draggable: no-drag;
 }
 
+/* ── Collapse ────────────────────────────────────────────────────────────────
+   The transition half of src/components/ui/Collapsible.tsx, which owns the
+   measured `max-height` it travels between.
+
+   It lives here rather than beside that height for two reasons, and the second
+   is the one that matters. It is a static value, so the styling rule applies
+   with no exception to claim — the component is then left writing exactly one
+   inline property, the one no static class could ever carry. And a transition
+   declared in JSX cannot be reached by a media query, so this is the only place
+   the reduced-motion rule below can hold it.
+
+   Under reduced motion the panel snaps rather than glides, and nothing else
+   changes: with no transition there is no `transitionend`, and the component's
+   own timer is what releases the height cap. That path is exercised by every
+   test in this repo, since jsdom runs no transitions either. */
+.collapsible {
+  transition: max-height var(--duration-panel) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collapsible {
+    transition: none;
+  }
+}
+
 /* ── Startup splash ──────────────────────────────────────────────────────────
    The opening sequence, matching Konnekt's so both products start the same way.
    See src/components/SplashScreen.tsx, which owns the mount and holds the

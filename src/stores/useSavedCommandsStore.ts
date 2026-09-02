@@ -34,7 +34,13 @@ interface SavedCommandsState {
   load: () => Promise<void>
   /** Save a command that has never been saved. Resolves to its new, permanent id. */
   create: (draft: SavedCommandDraft) => Promise<string | null>
-  /** Replace a saved command's content, bumping its revision. */
+  /**
+   * Replace a saved command's content, bumping its revision if the command text moved.
+   *
+   * A save that changes nothing writes nothing — no store call, no state update, no
+   * revision. See `reviseSaved`, which decides that and says so by returning the
+   * record it was given.
+   */
   revise: (
     id: string,
     content: Pick<SavedCommandDraft, 'value' | 'preview' | 'fingerprint'>,
@@ -163,6 +169,11 @@ export const useSavedCommandsStore = create<SavedCommandsState>((set, get) => ({
     const existing = get().commands.find((held) => held.id === id)
     if (!store || !existing) return
     const next = reviseSaved(existing, content)
+    // Identity means there was nothing to change — see `reviseSaved`. Returning here
+    // rather than writing an equal record is what `persistence.md` § Testing
+    // obligations asks for: a rewrite with unchanged content leaves the mtime alone,
+    // and on the standalone backend that mtime is what Konnekt watches.
+    if (next === existing) return
     try {
       await store.put(next)
     } catch (error) {

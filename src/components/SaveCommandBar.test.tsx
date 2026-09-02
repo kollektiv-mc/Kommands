@@ -111,6 +111,33 @@ test('editing a saved command updates it in place rather than making a second co
   expect(listed[0]!.preview).toBe('/give @p diamond')
 })
 
+test('re-saving a command nobody has touched is offered as the no-op it is', async () => {
+  const user = userEvent.setup()
+  await renderWithRouter(bar('/give @p stone'))
+  await user.type(await screen.findByRole('textbox', { name: 'Save as' }), 'Starter kit')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
+  const [first] = await localStorageBackend(backing).list()
+
+  // Reopened with the command exactly as it was stored, which is what a tile click
+  // produces. The control is present and disabled with the reason in its accessible
+  // name — the same call every other unavailable control here makes — rather than
+  // reporting success for a save that would change nothing and bump a revision every
+  // linked consumer would re-read for.
+  await renderWithRouter(bar('/give @p stone', first!.id))
+  const idle = await screen.findByRole('button', {
+    name: /Save changes — nothing has changed since the last save/,
+  })
+  expect(idle).toHaveProperty('disabled', true)
+
+  // And it comes back the moment the command does change.
+  await renderWithRouter(bar('/give @p diamond', first!.id))
+  expect(await screen.findByRole('button', { name: 'Save changes' })).toHaveProperty(
+    'disabled',
+    false,
+  )
+})
+
 test('with storage off it says so instead of offering a control that cannot work', async () => {
   configureStorage(null)
   await renderWithRouter(bar('/give @p stone'))
