@@ -31,8 +31,8 @@ const CTA =
  * over. It hid the organizers from exactly the person who had never seen them, so the
  * dashboard's shape was a thing you discovered by saving something first; and it put
  * the product name in the middle of the page while the title bar was already carrying
- * it. An empty organizer now says it is empty *and* shows the room it has, which is
- * `dashboard/panels.ts` § emptySlots.
+ * it. An empty organizer now says it is empty, in one sentence, and takes up no more
+ * room than that sentence needs.
  *
  * Panels stack vertically and the page scrolls, rather than sitting on a draggable
  * grid. Konnekt uses `react-grid-layout` for its canvas; this app has roughly 5 KB of
@@ -58,6 +58,8 @@ export function Dashboard() {
   const hydrate = useDashboardStore((s) => s.hydrate)
   const removePanel = useDashboardStore((s) => s.remove)
   const restorePanel = useDashboardStore((s) => s.restore)
+  const collapsed = useDashboardStore((s) => s.collapsed)
+  const toggleCollapsed = useDashboardStore((s) => s.toggleCollapsed)
 
   const pinnedGenerators = usePinnedGeneratorsStore((s) => s.pinned)
   const hydratePins = usePinnedGeneratorsStore((s) => s.hydrate)
@@ -172,6 +174,8 @@ export function Dashboard() {
             key={panel.id}
             panel={panel}
             count={pinnedGenerators.length}
+            collapsed={collapsed.includes(panel.id)}
+            onToggle={() => toggleCollapsed(panel.id)}
             onRemove={() => removePanel(panel.id)}
           >
             {pinnedGenerators.map((generator) => (
@@ -187,6 +191,8 @@ export function Dashboard() {
             key={panel.id}
             panel={panel}
             count={shown.length}
+            collapsed={collapsed.includes(panel.id)}
+            onToggle={() => toggleCollapsed(panel.id)}
             onRemove={() => removePanel(panel.id)}
           >
             {shown.map((saved) => (

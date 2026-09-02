@@ -5,11 +5,21 @@ import { LAYOUT_VERSION, readLayout, writeLayout } from '../storage/preferences'
 interface DashboardState {
   placed: readonly PanelId[]
   removed: readonly PanelId[]
+  /**
+   * The panels currently closed.
+   *
+   * Held apart from `placed` rather than as a flag on it, because closed and placed are
+   * orthogonal — a closed panel is still on the dashboard, and folding the two together
+   * would make removing a closed panel and restoring it quietly reopen it.
+   */
+  collapsed: readonly PanelId[]
   hydrated: boolean
   /** Read the stored arrangement. Safe to call repeatedly; only the first does work. */
   hydrate: () => void
   remove: (id: PanelId) => void
   restore: (id: PanelId) => void
+  /** Open a closed panel, or close an open one. */
+  toggleCollapsed: (id: PanelId) => void
 }
 
 const KNOWN = new Set<string>(PANELS.map((panel) => panel.id))
@@ -31,8 +41,9 @@ const KNOWN = new Set<string>(PANELS.map((panel) => panel.id))
 function reconcile(stored: ReturnType<typeof readLayout>): {
   placed: PanelId[]
   removed: PanelId[]
+  collapsed: PanelId[]
 } {
-  if (!stored) return { placed: [...DEFAULT_PLACED], removed: [] }
+  if (!stored) return { placed: [...DEFAULT_PLACED], removed: [], collapsed: [] }
 
   const removed = stored.removed.filter((id): id is PanelId => KNOWN.has(id))
   const removedSet = new Set<string>(removed)
@@ -43,11 +54,28 @@ function reconcile(stored: ReturnType<typeof readLayout>): {
     if (!seen.has(panel.id)) placed.push(panel.id)
   }
 
-  return { placed, removed }
+  // A new panel arrives open, which is the same rule the first bullet above states for
+  // `placed`: a stored list records decisions taken, and nobody has decided to close a
+  // panel they have never seen. Filtered to what is placed for the same reason — a
+  // collapse flag on a removed panel describes nothing, and keeping it would let the
+  // list grow entries no reader can ever act on.
+  const placedSet = new Set<string>(placed)
+  const collapsed = (stored.collapsed ?? []).filter((id): id is PanelId => placedSet.has(id))
+
+  return { placed, removed, collapsed }
 }
 
-function persist(placed: readonly PanelId[], removed: readonly PanelId[]): void {
-  writeLayout({ version: LAYOUT_VERSION, placed: [...placed], removed: [...removed] })
+function persist(
+  placed: readonly PanelId[],
+  removed: readonly PanelId[],
+  collapsed: readonly PanelId[],
+): void {
+  writeLayout({
+    version: LAYOUT_VERSION,
+    placed: [...placed],
+    removed: [...removed],
+    collapsed: [...collapsed],
+  })
 }
 
 /**
@@ -64,19 +92,24 @@ function persist(placed: readonly PanelId[], removed: readonly PanelId[]): void 
 export const useDashboardStore = create<DashboardState>((set, get) => ({
   placed: DEFAULT_PLACED,
   removed: [],
+  collapsed: [],
   hydrated: false,
 
   hydrate: () => {
     if (get().hydrated) return
-    const { placed, removed } = reconcile(readLayout())
-    set({ placed, removed, hydrated: true })
+    const { placed, removed, collapsed } = reconcile(readLayout())
+    set({ placed, removed, collapsed, hydrated: true })
   },
 
   remove: (id) => {
     const placed = get().placed.filter((panel) => panel !== id)
     const removed = get().removed.includes(id) ? get().removed : [...get().removed, id]
-    set({ placed, removed })
-    persist(placed, removed)
+    // Dropped rather than remembered. A panel removed while closed and later restored
+    // should come back showing what is in it — that is the whole reason someone
+    // restores one — and `AddPanelMenu` gives no hint that what returns will be shut.
+    const collapsed = get().collapsed.filter((panel) => panel !== id)
+    set({ placed, removed, collapsed })
+    persist(placed, removed, collapsed)
   },
 
   restore: (id) => {
@@ -86,6 +119,15 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     const placed = [...get().placed, id]
     const removed = get().removed.filter((panel) => panel !== id)
     set({ placed, removed })
-    persist(placed, removed)
+    persist(placed, removed, get().collapsed)
+  },
+
+  toggleCollapsed: (id) => {
+    const closed = get().collapsed.includes(id)
+    const collapsed = closed
+      ? get().collapsed.filter((panel) => panel !== id)
+      : [...get().collapsed, id]
+    set({ collapsed })
+    persist(get().placed, get().removed, collapsed)
   },
 }))

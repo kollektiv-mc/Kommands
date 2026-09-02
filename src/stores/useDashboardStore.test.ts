@@ -6,7 +6,12 @@ const KEY = 'kommands.dashboard-layout'
 
 beforeEach(() => {
   window.localStorage.clear()
-  useDashboardStore.setState({ placed: DEFAULT_PLACED, removed: [], hydrated: false })
+  useDashboardStore.setState({
+    placed: DEFAULT_PLACED,
+    removed: [],
+    collapsed: [],
+    hydrated: false,
+  })
 })
 
 test('with nothing stored, every panel is placed', () => {
@@ -36,6 +41,64 @@ test('restoring puts it back, and that survives too', () => {
 
   expect(useDashboardStore.getState().placed).toContain('quick')
   expect(useDashboardStore.getState().removed).not.toContain('quick')
+})
+
+test('a closed panel is still a placed panel, and stays closed across a reload', () => {
+  useDashboardStore.getState().hydrate()
+  useDashboardStore.getState().toggleCollapsed('recent')
+
+  useDashboardStore.setState({ placed: [], removed: [], collapsed: [], hydrated: false })
+  useDashboardStore.getState().hydrate()
+
+  // Closed and placed are orthogonal. Folding the flag into `placed` would make a
+  // closed panel indistinguishable from a removed one, which is the distinction the
+  // header's chevron and its cross are there to keep apart.
+  expect(useDashboardStore.getState().placed).toContain('recent')
+  expect(useDashboardStore.getState().collapsed).toEqual(['recent'])
+})
+
+test('removing a closed panel forgets that it was closed', () => {
+  useDashboardStore.getState().hydrate()
+  useDashboardStore.getState().toggleCollapsed('quick')
+  useDashboardStore.getState().remove('quick')
+  useDashboardStore.getState().restore('quick')
+
+  // A restore is someone asking to see the panel again. Bringing it back shut would
+  // look like the restore having failed, and nothing in the Add panel menu warns that
+  // it might.
+  expect(useDashboardStore.getState().collapsed).toEqual([])
+})
+
+test('a layout written before panels could close reads as nothing closed', () => {
+  // The forward-compatibility rule this repo applies to every reader: a file missing a
+  // field this build knows about is an older file, not a malformed one, and must not
+  // cost the user the arrangement they did express.
+  window.localStorage.setItem(
+    KEY,
+    JSON.stringify({ version: 1, placed: ['saved', 'recent'], removed: ['quick'] }),
+  )
+  useDashboardStore.getState().hydrate()
+
+  expect(useDashboardStore.getState().collapsed).toEqual([])
+  expect(useDashboardStore.getState().removed).toEqual(['quick'])
+})
+
+test('a closed flag on a panel that is not placed is dropped', () => {
+  // Same skip-the-entry rule as an unknown id. A flag on a removed panel describes
+  // nothing any reader can act on, and keeping it lets the list accumulate entries
+  // that outlive every panel they name.
+  window.localStorage.setItem(
+    KEY,
+    JSON.stringify({
+      version: 1,
+      placed: ['saved'],
+      removed: ['quick'],
+      collapsed: ['quick', 'saved', 'nonsense'],
+    }),
+  )
+  useDashboardStore.getState().hydrate()
+
+  expect(useDashboardStore.getState().collapsed).toEqual(['saved'])
 })
 
 test('a panel this build has never heard of is dropped, not a reason to discard the rest', () => {

@@ -89,11 +89,23 @@ func main() {
 	app := NewApp(dataDir)
 
 	err := wails.Run(&options.App{
-		Title:     "Kommands",
-		Width:     1440,
-		Height:    900,
-		MinWidth:  1024,
-		MinHeight: 600,
+		Title: "Kommands",
+		// Deliberately smaller than Konnekt's 1440x900, and the difference is the
+		// point rather than a preference. Konnekt is a dashboard you leave open
+		// across a monitor; Kommands is a thing you open to build one command and
+		// paste it somewhere else, so it should arrive looking like a panel beside
+		// the work rather than a second application demanding the screen.
+		//
+		// The floor moved with it, and had to. A 1024 minimum is wider than the
+		// default this now opens at, which would have left a window nobody could
+		// shrink to the shape it starts in. 800x560 is the narrowest the dashboard
+		// still reads at: its tile grid steps down to two columns there, and the
+		// web build already has to survive it — see AppShell's FloatingFrame, which
+		// gives the hosted site the same panel at the same width.
+		Width:     1100,
+		Height:    700,
+		MinWidth:  800,
+		MinHeight: 560,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 			// The one JS↔Go surface, shared verbatim with the browser surface:

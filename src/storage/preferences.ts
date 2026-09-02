@@ -24,6 +24,17 @@ export interface StoredLayout {
   version: number
   placed: string[]
   removed: string[]
+  /**
+   * The panels left closed. Optional, because a layout written before panels could be
+   * collapsed is still a valid layout and must still load — the same skip-what-you-do-
+   * not-understand rule the saved-command reader follows, one file over. Absent reads
+   * as "nothing is closed", which is what those layouts meant.
+   *
+   * A third list rather than a flag on the other two, because closed is orthogonal to
+   * placed and removed: a panel is closed *and* placed, and folding the two together
+   * would make removing a closed panel and restoring it silently reopen it.
+   */
+  collapsed?: string[]
 }
 
 export const LAYOUT_VERSION = 1
@@ -41,6 +52,13 @@ export function readLayout(): StoredLayout | null {
       version: typeof layout.version === 'number' ? layout.version : LAYOUT_VERSION,
       placed: layout.placed.filter((id): id is string => typeof id === 'string'),
       removed: layout.removed.filter((id): id is string => typeof id === 'string'),
+      // Not required to be an array, unlike the two above: a file without it is an
+      // older file rather than a malformed one, and rejecting the whole layout over a
+      // field that did not exist when it was written would lose an arrangement the
+      // user made for a preference they never expressed.
+      collapsed: Array.isArray(layout.collapsed)
+        ? layout.collapsed.filter((id): id is string => typeof id === 'string')
+        : [],
     }
   } catch {
     return null
