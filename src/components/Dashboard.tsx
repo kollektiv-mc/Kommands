@@ -52,6 +52,7 @@ export function Dashboard() {
   const rename = useSavedCommandsStore((s) => s.rename)
   const remove = useSavedCommandsStore((s) => s.remove)
   const pin = useSavedCommandsStore((s) => s.pin)
+  const link = useSavedCommandsStore((s) => s.link)
 
   const placed = useDashboardStore((s) => s.placed)
   const removed = useDashboardStore((s) => s.removed)
@@ -145,7 +146,15 @@ export function Dashboard() {
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <h1 className="font-title text-text-primary text-sm">Dashboard</h1>
-        <span className={LABEL}>{`${commands.length} saved`}</span>
+        {/*
+          The linked count only where linking is possible. On the web build it would
+          read "0 linked" forever, which is the sentence below said as a number.
+        */}
+        <span className={LABEL}>
+          {linkable
+            ? `${commands.length} saved · ${commands.filter((c) => c.linked === true).length} linked`
+            : `${commands.length} saved`}
+        </span>
         <span className="flex-1" />
         <AddPanelMenu removed={removed} onRestore={restorePanel} />
         <Link to="/c" className={CTA}>
@@ -161,8 +170,8 @@ export function Dashboard() {
       */}
       {!linkable && (
         <p className={LABEL}>
-          Sending a command to Konnekt needs the standalone build — a browser cannot reach the file
-          the two share.
+          Linking a command into Konnekt needs the standalone build — a browser cannot reach the
+          file the two share.
         </p>
       )}
 
@@ -213,6 +222,7 @@ export function Dashboard() {
                 onRename={(name) => void rename(saved.id, name)}
                 onRemove={() => void remove(saved.id)}
                 onPin={() => void pin(saved.id, saved.pinned !== true)}
+                onLink={() => void link(saved.id, saved.linked !== true)}
                 linkable={linkable}
                 structure={fingerprints ? structureStateFromIndex(saved, fingerprints) : undefined}
               />

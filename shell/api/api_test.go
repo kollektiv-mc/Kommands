@@ -37,7 +37,8 @@ func do(t *testing.T, handler http.Handler, method, path, body string) *httptest
 
 const entry = `{"id":"cmd-1","name":"Kit","definitionId":"vanilla:give","version":"1.21.1",` +
 	`"preview":"/give @p stone","revision":1,"createdAt":"2026-08-31T10:00:00Z",` +
-	`"updatedAt":"2026-08-31T10:00:00Z","value":{"args":{},"flags":{},"choices":{},"repeats":{},"refs":{}}}`
+	`"updatedAt":"2026-08-31T10:00:00Z","linked":true,` +
+	`"value":{"args":{},"flags":{},"choices":{},"repeats":{},"refs":{}}}`
 
 func TestCapabilitiesProbe(t *testing.T) {
 	handler, _ := testHandler(t)

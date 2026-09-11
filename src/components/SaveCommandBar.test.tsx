@@ -180,6 +180,32 @@ test('pinning from the editor is the same pin the dashboard shows', async () => 
   expect(await screen.findByRole('button', { name: 'pinned' })).toBeDefined()
 })
 
+test('linking from the editor is the same link the dashboard shows', async () => {
+  const user = userEvent.setup()
+  // The standalone backend, which is the only one whose writes reach Konnekt.
+  const file = localStorageBackend(backing)
+  configureStorage({ ...file, kind: 'file' })
+  await renderWithRouter(bar('/give @p stone'))
+  await user.type(await screen.findByRole('textbox', { name: 'Save as' }), 'Starter kit')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
+  const [saved] = await file.list()
+  const { container } = await renderWithRouter(bar('/give @p stone', saved!.id))
+  const editor = within(container)
+
+  await user.click(await editor.findByRole('button', { name: 'link' }))
+
+  // One flag, two places, exactly as the pin: the Linked panel reads this, and so does
+  // the projection that decides what Konnekt sees.
+  const [after] = await file.list()
+  expect(after!.linked).toBe(true)
+  expect(after!.revision).toBe(1)
+  expect(await editor.findByRole('button', { name: 'linked' })).toHaveProperty(
+    'ariaPressed',
+    'true',
+  )
+})
+
 test('rename reuses the one field rather than growing a second one', async () => {
   const user = userEvent.setup()
   await renderWithRouter(bar('/give @p stone'))

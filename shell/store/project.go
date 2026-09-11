@@ -31,6 +31,14 @@ import (
 // data it never reads. Projecting also keeps store-only churn out of the
 // shared file entirely: an entry whose projection is unchanged writes the
 // same bytes, and WriteIfChanged then leaves the mtime alone.
+//
+// It is also a filter, and the filter is the feature. Only commands the user
+// linked (`SavedCommand.linked`, src/schema/saved.ts) are projected: saving a
+// command keeps it in this app, linking it is the separate act that puts it
+// in Konnekt's Commands tile, and unlinking takes it back out — Konnekt reads
+// absence as "no longer linked" and drops the button it created for it. Every
+// saved command used to be projected, which made "saved" and "shown in
+// Konnekt" one thing, and left no way to keep a command here alone.
 const SharedSchemaVersion = 1
 
 const (
@@ -58,6 +66,10 @@ type projectionSource struct {
 	Preview   string `json:"preview"`
 	Revision  int64  `json:"revision"`
 	UpdatedAt string `json:"updatedAt"`
+	// Linked is the gate. Absent reads as false, which is what every record
+	// written before the flag existed meant: nothing crossed until someone
+	// said so.
+	Linked bool `json:"linked"`
 }
 
 // hasControlCharacter reports any C0 control or DEL — the characters Konnekt
@@ -82,6 +94,11 @@ func projectEntry(entry Entry) (sharedEntry, bool) {
 	}
 	var source projectionSource
 	if err := json.Unmarshal(entry.Raw, &source); err != nil {
+		return sharedEntry{}, false
+	}
+	// Not a validation failure: a saved command that was never linked has no
+	// place in the shared file by design, however well-formed it is.
+	if !source.Linked {
 		return sharedEntry{}, false
 	}
 

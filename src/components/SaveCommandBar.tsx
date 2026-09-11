@@ -69,6 +69,7 @@ export function SaveCommandBar({
   const revise = useSavedCommandsStore((s) => s.revise)
   const rename = useSavedCommandsStore((s) => s.rename)
   const pin = useSavedCommandsStore((s) => s.pin)
+  const link = useSavedCommandsStore((s) => s.link)
 
   const saved = savedId === undefined ? undefined : commands.find((c) => c.id === savedId)
   const [name, setName] = useState('')
@@ -107,6 +108,7 @@ export function SaveCommandBar({
   // been started yet is the ordinary condition of a page someone just opened.
   const empty = output === ''
   const pinned = saved?.pinned === true
+  const linked = saved?.linked === true
 
   // Whether pressing Save changes would do anything, asked of the same function that
   // decides it — `contentChange` — rather than of a second guess that could disagree
@@ -225,15 +227,17 @@ export function SaveCommandBar({
           type="button"
           className={MINOR}
           disabled={!linkable || !saved}
+          aria-pressed={linked}
           aria-label={
             !linkable
               ? 'link — needs the desktop build'
               : saved
-                ? 'link'
+                ? undefined
                 : 'link — save the command first'
           }
+          onClick={() => saved && void link(saved.id, !linked)}
         >
-          link
+          {linked ? 'linked' : 'link'}
         </button>
         <button
           type="button"

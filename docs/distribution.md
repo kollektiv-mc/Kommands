@@ -260,6 +260,13 @@ So the transport is a file on local disk, specified in
 only ever reads it.** That asymmetry is the whole design — it makes divergence
 structurally impossible rather than merely unlikely.
 
+**Which commands cross is decided here, one at a time.** A saved command is this
+app's: it is kept and organized on the dashboard and never reaches the file.
+Linking it — the `link` control on a tile or in the editor — is what puts it in the
+file, and from there in Konnekt's Commands tile; unlinking takes it back out. The
+dashboard's Linked panel shows exactly that set. Konnekt's side is a view of it,
+not a second place to organize the same commands.
+
 The responsibility consequence is worth stating plainly, because it is easy to
 acquire by accident: **a command edited here can change what another application runs
 against a live world, without a human reading it in between.** Konnekt surfaces a

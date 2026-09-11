@@ -11,11 +11,14 @@ import (
 
 // A realistic entry in the frontend's persisted shape (src/schema/saved.ts),
 // with only the fields the projection reads filled meaningfully.
+// entryJSON is a linked entry: the projection carries only linked commands, so
+// a fixture that should reach the shared file says so, and the tests about
+// what an unlinked or flagless entry does build their own.
 func entryJSON(id, name, preview string, revision int, updatedAt string) string {
 	return `{"id":"` + id + `","name":"` + name + `","definitionId":"vanilla:give",` +
 		`"version":"1.21.1","preview":"` + preview + `","revision":` +
 		jsonNumber(revision) + `,"createdAt":"2026-08-30T10:00:00Z","updatedAt":"` + updatedAt + `",` +
-		`"value":{"args":{},"flags":{},"choices":{},"repeats":{},"refs":{}}}`
+		`"linked":true,"value":{"args":{},"flags":{},"choices":{},"repeats":{},"refs":{}}}`
 }
 
 func jsonNumber(n int) string {

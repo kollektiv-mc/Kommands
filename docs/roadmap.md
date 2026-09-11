@@ -62,6 +62,8 @@ Ordering here **is** fixed, because the dependencies are real.
   atomically, read-only from Konnekt's side. Blocked on both of the above.
   **Standalone only, permanently**: a browser tab cannot write to a shared location on
   disk, and that split has to be visible in the web UI rather than discovered.
+  It carries only the commands the user **linked**, one at a time, never everything
+  saved — see [`persistence.md`](persistence.md) § The shared file.
   [#45](https://github.com/kollektiv-mc/Kommands/issues/45)
 - **`konnekt://` handoff** — the one-shot path, which keeps no relationship after the
   command arrives. Not the same feature as the link above. [#46](https://github.com/kollektiv-mc/Kommands/issues/46)

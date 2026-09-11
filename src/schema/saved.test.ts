@@ -7,6 +7,7 @@ import {
   renameSaved,
   resumability,
   reviseSaved,
+  setLinked,
   setPinned,
   structureState,
   touchOpened,
@@ -241,6 +242,20 @@ test('pinning changes nothing but the pin', () => {
   // as a side effect of a one-click action nobody asked to reorder anything with.
   expect(pinned.updatedAt).toBe(saved.updatedAt)
   expect(setPinned(pinned, false).pinned).toBe(false)
+})
+
+test('linking changes nothing but the link', () => {
+  const saved = createSaved(DRAFT, fixedClock())
+  const linked = setLinked(saved, true)
+
+  expect(linked.linked).toBe(true)
+  // What Konnekt runs has not changed, so there is nothing for it to re-read — the
+  // projection adding the command to the shared file is the whole notification.
+  expect(linked.revision).toBe(saved.revision)
+  expect(linked.updatedAt).toBe(saved.updatedAt)
+  expect(setLinked(linked, false).linked).toBe(false)
+  // A record that predates the flag was never in Konnekt.
+  expect(saved.linked).toBeUndefined()
 })
 
 test('structure state separates the four ways a tree can fail to fit', () => {

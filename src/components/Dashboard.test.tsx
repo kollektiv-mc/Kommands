@@ -81,6 +81,7 @@ test('with nothing saved, the organizers are still there rather than replaced by
   expect(screen.getByRole('heading', { name: 'Saved commands' })).toBeDefined()
   expect(screen.getByRole('heading', { name: 'Recent' })).toBeDefined()
   expect(screen.getByRole('heading', { name: 'Quick' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Linked to Konnekt' })).toBeDefined()
 
   // Each still says what would fill it, in one sentence and nothing else.
   expect(screen.getByText(/Nothing saved yet/)).toBeDefined()
@@ -287,7 +288,7 @@ test('the web build says what it cannot do rather than hiding the control', asyn
   // names the failure this guards against: a user learning that linking is
   // standalone-only by finding nothing where they expected something.
   const link = await screen.findByRole('button', {
-    name: /Send Starter kit to Konnekt — needs the desktop build/,
+    name: /Link Starter kit into Konnekt — needs the desktop build/,
   })
   expect(link.hasAttribute('disabled')).toBe(true)
   // And the reason is readable without hovering anything.
@@ -303,9 +304,41 @@ test('the standalone build offers the same control live', async () => {
   await seed(DRAFT)
   await renderWithRouter(<Dashboard />)
 
-  const link = await screen.findByRole('button', { name: 'Send Starter kit to Konnekt' })
+  const link = await screen.findByRole('button', { name: 'Link Starter kit into Konnekt' })
   expect(link.hasAttribute('disabled')).toBe(false)
   expect(screen.queryByText(/needs the standalone build/)).toBeNull()
+})
+
+test('linking a saved command is what puts it in the Linked panel, and saving is not', async () => {
+  const user = userEvent.setup()
+  const file = localStorageBackend(backing)
+  configureStorage({ ...file, kind: 'file' })
+  await seed(DRAFT)
+  await renderWithRouter(<Dashboard />)
+
+  // Saved is not linked. Before this, every saved command was written into the file
+  // Konnekt reads, which made "saved" and "shown in Konnekt" the same thing and left the
+  // user no way to keep a command here without it appearing there.
+  const linked = (await screen.findByRole('heading', { name: 'Linked to Konnekt' })).closest(
+    'section',
+  )!
+  expect(within(linked).queryAllByRole('listitem')).toHaveLength(0)
+  expect(screen.getByText('1 saved · 0 linked')).toBeDefined()
+
+  await user.click(screen.getByRole('button', { name: 'Link Starter kit into Konnekt' }))
+
+  // The flag reaches the backend, because on the standalone build that write is what
+  // projects the command into the shared file; a flag held only on screen links nothing.
+  const [stored] = await file.list()
+  expect(stored!.linked).toBe(true)
+  expect(within(linked).getAllByRole('listitem')).toHaveLength(1)
+  expect(screen.getByText('1 saved · 1 linked')).toBeDefined()
+
+  // One glyph, two states: the control now says what is true and offers the way back.
+  const toggle = screen.getAllByRole('button', { name: 'Unlink Starter kit from Konnekt' })[0]!
+  expect(toggle.getAttribute('aria-pressed')).toBe('true')
+  await user.click(toggle)
+  expect(within(linked).queryAllByRole('listitem')).toHaveLength(0)
 })
 
 test('a tile says a tree will not restore before it is opened', async () => {

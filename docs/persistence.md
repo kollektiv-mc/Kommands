@@ -71,6 +71,15 @@ to let a list view render without paying for the real thing:
   command skeletons and 668 KB of registries that re-serializing would require. It is
   a cache, never the source of truth; the tree is.
 
+And one flag that is a decision rather than data:
+
+- **`linked`** — whether the user put this command into Konnekt. Saving keeps a
+  command in this app and nowhere else; linking is the separate, explicit act that
+  lets it cross, and the shared file below carries **only** linked commands. The
+  dashboard's Linked panel is the lens over exactly this flag, so it shows what
+  Konnekt's Commands tile shows. Like `pinned`, it moves neither the `revision` nor
+  `updatedAt`: what Konnekt would run has not changed, only whether it can see it.
+
 ### The identifier is the load-bearing part
 
 **A stable `id`, generated once at save time and never regenerated.**
@@ -278,15 +287,22 @@ design, not an implementation detail — it is what makes divergence structurall
 impossible, and it is why the canonical copy lives here rather than in a neutral
 suite directory or in Konnekt's own data directory.
 
-**Content: a projection of the store, not the store itself.** Each entry is
-`{ id, revision, label, command, updatedAt }` — the schema Konnekt's reader pins
-in its `backend/models/kommands.go`, mirrored on
+**Content: a projection of the linked commands, not the store itself.** Each
+entry is `{ id, revision, label, command, updatedAt }` — the schema Konnekt's
+reader pins in its `backend/models/kommands.go`, mirrored on
 [#45](https://github.com/kollektiv-mc/Kommands/issues/45): `label` from the
 saved command's `name`, `command` from its cached `preview` with exactly one
 leading slash stripped (console form — and the second slash of a WorldEdit
 `//set` is content, not prefix), `updatedAt` as Unix milliseconds. Konnekt
 matches on the `id` and uses the `revision` to tell "already seen" from
 "changed" without diffing.
+
+**Only commands carrying `linked: true` are projected.** The file is the list of
+what the user chose to show in Konnekt, not the list of what they saved, and the
+two are different things on purpose: a saved command is organized here, in this
+app's dashboard, and nothing about it reaches Konnekt until it is linked.
+Unlinking removes the entry, and Konnekt reads that absence as "no longer
+linked" — see § What Konnekt does with it.
 
 > **Decided: project, don't share the store file.** Konnekt's reader shipped
 > first and pinned its entry schema, and that schema is not `SavedCommand`:
@@ -330,17 +346,29 @@ so a save in either surface of the local install lands in both files.
 
 ### What Konnekt does with it
 
-Recorded so the writer does not accidentally make these harder. All three are
+Recorded so the writer does not accidentally make these harder. All of them are
 Konnekt's to implement.
 
-| Case                                    | Konnekt's behaviour                                                 |
-| --------------------------------------- | ------------------------------------------------------------------- |
-| A linked command's content changes here | Applied there, surfaced non-blocking as a changed badge, reversible |
-| A linked command is deleted here        | The preset is kept and marked broken, never silently removed        |
-| The linked command is edited in Konnekt | Forks to an unlinked copy after an explicit confirm                 |
+| Case                                         | Konnekt's behaviour                                                        |
+| -------------------------------------------- | -------------------------------------------------------------------------- |
+| A command is linked here                     | A button for it appears in the Commands tile, following the original       |
+| A linked command's content changes here      | Applied there, surfaced non-blocking as a changed badge until acknowledged |
+| A linked command is unlinked or deleted here | The button Konnekt created for it is removed                               |
+| The shared file itself disappears            | Every linked button is kept and marked, with keep-as-custom and remove     |
+| The linked command is edited in Konnekt      | Not editable there; Konnekt offers a copy that is its own                  |
+
+Removing on absence is a deliberate reversal of an earlier decision, which kept
+the button and marked its link broken. That decision was taken when a Konnekt
+button existed first and was bound to a Kommands command afterwards, so removing
+it would have destroyed something the user built in Konnekt. Under this model
+the button exists _because_ of the link, Konnekt never had it before, and the
+user acted here with the intent that it stop being there. A file that is gone
+altogether is a different event (an uninstall, a moved directory), which is why
+that row keeps everything.
 
 The deletion case is the one with a writer consequence, and it is the never-reuse-an-id
-rule above.
+rule above: a relinked command comes back under the same id, and Konnekt creates a
+new button for it rather than resurrecting anything.
 
 ---
 

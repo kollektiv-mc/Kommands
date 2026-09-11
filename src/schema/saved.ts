@@ -83,6 +83,19 @@ export interface SavedCommand {
   /** Whether the user pinned it. Drives the Quick panel. */
   readonly pinned?: boolean
   /**
+   * Whether the user linked it into Konnekt.
+   *
+   * The one field the shared file is filtered on: the standalone shell projects only
+   * commands carrying `linked: true` into `saved-commands.json` (`shell/store`), so this
+   * flag is the whole of "which of my saved commands does Konnekt show". Saving a
+   * command keeps it here; linking it is a second, explicit act, and the Linked panel on
+   * the dashboard is the lens over exactly this flag.
+   *
+   * Absent reads as not linked, which is what every record written before the flag
+   * existed meant: nothing crossed into Konnekt until someone said so.
+   */
+  readonly linked?: boolean
+  /**
    * Bumped when the command this record **emits** changes, so a consumer can tell "I
    * have already seen this" from "this changed" without diffing the tree.
    *
@@ -255,6 +268,21 @@ export function touchOpened(saved: SavedCommand, clock: SaveClock = SYSTEM_CLOCK
  */
 export function setPinned(saved: SavedCommand, pinned: boolean): SavedCommand {
   return { ...saved, pinned }
+}
+
+/**
+ * The same command, linked into Konnekt or not.
+ *
+ * Metadata like a pin: no `revision` bump and no `updatedAt` move, for the reasons
+ * `setPinned` gives. What differs is who reads it. A pin is consumed by this app's Quick
+ * panel; this flag is consumed by the standalone shell's projection, which writes the
+ * command into the file Konnekt reads when it is true and leaves it out when it is not.
+ * So flipping it is the one metadata change that is *meant* to move the shared file:
+ * the set of commands Konnekt shows has changed, and that is exactly what its poll
+ * exists to notice.
+ */
+export function setLinked(saved: SavedCommand, linked: boolean): SavedCommand {
+  return { ...saved, linked }
 }
 
 /**
