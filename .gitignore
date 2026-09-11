@@ -23,6 +23,8 @@ coverage/
 .aislop/history.jsonl
 
 # caches
+# Python bytecode, from running the vendored release-notes test.
+__pycache__/
 .cache/
 # ^ includes .cache/mcmeta/<tag>/, where the deriver keeps the fetched summaries.
 # The tag is pinned and immutable, so the cache never goes stale — it exists so a
