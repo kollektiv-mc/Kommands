@@ -28,3 +28,6 @@ tokens.source.json
 # Vendored from kollektiv/.aislop/base.yml by that repo's scripts/sync-aislop.sh, which
 # byte-compares the two. Same reasoning as the two entries above.
 .aislop/base.yml
+
+# Vendored by kollektiv's scripts/sync-notes.sh beside the release-notes generator.
+.github/release.yml

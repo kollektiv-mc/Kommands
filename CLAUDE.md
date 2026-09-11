@@ -96,6 +96,12 @@ Other conventions:
   `version === '1.21.1'` comparison anywhere in `src/` is a bug.
 - Tests live beside their subject as `*.test.ts` / `*.test.tsx`.
 - Task tracking is **GitHub Issues**. Do not add a `TODO.md`. See `docs/suite.md`.
+- A merged pull request's title is a release-notes line and its `type:` label is the
+  only thing that files it; every pull request carries one `type:` and one `area:`
+  label, and CI's `pr-labelled` job fails without both. The rules, the label ladder
+  and the release-notes generator are kollektiv's (`docs/conventions.md` there);
+  `.github/changelog.json` is this repo's one input, the paths that never reach what
+  ships.
 
 ## Docs
 

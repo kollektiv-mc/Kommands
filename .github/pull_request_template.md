@@ -1,7 +1,9 @@
 <!--
-Title rules, because a merged pull request title becomes public copy once this
-repo builds release notes: imperative mood, sentence case, no trailing period,
-one line, no em dashes. Say what changed, not which files moved.
+Title rules, because a merged pull request title becomes public release-notes
+copy: imperative mood, sentence case, no trailing period, one line, no em
+dashes. Say what changed, not which files moved. The label, not the title,
+decides which section it lands in; .github/changelog.json says which paths
+never reach what ships.
 
 Keep one pull request to one concern.
 -->

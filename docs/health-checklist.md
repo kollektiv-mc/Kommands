@@ -37,6 +37,7 @@ pnpm build && pnpm check-bundle  # entry-chunk gzip budget
 go vet ./shell/... ./scripts/gen-appicon ./scripts/coverage-floor
 go test ./shell/...
 go run ./scripts/coverage-floor  # shell/ statement-coverage floor, threshold in the script
+python3 .github/scripts/release-notes_test.py  # release-notes classifier, vendored from kollektiv
 npx --yes aislop@0.16.0 ci       # AI-slop gate, policy in .aislop/base.yml, ratchet in .aislop/config.yml
 ```
 

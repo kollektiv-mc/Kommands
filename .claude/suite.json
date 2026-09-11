@@ -62,6 +62,10 @@
         "run": "go run ./scripts/coverage-floor"
       },
       {
+        "name": "release notes",
+        "run": "python3 .github/scripts/release-notes_test.py"
+      },
+      {
         "name": "aislop",
         "run": "npx --yes aislop@0.16.0 ci"
       }

@@ -4,6 +4,8 @@
 # a finding here is a finding against the upstream file, which kollektiv holds
 # to the same gate.
 .claude/suite-check.py
+.github/scripts/release-notes.py
+.github/scripts/release-notes_test.py
 
 # Generated: the command skeletons and registries from mcmeta, the fingerprint
 # index, and the token sheet (see CLAUDE.md § Conventions, rule 3).

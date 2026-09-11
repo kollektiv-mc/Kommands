@@ -43,7 +43,11 @@ Those three are conventions, not code. They travel as a Claude Code plugin.
 Two gates travel as CI, called by reference from kollektiv's reusable workflows:
 the aislop score (`.aislop/base.yml` here is the vendored policy; the config
 extends it) and the pull-request label check. Both products call the same two
-workflows, so a version pin or a rule change lands once.
+workflows, so a version pin or a rule change lands once. The release-notes
+generator travels as a vendored file (`.github/scripts/release-notes.py`, with its
+tests and GitHub's fallback layout `.github/release.yml`), because a release job
+runs where kollektiv is nowhere on disk; `.github/changelog.json` is the one
+per-repo input, the paths that never reach what ships.
 
 ---
 
