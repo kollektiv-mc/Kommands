@@ -1,0 +1,19 @@
+# Paths aislop does not score. Same glob semantics as its `exclude`.
+
+# Vendored from kollektiv (suite-kit). Edits are reverted on the next sync, so
+# a finding here is a finding against the upstream file, which kollektiv holds
+# to the same gate.
+.claude/suite-check.py
+
+# Generated: the command skeletons and registries from mcmeta, the fingerprint
+# index, and the token sheet (see CLAUDE.md § Conventions, rule 3).
+src/data/generated
+src/styles/tokens.css
+
+# Vendored token source (rule 4).
+tokens.source.json
+
+# Build output and the Wails shell's generated bindings.
+dist
+build/bin
+wailsjs

@@ -19,6 +19,9 @@ wailsjs/
 coverage/
 .vitest/
 
+# aislop appends a scan record here on every run; it is local state, not policy.
+.aislop/history.jsonl
+
 # caches
 .cache/
 # ^ includes .cache/mcmeta/<tag>/, where the deriver keeps the fetched summaries.

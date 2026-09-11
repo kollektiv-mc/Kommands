@@ -40,6 +40,11 @@ What _is_ genuinely shared is narrower and more valuable:
 
 Those three are conventions, not code. They travel as a Claude Code plugin.
 
+Two gates travel as CI, called by reference from kollektiv's reusable workflows:
+the aislop score (`.aislop/base.yml` here is the vendored policy; the config
+extends it) and the pull-request label check. Both products call the same two
+workflows, so a version pin or a rule change lands once.
+
 ---
 
 ## Layout

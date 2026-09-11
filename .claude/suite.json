@@ -38,6 +38,10 @@
         "run": "pnpm test"
       },
       {
+        "name": "frontend coverage floor",
+        "run": "pnpm test:coverage"
+      },
+      {
         "name": "format",
         "run": "pnpm format:check"
       },
@@ -47,11 +51,19 @@
       },
       {
         "name": "go vet",
-        "run": "go vet ./shell/... ./scripts/gen-appicon"
+        "run": "go vet ./shell/... ./scripts/gen-appicon ./scripts/coverage-floor"
       },
       {
         "name": "go test",
         "run": "go test ./shell/..."
+      },
+      {
+        "name": "go coverage floor",
+        "run": "go run ./scripts/coverage-floor"
+      },
+      {
+        "name": "aislop",
+        "run": "npx --yes aislop@0.16.0 ci"
       }
     ],
     "invariants": [

@@ -3,13 +3,38 @@ name: CI
 on:
   push:
     branches: [main]
+  # `labeled`/`unlabeled` are here for the pr-labelled job below: adding the
+  # missing label has to be able to turn that check green without an empty
+  # commit to re-trigger it. Listing types at all overrides the default set,
+  # so the three defaults are repeated.
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Every pull request carries one `type:` and one `area:` label: the first is
+  # the only input to the release notes the suite's generator builds, the second
+  # is the issue-side rule holding on the pull-request side. The check is
+  # kollektiv's reusable workflow, the same one Konnekt's CI runs; the labels
+  # themselves come from kollektiv's design/labels.json via its sync-labels.sh.
+  pr-labelled:
+    if: github.event_name == 'pull_request'
+    uses: kollektiv-mc/Kollektiv/.github/workflows/pr-labelled.yml@main
+    with:
+      labels-doc: kollektiv's design/labels.json
+
+  # aislop (scanaislop/aislop, MIT) scores the tree for the patterns AI-assisted
+  # code leaves behind. .aislop/base.yml is the suite's policy, vendored from
+  # kollektiv; .aislop/config.yml extends it with this tree's size ratchet and,
+  # for now, the score the tree had when the gate was adopted, raised as
+  # findings close. The job body is kollektiv's reusable workflow, which pins
+  # aislop and ruff once for every repo in the suite.
+  aislop:
+    uses: kollektiv-mc/Kollektiv/.github/workflows/aislop.yml@main
+
   # The JS toolchain. This used to be the only job "because there is one
   # toolchain"; #44 ended that — the Go shell has its own job below, because it
   # needs system webkit headers this half never touches, and a platform failure
@@ -50,6 +75,11 @@ jobs:
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm test
+      # The frontend's coverage floor, the way `go run ./scripts/coverage-floor`
+      # holds the shell's: vite.config.ts owns the threshold. A second run of
+      # the suite rather than folding coverage into `pnpm test`, so a floor
+      # failure and a test failure stay separate steps.
+      - run: pnpm test:coverage
       - run: pnpm build
       - run: pnpm check-bundle
 
@@ -98,6 +128,9 @@ jobs:
       - name: gofmt
         run: test -z "$(gofmt -l . | tee /dev/stderr)"
       - run: go test ./shell/...
+      # Threshold and rationale live in the script, which .claude/suite.json also
+      # runs, so /suite-kit:health enforces the same floor locally.
+      - run: go run ./scripts/coverage-floor
 
       - name: System webkit headers
         run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev

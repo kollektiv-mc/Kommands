@@ -31,9 +31,18 @@ which reports them as a table:
 pnpm lint                        # eslint src scripts
 pnpm typecheck                   # tsc --noEmit
 pnpm test                        # vitest run
+pnpm test:coverage               # src/ line-coverage floor, threshold in vite.config.ts
 pnpm format:check                # prettier --check .
 pnpm build && pnpm check-bundle  # entry-chunk gzip budget
+go vet ./shell/... ./scripts/gen-appicon ./scripts/coverage-floor
+go test ./shell/...
+go run ./scripts/coverage-floor  # shell/ statement-coverage floor, threshold in the script
+npx --yes aislop@0.16.0 ci       # AI-slop gate, policy in .aislop/base.yml, ratchet in .aislop/config.yml
 ```
+
+Both coverage floors are ratchets: a few points under the measurement that set
+them (89.1% of lines on 770 tests, 86.0% of statements over `shell/`, both
+2026-09-11), raised as coverage rises, never lowered to make a build pass.
 
 Plus three `invariants` — greps that must find nothing — and three `generated`
 entries: `pnpm gen:commands` and `pnpm gen:fingerprints`, each followed by a
@@ -401,6 +410,30 @@ belongs here.
 
 The not-yet-closed follow-ups. Keep this section short and current; everything above
 it should be stable between runs.
+
+**P2 — The aislop gate holds 93, not the suite's 100**
+
+- `.aislop/config.yml` overrides the vendored base's `failBelow: 100` with the score
+  the tree had when the gate was adopted, so a new finding still fails the build
+  while the existing 24 warnings are worked off. They are, by rule: eleven
+  `jsx-a11y` findings (`SavedCommandTile`, `SelectorEditor`, `RegistryPicker`,
+  `TextComponentEditor`, `CommandOverlay`, `SettingsDialog`), four `then` properties
+  the expression parser and CSG compiler put on objects (`unicorn/no-thenable`), two
+  `setState` calls inside effects (`SaveCommandBar`, `CommandWorkbench`), a component
+  created during render (`PreviewStage`), a duplicate block in
+  `useSavedCommandsStore`, a double cast in `schema/argument-types/index.ts`, a hidden
+  fallback in `schema/paths.ts`, and four empty function bodies (`lib/flip.ts`,
+  `expression/compile.ts`). Each is a judgement call: fix it, or give it a directive
+  with a reason. Raise `failBelow` as they close; it ends at 100 and the override
+  comes out.
+
+**P2 — The label gate needs the suite's labels applied first**
+
+- CI's `pr-labelled` job fails a pull request without a `type:` and an `area:` label,
+  and Dependabot's pull requests ask for `type:chore` and `area:release`. This repo
+  has never had kollektiv's `scripts/sync-labels.sh` run against it
+  ([kollektiv#19](https://github.com/kollektiv-mc/Kollektiv/issues/19)), so some of
+  those labels do not exist here yet. Run it once, where `gh` is authenticated.
 
 **P3 — The scrollbar cannot be verified in this repo's own tooling**
 
