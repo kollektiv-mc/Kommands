@@ -1,0 +1,58 @@
+# OpenSSF Scorecard: an outside audit of this repository's supply chain, run on
+# a schedule and published where anyone can read the per-check breakdown.
+#
+# Same reasoning as Konnekt's: most of this code comes from Claude, and a
+# project's own claims about its own quality are worth nothing to someone who
+# has not read the code. Scorecard runs its checks from outside, scores each
+# one, and publishes the result at a URL not under this repository's control.
+# A low score is visible too, which is the point.
+name: Scorecard
+
+on:
+  # Branch protection is one of the checks, and it is the one thing here that
+  # can change without a commit. This trigger is how the score notices.
+  branch_protection_rule:
+  schedule:
+    - cron: '30 5 * * 0'
+  push:
+    branches: [main]
+
+# Read-only by default, and widened only on the job that needs it. Scorecard's
+# own check for exactly this pattern is why the file is written this way.
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # Uploading the SARIF to the code-scanning dashboard, so findings sit
+      # beside CodeQL's rather than only in a log.
+      security-events: write
+      # Publishing the result to the OpenSSF API, which is what the badge and
+      # the public viewer read.
+      id-token: write
+      actions: read
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 5
+
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif

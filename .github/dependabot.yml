@@ -1,0 +1,63 @@
+# Dependency updates, on the same cadence and shape as Konnekt's.
+#
+# Every pull request opened from here is labelled, because CI's `pr-labelled`
+# job fails a pull request carrying no `type:` and no `area:` and a bot cannot
+# add them after the fact. `type:chore` is correct by the suite's ladder: a
+# dependency bump changes nothing a user can observe, however large the diff.
+# `area:release` is the suite label nearest to "what the build is made of".
+#
+# Grouped, which is the setting that decides whether the config survives
+# contact with a small project. Ungrouped, three ecosystems on a weekly cadence
+# open a pull request per dependency, each one costing a full CI matrix;
+# grouped, the routine minor and patch traffic arrives as one pull request per
+# ecosystem and only a major version, the one that can actually break
+# something, gets a pull request of its own.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+    labels: ['type:chore', 'area:release']
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+    labels: ['type:chore', 'area:release']
+    open-pull-requests-limit: 3
+    groups:
+      go:
+        patterns: ['*']
+        update-types: [minor, patch]
+    ignore:
+      # Wails is the app shell, not a library: it is pinned to the same v2.12
+      # as Konnekt on purpose (docs/distribution.md), and a bump is a deliberate
+      # piece of work across both products, not a routine update.
+      - dependency-name: github.com/wailsapp/wails/v2
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+    labels: ['type:chore', 'area:release']
+    open-pull-requests-limit: 5
+    groups:
+      npm:
+        patterns: ['*']
+        update-types: [minor, patch]
+    ignore:
+      # @vitest/coverage-v8 has to match vitest's version exactly, and a lone
+      # bump of either one resolves the lockfile to two versions. Bump the two
+      # together, by hand.
+      - dependency-name: '@vitest/coverage-v8'
+      - dependency-name: vitest
