@@ -73,12 +73,13 @@ to let a list view render without paying for the real thing:
 
 And one flag that is a decision rather than data:
 
-- **`linked`** — whether the user put this command into Konnekt. Saving keeps a
-  command in this app and nowhere else; linking is the separate, explicit act that
-  lets it cross, and the shared file below carries **only** linked commands. The
-  dashboard's Linked panel is the lens over exactly this flag, so it shows what
-  Konnekt's Commands tile shows. Like `pinned`, it moves neither the `revision` nor
-  `updatedAt`: what Konnekt would run has not changed, only whether it can see it.
+- **`linked`** — whether Konnekt may see this command. Saving keeps a command in
+  this app and nowhere else; linking is the separate, explicit act that lets it
+  cross, and the shared file below carries **only** linked commands. Konnekt lists
+  them, and adding one as a button is a decision taken over there. The dashboard's
+  Linked panel is the lens over exactly this flag. Like `pinned`, it moves neither
+  the `revision` nor `updatedAt`: what Konnekt would run has not changed, only
+  whether it can see it.
 
 ### The identifier is the load-bearing part
 
@@ -298,11 +299,10 @@ matches on the `id` and uses the `revision` to tell "already seen" from
 "changed" without diffing.
 
 **Only commands carrying `linked: true` are projected.** The file is the list of
-what the user chose to show in Konnekt, not the list of what they saved, and the
+what the user chose to let Konnekt see, not the list of what they saved, and the
 two are different things on purpose: a saved command is organized here, in this
 app's dashboard, and nothing about it reaches Konnekt until it is linked.
-Unlinking removes the entry, and Konnekt reads that absence as "no longer
-linked" — see § What Konnekt does with it.
+Unlinking removes the entry — see § What Konnekt does with it.
 
 > **Decided: project, don't share the store file.** Konnekt's reader shipped
 > first and pinned its entry schema, and that schema is not `SavedCommand`:
@@ -349,22 +349,18 @@ so a save in either surface of the local install lands in both files.
 Recorded so the writer does not accidentally make these harder. All of them are
 Konnekt's to implement.
 
-| Case                                         | Konnekt's behaviour                                                        |
-| -------------------------------------------- | -------------------------------------------------------------------------- |
-| A command is linked here                     | A button for it appears in the Commands tile, following the original       |
-| A linked command's content changes here      | Applied there, surfaced non-blocking as a changed badge until acknowledged |
-| A linked command is unlinked or deleted here | The button Konnekt created for it is removed                               |
-| The shared file itself disappears            | Every linked button is kept and marked, with keep-as-custom and remove     |
-| The linked command is edited in Konnekt      | Not editable there; Konnekt offers a copy that is its own                  |
+| Case                                         | Konnekt's behaviour                                                   |
+| -------------------------------------------- | --------------------------------------------------------------------- |
+| A command is linked here                     | Listed in its Commands library, where the user can add it as a button |
+| A linked command's content changes here      | Applied to the button, surfaced non-blocking as a changed badge       |
+| A linked command is unlinked or deleted here | The button is kept and marked, never silently removed                 |
+| The linked command is edited in Konnekt      | Not editable there; Konnekt offers a copy that is its own             |
 
-Removing on absence is a deliberate reversal of an earlier decision, which kept
-the button and marked its link broken. That decision was taken when a Konnekt
-button existed first and was bound to a Kommands command afterwards, so removing
-it would have destroyed something the user built in Konnekt. Under this model
-the button exists _because_ of the link, Konnekt never had it before, and the
-user acted here with the intent that it stop being there. A file that is gone
-altogether is a different event (an uninstall, a moved directory), which is why
-that row keeps everything.
+Linking is visibility, not placement. Konnekt creates no button on its own: the
+user adds one from the list, and from then on it follows the original. That is
+also why an entry's absence marks a button rather than removing it: the button
+was placed in Konnekt on purpose, and another application tidying up is not a
+reason to take it away.
 
 The deletion case is the one with a writer consequence, and it is the never-reuse-an-id
 rule above: a relinked command comes back under the same id, and Konnekt creates a

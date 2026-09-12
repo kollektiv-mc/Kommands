@@ -83,13 +83,14 @@ export interface SavedCommand {
   /** Whether the user pinned it. Drives the Quick panel. */
   readonly pinned?: boolean
   /**
-   * Whether the user linked it into Konnekt.
+   * Whether Konnekt may see it.
    *
    * The one field the shared file is filtered on: the standalone shell projects only
    * commands carrying `linked: true` into `saved-commands.json` (`shell/store`), so this
-   * flag is the whole of "which of my saved commands does Konnekt show". Saving a
-   * command keeps it here; linking it is a second, explicit act, and the Linked panel on
-   * the dashboard is the lens over exactly this flag.
+   * flag is the whole of "which of my saved commands can Konnekt see". Saving a command
+   * keeps it here; linking it is a second, explicit act; adding it as a button is a
+   * third, taken in Konnekt. The Linked panel on the dashboard is the lens over exactly
+   * this flag.
    *
    * Absent reads as not linked, which is what every record written before the flag
    * existed meant: nothing crossed into Konnekt until someone said so.

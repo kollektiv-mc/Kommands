@@ -34,11 +34,12 @@ import (
 //
 // It is also a filter, and the filter is the feature. Only commands the user
 // linked (`SavedCommand.linked`, src/schema/saved.ts) are projected: saving a
-// command keeps it in this app, linking it is the separate act that puts it
-// in Konnekt's Commands tile, and unlinking takes it back out — Konnekt reads
-// absence as "no longer linked" and drops the button it created for it. Every
-// saved command used to be projected, which made "saved" and "shown in
-// Konnekt" one thing, and left no way to keep a command here alone.
+// command keeps it in this app, linking it is the separate act that lets
+// Konnekt see it and offer it in its Commands library, and unlinking takes it
+// back out — Konnekt marks any button it made from the entry rather than
+// removing it. Every saved command used to be projected, which made "saved"
+// and "visible to Konnekt" one thing, and left no way to keep a command here
+// alone.
 const SharedSchemaVersion = 1
 
 const (

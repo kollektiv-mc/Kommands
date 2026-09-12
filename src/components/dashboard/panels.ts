@@ -86,10 +86,10 @@ export const PANELS: readonly PanelDescriptor[] = [
     source: 'commands',
     title: 'Linked to Konnekt',
     // The lens over the one flag the shared file is filtered on (`SavedCommand.linked`),
-    // so on the standalone build this panel is, by construction, the list Konnekt's
-    // Commands tile shows. Saved commands stay here; only what is linked crosses over.
+    // so on the standalone build this panel is, by construction, the list Konnekt can
+    // see. Saved commands stay here; only what is linked crosses over.
     select: (commands) => commands.filter((command) => command.linked === true),
-    empty: 'Link a saved command and it appears in the Commands tile of Konnekt.',
+    empty: 'Link a saved command and Konnekt can add it to its Commands tile.',
   },
 ]
 
