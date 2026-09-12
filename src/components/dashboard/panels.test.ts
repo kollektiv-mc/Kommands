@@ -20,7 +20,8 @@ function command(over: Partial<SavedCommand>): SavedCommand {
 const A = command({ id: 'a', name: 'A' })
 const B = command({ id: 'b', name: 'B', lastOpenedAt: '2026-01-02T00:00:00.000Z' })
 const C = command({ id: 'c', name: 'C', lastOpenedAt: '2026-01-03T00:00:00.000Z', pinned: true })
-const ALL = [A, B, C]
+const D = command({ id: 'd', name: 'D', linked: true })
+const ALL = [A, B, C, D]
 
 /**
  * A panel that is a lens over the saved commands, or a failure naming the one that is
@@ -61,6 +62,17 @@ test('Quick shows only pinned commands', () => {
   ).toEqual(['c'])
 })
 
+test('Linked shows only what was linked into Konnekt, never merely saved', () => {
+  // Saved and linked are two acts. The shared file the standalone shell writes is
+  // filtered on the same flag, so this panel is the honest preview of what Konnekt's
+  // Commands tile shows — a command that is only saved is not in it.
+  expect(
+    lens('linked')
+      .select(ALL)
+      .map((c) => c.id),
+  ).toEqual(['d'])
+})
+
 test('a command can appear in more than one panel at once', () => {
   // These are lenses, not folders. C is saved, recently opened and pinned, so it shows
   // in all three — which is correct, and is why there is one store rather than three.
@@ -84,5 +96,5 @@ test('the pinned-generators panel is not a lens over saved commands', () => {
   // The union in panels.ts is the point: a `select` that ignored its argument would be
   // a lie with a type signature, and this is the assertion that the shape stays honest.
   expect(panelById('pinned')?.source).toBe('generators')
-  expect(LENSES.map((panel) => panel.id)).toEqual(['saved', 'recent', 'quick'])
+  expect(LENSES.map((panel) => panel.id)).toEqual(['saved', 'recent', 'quick', 'linked'])
 })

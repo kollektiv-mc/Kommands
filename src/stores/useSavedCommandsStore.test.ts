@@ -92,6 +92,23 @@ test('a save that changes nothing never reaches the backend', async () => {
   expect(useSavedCommandsStore.getState().commands[0]!.revision).toBe(2)
 })
 
+test('linking is a flag on the record, and never a revision', async () => {
+  const store = useSavedCommandsStore.getState()
+  const id = (await store.create(DRAFT))!
+
+  await useSavedCommandsStore.getState().link(id, true)
+
+  // Reaches the backend: on the standalone build this write is what puts the command
+  // into the file Konnekt reads, so a flag held only in memory would link nothing.
+  const [stored] = await localStorageBackend(backing).list()
+  expect(stored!.linked).toBe(true)
+  // Konnekt reads `revision` as "the command text changed"; it did not.
+  expect(stored!.revision).toBe(1)
+
+  await useSavedCommandsStore.getState().link(id, false)
+  expect(useSavedCommandsStore.getState().commands[0]!.linked).toBe(false)
+})
+
 test('loading reads what a previous session wrote, newest first', async () => {
   // Written through the backend with timestamps a millisecond apart rather than saved
   // twice in a row. `create` stamps from the real clock, and two saves in one

@@ -48,7 +48,7 @@ func TestProjectionStripsExactlyOneSlash(t *testing.T) {
 // writer never emits one — matching Konnekt skipping such entries on read.
 func TestProjectionSkipsControlCharacters(t *testing.T) {
 	raw := ProjectShared([]Entry{
-		rawEntry(t, `{"id":"bad","name":"Injected","preview":"/say hi\nkill @a","revision":1,"updatedAt":"2026-08-31T10:00:00Z"}`),
+		rawEntry(t, `{"id":"bad","name":"Injected","preview":"/say hi\nkill @a","revision":1,"updatedAt":"2026-08-31T10:00:00Z","linked":true}`),
 		rawEntry(t, entryJSON("good", "Fine", "/say hi", 1, "2026-08-31T10:00:00Z")),
 	})
 	_, commands := decodeShared(t, raw)
@@ -57,12 +57,28 @@ func TestProjectionSkipsControlCharacters(t *testing.T) {
 	}
 }
 
+// The filter that makes the file mean "linked" rather than "saved". A saved
+// command is the user's; whether it also shows in Konnekt is a second decision,
+// and a flag this build has never written (a record from before it existed)
+// means that decision was never taken.
+func TestProjectionCarriesOnlyLinkedCommands(t *testing.T) {
+	raw := ProjectShared([]Entry{
+		rawEntry(t, entryJSON("linked", "Linked", "/say hi", 1, "2026-08-31T10:00:00Z")),
+		rawEntry(t, `{"id":"unlinked","name":"Unlinked","preview":"/say no","revision":1,"updatedAt":"2026-08-31T10:00:00Z","linked":false}`),
+		rawEntry(t, `{"id":"flagless","name":"Flagless","preview":"/say old","revision":1,"updatedAt":"2026-08-31T10:00:00Z"}`),
+	})
+	_, commands := decodeShared(t, raw)
+	if len(commands) != 1 || commands[0].ID != "linked" {
+		t.Fatalf("expected only the linked entry in the shared file: %s", raw)
+	}
+}
+
 func TestProjectionSkipsWhatItCannotRead(t *testing.T) {
 	raw := ProjectShared([]Entry{
-		rawEntry(t, `{"id":"a"}`),                        // no preview at all
-		rawEntry(t, `{"id":"b","preview":"/"}`),          // empty after the slash
-		rawEntry(t, `{"id":"c","preview":123}`),          // wrong type
-		rawEntry(t, `{"noId":true,"preview":"/say hi"}`), // unaddressable
+		rawEntry(t, `{"id":"a","linked":true}`),                        // no preview at all
+		rawEntry(t, `{"id":"b","preview":"/","linked":true}`),          // empty after the slash
+		rawEntry(t, `{"id":"c","preview":123,"linked":true}`),          // wrong type
+		rawEntry(t, `{"noId":true,"preview":"/say hi","linked":true}`), // unaddressable
 		rawEntry(t, entryJSON("keep", "Kept", "/say hi", 2, "2026-08-31T10:00:00Z")),
 	})
 	_, commands := decodeShared(t, raw)
@@ -73,7 +89,7 @@ func TestProjectionSkipsWhatItCannotRead(t *testing.T) {
 
 func TestProjectionUnparseableTimestampDegradesToZero(t *testing.T) {
 	raw := ProjectShared([]Entry{
-		rawEntry(t, `{"id":"a","name":"N","preview":"/say hi","revision":1,"updatedAt":"not a time"}`),
+		rawEntry(t, `{"id":"a","name":"N","preview":"/say hi","revision":1,"updatedAt":"not a time","linked":true}`),
 	})
 	_, commands := decodeShared(t, raw)
 	if len(commands) != 1 {
@@ -105,7 +121,7 @@ func TestProjectionStaysUnderTheByteBound(t *testing.T) {
 	for i := 0; i < 6; i++ {
 		id := fmt.Sprintf("huge-%d", i)
 		entries = append(entries, rawEntry(t,
-			`{"id":"`+id+`","name":"Huge","preview":"/say `+huge+`","revision":1,"updatedAt":"2026-08-31T10:00:00Z"}`))
+			`{"id":"`+id+`","name":"Huge","preview":"/say `+huge+`","revision":1,"updatedAt":"2026-08-31T10:00:00Z","linked":true}`))
 	}
 	entries = append(entries, rawEntry(t, entryJSON("small", "Small", "/say hi", 1, "2026-08-30T10:00:00Z")))
 

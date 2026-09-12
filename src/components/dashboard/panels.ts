@@ -1,6 +1,6 @@
 import type { SavedCommand } from '../../schema/saved'
 
-export type PanelId = 'saved' | 'recent' | 'quick' | 'pinned'
+export type PanelId = 'saved' | 'recent' | 'quick' | 'linked' | 'pinned'
 
 interface BasePanel {
   id: PanelId
@@ -81,10 +81,20 @@ export const PANELS: readonly PanelDescriptor[] = [
     select: (commands) => commands.filter((command) => command.pinned === true),
     empty: 'Pin a command to keep it here.',
   },
+  {
+    id: 'linked',
+    source: 'commands',
+    title: 'Linked to Konnekt',
+    // The lens over the one flag the shared file is filtered on (`SavedCommand.linked`),
+    // so on the standalone build this panel is, by construction, the list Konnekt can
+    // see. Saved commands stay here; only what is linked crosses over.
+    select: (commands) => commands.filter((command) => command.linked === true),
+    empty: 'Link a saved command and Konnekt can add it to its Commands tile.',
+  },
 ]
 
 /** Every panel, placed, in the order they are drawn on a dashboard nobody has touched. */
-export const DEFAULT_PLACED: readonly PanelId[] = ['pinned', 'saved', 'recent', 'quick']
+export const DEFAULT_PLACED: readonly PanelId[] = ['pinned', 'saved', 'recent', 'quick', 'linked']
 
 export function panelById(id: PanelId): PanelDescriptor | undefined {
   return PANELS.find((panel) => panel.id === id)

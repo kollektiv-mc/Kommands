@@ -3,6 +3,7 @@ import {
   createSaved,
   renameSaved,
   reviseSaved,
+  setLinked,
   setPinned,
   touchOpened,
   type SavedCommand,
@@ -58,6 +59,13 @@ interface SavedCommandsState {
   markOpened: (id: string) => Promise<void>
   /** Pin or unpin. Drives the Quick panel. Neither a content nor a metadata timestamp change. */
   pin: (id: string, pinned: boolean) => Promise<void>
+  /**
+   * Link into Konnekt, or unlink. Drives the Linked panel here and, on the standalone
+   * backend, whether the command is in the file Konnekt reads at all — see
+   * `SavedCommand.linked`. The web backend accepts the flag too, and the UI is what
+   * says it leads nowhere there (`distribution.md` § The split must be visible).
+   */
+  link: (id: string, linked: boolean) => Promise<void>
   remove: (id: string) => Promise<void>
 }
 
@@ -221,6 +229,22 @@ export const useSavedCommandsStore = create<SavedCommandsState>((set, get) => ({
     const existing = get().commands.find((held) => held.id === id)
     if (!store || !existing) return
     const next = setPinned(existing, pinned)
+    try {
+      await store.put(next)
+    } catch (error) {
+      return set({ error: reason(error) })
+    }
+    set((s) => ({
+      commands: s.commands.map((held) => (held.id === id ? next : held)),
+      error: null,
+    }))
+  },
+
+  link: async (id, linked) => {
+    const store = storage()
+    const existing = get().commands.find((held) => held.id === id)
+    if (!store || !existing) return
+    const next = setLinked(existing, linked)
     try {
       await store.put(next)
     } catch (error) {

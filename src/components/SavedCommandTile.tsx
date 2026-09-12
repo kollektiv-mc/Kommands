@@ -60,6 +60,7 @@ export function SavedCommandTile({
   onRename,
   onRemove,
   onPin,
+  onLink,
   linkable,
   structure,
 }: {
@@ -71,7 +72,13 @@ export function SavedCommandTile({
   /** Toggle the pin that puts this command in the Quick panel. */
   onPin: () => void
   /**
-   * Whether this build can send a command to Konnekt at all.
+   * Toggle the link that puts this command in Konnekt's Commands tile, and in the
+   * Linked panel here. Saving keeps a command in this app; linking is the separate,
+   * explicit act that lets it cross over — see `SavedCommand.linked`.
+   */
+  onLink: () => void
+  /**
+   * Whether this build can link a command into Konnekt at all.
    *
    * Passed in rather than read here, so the answer is fetched once for the dashboard
    * instead of once per tile — and so this component stays something that renders what
@@ -217,14 +224,23 @@ export function SavedCommandTile({
             because a `title` is discovered on hover — which is the same failure one
             level down. `SavedCommandStorage.kind` is what decides; nothing here sniffs
             a user agent or a build flag.
+
+            A toggle in the pin's mould: one glyph, tinted and `aria-pressed` when the
+            command is linked, because what it reports is what is true now — this
+            command is in Konnekt — rather than what a press would do.
           */}
           <IconButton
+            onClick={onLink}
             disabled={!linkable}
+            aria-pressed={saved.linked === true}
             title={
-              linkable
-                ? `Send ${saved.name} to Konnekt`
-                : `Send ${saved.name} to Konnekt — needs the desktop build`
+              !linkable
+                ? `Link ${saved.name} into Konnekt — needs the desktop build`
+                : saved.linked === true
+                  ? `Unlink ${saved.name} from Konnekt`
+                  : `Link ${saved.name} into Konnekt`
             }
+            className={saved.linked === true ? 'text-accent' : ''}
           >
             <Icon name="link" size="sm" />
           </IconButton>
