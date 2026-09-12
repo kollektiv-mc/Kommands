@@ -10,6 +10,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The AI-slop score, the same gate Konnekt runs: ignored errors, double
+  # casts, duplicated blocks, oversized functions. Policy and floor are in
+  # .aislop/config.yml, which says what is counted and why; the version is
+  # pinned so a scoring change upstream cannot redden a build on its own.
+  aislop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npx --yes aislop@0.16.0 ci
+
   # The JS toolchain. This used to be the only job "because there is one
   # toolchain"; #44 ended that — the Go shell has its own job below, because it
   # needs system webkit headers this half never touches, and a platform failure

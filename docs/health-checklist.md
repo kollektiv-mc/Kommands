@@ -33,6 +33,7 @@ pnpm typecheck                   # tsc --noEmit
 pnpm test                        # vitest run
 pnpm format:check                # prettier --check .
 pnpm build && pnpm check-bundle  # entry-chunk gzip budget
+npx --yes aislop@0.16.0 ci       # AI-slop score, floor in .aislop/config.yml
 ```
 
 Plus three `invariants` — greps that must find nothing — and three `generated`
@@ -401,6 +402,22 @@ belongs here.
 
 The not-yet-closed follow-ups. Keep this section short and current; everything above
 it should be stable between runs.
+
+**P3 — The aislop gate holds at 93, with 24 findings to burn down**
+
+- `.aislop/config.yml` sets `ci.failBelow` at today's score rather than at 100, the
+  way its size limits sit at today's largest holders, because the findings behind the
+  missing seven points are code changes worth their own review: thirteen `jsx-a11y`
+  warnings (`SavedCommandTile` handles clicks on non-interactive elements and
+  autofocuses, three editors carry unlabelled controls, the two dialogs and the theme
+  radio use `role` where a semantic element exists), four `unicorn/no-thenable` in the
+  WorldEdit expression parser and CSG compiler, two `react/set-state-in-effect`
+  (`CommandWorkbench`, `SaveCommandBar`), a component created during render in
+  `PreviewStage`, a duplicated block in `useSavedCommandsStore`, a double assertion in
+  `schema/argument-types`, a hidden fallback in `schema/paths`, `new Array(n)` in the
+  expression functions, and four empty function bodies (`lib/flip.ts`, the expression
+  compiler). Each is a fix or an `aislop-ignore-next-line` directive with a reason,
+  never a bare directive. Raise `failBelow` as they go; 100 once the list is empty.
 
 **P3 — The scrollbar cannot be verified in this repo's own tooling**
 

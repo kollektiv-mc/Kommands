@@ -1,0 +1,84 @@
+# aislop (https://github.com/scanaislop/aislop) is the one gate in this repo
+# that scores the tree rather than passing or failing a check, so the score is
+# only meaningful if the config says what it counts. Read this file before
+# reading the number. Run locally with `npx --yes aislop@0.16.0 scan`; CI runs
+# `aislop ci` and fails below ci.failBelow. The same tool, version and shape of
+# policy as Konnekt's .aislop/config.yml; the numbers are this tree's own.
+version: 1
+
+engines:
+  format: true
+  lint: true
+  code-quality: true
+  ai-slop: true
+  architecture: false
+  security: true
+
+rules:
+  # Two rules turned off, both style/policy, both because this tree's comment
+  # conventions are the ones the tool flags. Same two as Konnekt, for the same
+  # reason, decided when the gate landed.
+  #
+  # narrative-comment: its findings are the doc comments this repo writes on
+  # purpose. docs/architecture.md and every file under src/schema/ explain why
+  # a shape is the way it is in a comment above the declaration, because the
+  # next reader is as likely to be an agent as a person and "the code is
+  # self-explanatory" is the assumption this repo's docs exist to reject.
+  # `aislop fix` would strip them.
+  ai-slop/narrative-comment: off
+  # meta-comment: its three findings are comments that say what a value used
+  # to be and why it changed (TextComponentEditor, constraints.ts, paths.ts).
+  # The rule reads "before/after" phrasing as plan narration; here it is the
+  # comment recording a decision, which is where this repo keeps decisions.
+  ai-slop/meta-comment: off
+
+quality:
+  # A ratchet, not a target: each number sits at today's largest function or
+  # file so the gate is green, and is lowered as the holders shrink. Never
+  # raised. The tool multiplies maxFileLoc by 1.5 for .go and .tsx and
+  # maxFunctionLoc by 2 for a React component, then allows 10% over.
+  #
+  # maxFunctionLoc 117: held by emitCss (scripts/gen-tokens.ts, 128 lines).
+  # Next stops when it is split: simplify 121, stmt_ 115, then 80 (the
+  # tool's default). The two components over the default, NodeView 195 and
+  # Dashboard 189, sit under the 2x component allowance at this value.
+  maxFunctionLoc: 117
+  # maxFileLoc 585: held by src/worldedit/expression/compile.ts (641 lines).
+  # Next stops: src/worldedit/csg/compile.ts 615, then 400 (the default).
+  maxFileLoc: 585
+
+security:
+  # `npm audit` / `pnpm audit` / `govulncheck` inside the scan. Dependency
+  # advisories are a different question from what this gate scores, and a
+  # cloud container's proxy reports the lookup itself as a finding.
+  audit: false
+
+scoring:
+  weights:
+    format: 0.3
+    lint: 0.6
+    code-quality: 0.8
+    ai-slop: 1.0
+    architecture: 1.0
+    security: 1.5
+  thresholds:
+    good: 75
+    ok: 50
+  smoothing: 20
+  maxPerRule: 40
+
+ci:
+  # 93 is where the tree stands when the gate lands: 0 errors, 24 warnings,
+  # every one listed under Open backlog in docs/health-checklist.md. A ratchet
+  # like the size limits above: raise it as that list burns down, to 100 once
+  # it is empty, and never lower it to make a build pass. A drop is one new
+  # finding; read it before deciding whether it is real, a directive with a
+  # reason, or a rule this file should turn off.
+  failBelow: 93
+  format: json
+
+telemetry:
+  # Off for a shared gate. The CLI's telemetry is an allowlisted payload with
+  # no paths or code in it, but a repo config should not opt its contributors
+  # into anything.
+  enabled: false

@@ -45,6 +45,10 @@
       {
         "name": "go test",
         "run": "go test ./shell/..."
+      },
+      {
+        "name": "aislop",
+        "run": "npx --yes aislop@0.16.0 ci"
       }
     ],
     "invariants": [

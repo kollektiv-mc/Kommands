@@ -14,22 +14,23 @@ Package manager: **pnpm**.
 
 ## Commands
 
-| Command                 | Does                                                         |
-| ----------------------- | ------------------------------------------------------------ |
-| `pnpm dev`              | Dev server                                                   |
-| `pnpm build`            | `tsc && vite build`                                          |
-| `pnpm typecheck`        | `tsc --noEmit`                                               |
-| `pnpm lint`             | `eslint src scripts`                                         |
-| `pnpm format`           | `prettier --write .`                                         |
-| `pnpm format:check`     | `prettier --check .`                                         |
-| `pnpm test`             | `vitest run`                                                 |
-| `pnpm test:watch`       | `vitest`                                                     |
-| `pnpm gen:commands`     | Derive command skeletons + registries from mcmeta            |
-| `pnpm gen:tokens`       | Regenerate `src/styles/tokens.css` from `tokens.source.json` |
-| `pnpm gen:diff`         | Compare two versions' registries, removals first             |
-| `pnpm gen:fingerprints` | Record each definition's structural fingerprint              |
-| `pnpm check-bundle`     | Entry-chunk gzip budget                                      |
-| `pnpm gen`              | All three generators                                         |
+| Command                        | Does                                                                    |
+| ------------------------------ | ----------------------------------------------------------------------- |
+| `pnpm dev`                     | Dev server                                                              |
+| `pnpm build`                   | `tsc && vite build`                                                     |
+| `pnpm typecheck`               | `tsc --noEmit`                                                          |
+| `pnpm lint`                    | `eslint src scripts`                                                    |
+| `pnpm format`                  | `prettier --write .`                                                    |
+| `pnpm format:check`            | `prettier --check .`                                                    |
+| `pnpm test`                    | `vitest run`                                                            |
+| `pnpm test:watch`              | `vitest`                                                                |
+| `pnpm gen:commands`            | Derive command skeletons + registries from mcmeta                       |
+| `pnpm gen:tokens`              | Regenerate `src/styles/tokens.css` from `tokens.source.json`            |
+| `pnpm gen:diff`                | Compare two versions' registries, removals first                        |
+| `pnpm gen:fingerprints`        | Record each definition's structural fingerprint                         |
+| `pnpm check-bundle`            | Entry-chunk gzip budget                                                 |
+| `pnpm gen`                     | All three generators                                                    |
+| `npx --yes aislop@0.16.0 scan` | AI-slop score; policy in `.aislop/config.yml`, CI fails below its floor |
 
 Three.js and `@react-three/fiber` are dependencies, reached **only** through a dynamic
 import so they stay out of the entry chunk. `pnpm check-bundle` fails if the renderer
@@ -109,9 +110,9 @@ before writing or changing any serializer.
 
 ## Definition of done
 
-Run `/suite-kit:health`. It runs lint, typecheck, tests, format and the bundle
-budget, plus this repo's three invariant greps and all three of its generated-file
-checks, driven by `.claude/suite.json`, and reports a table. **A skipped check is
+Run `/suite-kit:health`. It runs lint, typecheck, tests, format, the bundle budget
+and the aislop score, plus this repo's three invariant greps and all three of its
+generated-file checks, driven by `.claude/suite.json`, and reports a table. **A skipped check is
 not a passing one** — the report says so, and most of the value is in that
 distinction.
 

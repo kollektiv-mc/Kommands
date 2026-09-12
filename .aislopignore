@@ -1,0 +1,17 @@
+# Paths aislop does not score. Same glob semantics as its `exclude`.
+
+# Derived from mcmeta by `pnpm gen:commands` and `pnpm gen:fingerprints`;
+# never hand-edited, never scored.
+src/data/generated
+
+# Generated token sheet, and the vendored source it is generated from.
+src/styles/tokens.css
+tokens.source.json
+
+# Vendored from kollektiv (suite-kit). Edits are reverted on the next sync,
+# so a finding here is a finding against the upstream file.
+.claude/suite-check.py
+
+# Build outputs.
+dist
+dist-ssr
