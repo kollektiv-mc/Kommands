@@ -1,0 +1,54 @@
+{
+  "$comment": [
+    "What .github/scripts/release-notes.py needs to know that is true of this repo",
+    "and no other. The rules it applies - which label means which section, that an",
+    "unlabelled pull request never reaches Features - are the same across the suite",
+    "and live in the script, vendored from kollektiv. The paths below are Kommands'",
+    "own: Konnekt has website/ and agent_docs/, and a shared list would be wrong for",
+    "both. This file is also the adoption marker kollektiv's sync-notes.sh reads.",
+    "",
+    "Deliberately not in .claude/suite.json: kollektiv's design/suite.schema.json",
+    "sets additionalProperties:false and its CI validates this repo's manifest",
+    "nightly, so a new key there is a change that has to land in kollektiv first.",
+    "This file has one consumer sitting next to it and needs no such coordination."
+  ],
+
+  "nonAppPaths": [
+    ".aislop/",
+    ".aislopignore",
+    ".claude/",
+    ".github/",
+    ".gitattributes",
+    ".gitignore",
+    ".prettierignore",
+    ".prettierrc.json",
+    "CLAUDE.md",
+    "README.md",
+    "SECURITY.md",
+    "docs/",
+    "eslint.config.js",
+    "scripts/"
+  ],
+
+  "$nonAppPaths": [
+    "Prefixes, matched against each changed file. A pull request touching only",
+    "these did not change the web app or the desktop build, so it is left out of",
+    "the notes and counted in the footer instead.",
+    "",
+    "docs/ is read in the repo. .github/ is CI and release tooling; .claude/ and",
+    ".aislop/ are agent and gate configuration; scripts/ is tooling (the generators",
+    "write their output under src/data/generated, which is where a data change",
+    "shows up, so a generator-only pull request that regenerated nothing changed",
+    "nothing a user gets); the root files are repo furniture. eslint.config.js is",
+    "lint policy and never reaches the bundle.",
+    "",
+    "Not listed, on purpose: build/ holds the app icon, the .desktop file and the",
+    "macOS plist, which ship with the desktop build. tokens.source.json is not",
+    "listed either: a token change ships once src/styles/tokens.css is",
+    "regenerated, and the generated-file check fails a pull request that refreshed",
+    "the source without regenerating. tsconfig.json, vite.config.ts, package.json",
+    "and wails.json are build config that does not ship, but excluding them by",
+    "path would also hide real app work in the same pull request; that case is",
+    "what the type:chore label is for."
+  ]
+}

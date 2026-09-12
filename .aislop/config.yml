@@ -1,0 +1,36 @@
+# This repo's aislop config. The policy is base.yml beside it, vendored from
+# kollektiv by its scripts/sync-aislop.sh and never edited here: which engines
+# run, which two style rules are off and why, the scoring, telemetry off. Only
+# this tree's numbers live in this file. Run locally with
+# `npx --yes aislop@0.16.0 scan`; CI runs `aislop ci` through the vendored
+# .github/workflows/aislop.yml, which pins aislop and ruff.
+#
+# The `./` is load-bearing: aislop resolves `extends` relative to this file, and
+# `base.yml` without it silently loads nothing.
+extends: ./base.yml
+
+quality:
+  # A ratchet, not a target: each number sits at today's largest function or
+  # file so the gate is green, and is lowered as they are split. Never raised.
+  # The tool multiplies maxFunctionLoc by 2 for a React component and
+  # maxFileLoc by 1.5 for .tsx, then allows 10% over.
+  #
+  # maxFunctionLoc 128: held by emitCss (scripts/gen-tokens.ts, 128 lines).
+  # Next stops: simplify 121, stmt_ 115, then 80 (the tool's default). The
+  # two components over 80 (NodeView 195, Dashboard 179) sit under the
+  # doubled limit.
+  maxFunctionLoc: 128
+  # maxFileLoc 641: held by src/worldedit/expression/compile.ts (641 lines).
+  # Next stops: csg/compile.ts 615, then 400 (the default).
+  maxFileLoc: 641
+
+ci:
+  # The base says 100, and 100 is where this ends. The tree scored 93 when the
+  # gate was adopted (2026-09-11), with 24 warnings and no errors: eleven
+  # jsx-a11y findings, four `then` properties in the expression parser, two
+  # setState-in-effect, a component created during render, a duplicate block,
+  # a double cast, a hidden fallback, four empty function bodies. Each is a
+  # judgement for a health session, not a CI change, so the gate holds the
+  # score it found rather than the score it wants. Raise this as findings
+  # close; never lower it. docs/health-checklist.md lists what is open.
+  failBelow: 93

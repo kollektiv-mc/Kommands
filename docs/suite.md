@@ -40,6 +40,17 @@ What _is_ genuinely shared is narrower and more valuable:
 
 Those three are conventions, not code. They travel as a Claude Code plugin.
 
+Four workflows travel as vendored copies under `.github/workflows/`, put there by
+kollektiv's `sync-workflows.sh` and never edited here: the aislop score
+(`.aislop/base.yml` is the vendored policy; the config extends it), the
+pull-request label check, CodeQL and Scorecard. Both products run the same four
+files, so a version pin or a rule change lands once and is reviewed where it runs;
+a `uses:` reference to a branch of kollektiv would not be. The release-notes
+generator travels as a vendored file (`.github/scripts/release-notes.py`, with its
+tests and GitHub's fallback layout `.github/release.yml`), because a release job
+runs where kollektiv is nowhere on disk; `.github/changelog.json` is the one
+per-repo input, the paths that never reach what ships.
+
 ---
 
 ## Layout
