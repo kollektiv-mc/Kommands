@@ -24,3 +24,9 @@ tokens.source.json
 # above: a Prettier pass here would be reverted on the next sync and would show up
 # in between as drift that does not exist.
 .github/workflows/issue-priority.yml
+
+# Vendored from kollektiv/plugins/suite-kit/workflows/ by that repo's
+# scripts/sync-workflows.sh, which byte-compares the two to detect drift. Same
+# reasoning as issue-priority.yml above.
+.github/workflows/codeql.yml
+.github/workflows/scorecard.yml
