@@ -24,6 +24,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
+# The labels are in the event payload and nothing is checked out, so the job
+# needs no token at all.
+permissions: {}
+
 jobs:
   pr-labelled:
     runs-on: ubuntu-latest
