@@ -14,22 +14,25 @@ Package manager: **pnpm**.
 
 ## Commands
 
-| Command                 | Does                                                         |
-| ----------------------- | ------------------------------------------------------------ |
-| `pnpm dev`              | Dev server                                                   |
-| `pnpm build`            | `tsc && vite build`                                          |
-| `pnpm typecheck`        | `tsc --noEmit`                                               |
-| `pnpm lint`             | `eslint src scripts`                                         |
-| `pnpm format`           | `prettier --write .`                                         |
-| `pnpm format:check`     | `prettier --check .`                                         |
-| `pnpm test`             | `vitest run`                                                 |
-| `pnpm test:watch`       | `vitest`                                                     |
-| `pnpm gen:commands`     | Derive command skeletons + registries from mcmeta            |
-| `pnpm gen:tokens`       | Regenerate `src/styles/tokens.css` from `tokens.source.json` |
-| `pnpm gen:diff`         | Compare two versions' registries, removals first             |
-| `pnpm gen:fingerprints` | Record each definition's structural fingerprint              |
-| `pnpm check-bundle`     | Entry-chunk gzip budget                                      |
-| `pnpm gen`              | All three generators                                         |
+| Command                           | Does                                                                                   |
+| --------------------------------- | -------------------------------------------------------------------------------------- |
+| `pnpm dev`                        | Dev server                                                                             |
+| `pnpm build`                      | `tsc && vite build`                                                                    |
+| `pnpm typecheck`                  | `tsc --noEmit`                                                                         |
+| `pnpm lint`                       | `eslint src scripts`                                                                   |
+| `pnpm format`                     | `prettier --write .`                                                                   |
+| `pnpm format:check`               | `prettier --check .`                                                                   |
+| `pnpm test`                       | `vitest run`                                                                           |
+| `pnpm test:watch`                 | `vitest`                                                                               |
+| `pnpm test:coverage`              | `vitest run --coverage`, with the line floor in `vite.config.ts`                       |
+| `pnpm gen:commands`               | Derive command skeletons + registries from mcmeta                                      |
+| `pnpm gen:tokens`                 | Regenerate `src/styles/tokens.css` from `tokens.source.json`                           |
+| `pnpm gen:diff`                   | Compare two versions' registries, removals first                                       |
+| `pnpm gen:fingerprints`           | Record each definition's structural fingerprint                                        |
+| `pnpm check-bundle`               | Entry-chunk gzip budget                                                                |
+| `pnpm gen`                        | All three generators                                                                   |
+| `go run ./scripts/coverage-floor` | The shell packages' coverage floor, threshold in the script                            |
+| `npx --yes aislop@0.16.0 ci`      | AI-slop gate; policy in `.aislop/base.yml` (vendored), ratchet in `.aislop/config.yml` |
 
 Three.js and `@react-three/fiber` are dependencies, reached **only** through a dynamic
 import so they stay out of the entry chunk. `pnpm check-bundle` fails if the renderer
@@ -44,8 +47,19 @@ anywhere (`go vet` / `go test` over `shell/`); compiling the shell itself needs
 job. See `docs/distribution.md`.
 
 Run `/suite-kit:health` before calling any task done. It runs lint, typecheck, tests,
-format and the entry-chunk bundle budget, and greps for the three things this codebase
-forbids (below).
+both coverage floors, format, the entry-chunk bundle budget and the aislop gate, and
+greps for the three things this codebase forbids (below).
+
+The aislop gate (`scanaislop/aislop`, pinned, run in CI by the vendored
+`.github/workflows/aislop.yml`) scores the tree for what AI-assisted code leaves
+behind. The policy is
+`.aislop/base.yml`, vendored from kollektiv and never edited here; `.aislop/config.yml`
+extends it (`extends: ./base.yml`, the `./` is load-bearing) with this tree's size
+ratchet and, until the open findings close, the score the tree had when the gate was
+adopted. `.aislopignore` lists what is generated or vendored and never scored. A
+finding that is a documented exception gets an inline
+`// aislop-ignore-next-line <rule> -- <reason>` beside it; a bare directive with no
+reason is the thing to refuse in review. Never run `aislop fix`.
 
 ## Conventions
 
@@ -83,6 +97,12 @@ Other conventions:
   `version === '1.21.1'` comparison anywhere in `src/` is a bug.
 - Tests live beside their subject as `*.test.ts` / `*.test.tsx`.
 - Task tracking is **GitHub Issues**. Do not add a `TODO.md`. See `docs/suite.md`.
+- A merged pull request's title is a release-notes line and its `type:` label is the
+  only thing that files it; every pull request carries one `type:` and one `area:`
+  label, and CI's `pr-labelled` job fails without both. The rules, the label ladder
+  and the release-notes generator are kollektiv's (`docs/conventions.md` there);
+  `.github/changelog.json` is this repo's one input, the paths that never reach what
+  ships.
 
 ## Docs
 
