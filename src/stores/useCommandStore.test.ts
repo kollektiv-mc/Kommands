@@ -116,3 +116,153 @@ describe('reordering moves clauses without moving values', () => {
     expect(store().value.args[deep]).toBe('deep')
   })
 })
+
+describe('undo and redo', () => {
+  test('step an argument back and forward again', () => {
+    store().setArg('/0', 'first')
+    store().setFlag('/f', true)
+
+    store().undo()
+    expect(store().value.flags['/f']).toBeUndefined()
+    expect(store().value.args['/0']).toBe('first')
+
+    store().redo()
+    expect(store().value.flags['/f']).toBe(true)
+  })
+
+  test('a burst of typing in one field is one step', () => {
+    store().setArg('/0', 'n')
+    store().setArg('/0', 'ne')
+    store().setArg('/0', 'net')
+
+    store().undo()
+    // Back to before the word, not one character into it. Tagging by path is what
+    // collapses the burst; without it undo would be a backspace with extra steps.
+    expect(store().value.args['/0']).toBeUndefined()
+  })
+
+  test('typing in a second field is its own step', () => {
+    store().setArg('/0', 'a')
+    store().setArg('/1', 'b')
+
+    store().undo()
+    expect(store().value.args['/1']).toBeUndefined()
+    expect(store().value.args['/0']).toBe('a')
+  })
+
+  test('undoing a removed clause brings its values back with it', () => {
+    const ids = addThree()
+    store().setArg(`${instance(REPEAT, ids[1]!)}/0`, 'kept')
+
+    store().reorderRepeat(REPEAT, [ids[0]!, ids[2]!])
+    expect(store().value.args[`${instance(REPEAT, ids[1]!)}/0`]).toBeUndefined()
+
+    store().undo()
+    // The snapshot is taken before the subtree is cleared, so the clause comes back
+    // filled in rather than empty. Restoring an emptied clause would look like the
+    // undo worked while quietly costing the user the values.
+    expect(store().value.repeats[REPEAT]).toEqual(ids)
+    expect(store().value.args[`${instance(REPEAT, ids[1]!)}/0`]).toBe('kept')
+  })
+
+  test('a refused add leaves no step behind', () => {
+    const capped = { max: 1 }
+    store().addInstance(REPEAT, capped)
+    store().addInstance(REPEAT, capped)
+
+    store().undo()
+    // One add happened, so one undo returns the Repeat to untouched. If the refused
+    // add had recorded, this undo would have spent itself doing nothing and the user
+    // would press it twice to see one change.
+    //
+    // Untouched is *absent*, not an empty list, and the two are not the same thing:
+    // `repeatInstances` seeds an absent Repeat from `min`. Asserting `[]` here would
+    // pass only for a Repeat that had been emptied by hand.
+    expect(store().value.repeats[REPEAT]).toBeUndefined()
+  })
+
+  test('re-picking the same ref leaves no step behind', () => {
+    store().setRef('/r', 'vanilla:give')
+    store().setRef('/r', 'vanilla:give')
+
+    store().undo()
+    expect(store().value.refs['/r']).toBeUndefined()
+  })
+
+  test('does not rewind the instance counter, so an id is never handed out twice', () => {
+    store().addInstance(REPEAT, node)
+    const first = store().value.repeats[REPEAT]![0]!
+
+    store().undo()
+    store().addInstance(REPEAT, node)
+    const second = store().value.repeats[REPEAT]![0]!
+
+    // Burning an id on an undone clause costs nothing. Reusing one would put two
+    // instances on one path, which is the failure the generated-id model exists to
+    // prevent, arriving by a route nothing checks.
+    expect(second).not.toBe(first)
+  })
+
+  test('a drag is one step, however many positions it crosses', () => {
+    const ids = addThree()
+
+    // What a pointer crossing two card midpoints produces: one gesture, three
+    // orderings, all carrying the tag the chain minted when the drag began.
+    store().reorderRepeat(REPEAT, [ids[1]!, ids[0]!, ids[2]!], '/1:drag:1')
+    store().reorderRepeat(REPEAT, [ids[1]!, ids[2]!, ids[0]!], '/1:drag:1')
+
+    store().undo()
+    expect(store().value.repeats[REPEAT]).toEqual(ids)
+  })
+
+  test('two drags in a row are two steps', () => {
+    const ids = addThree()
+
+    // The tag is minted per gesture rather than derived from the dragged clause, so
+    // dragging the same one twice does not collapse into a single step.
+    store().reorderRepeat(REPEAT, [ids[1]!, ids[0]!, ids[2]!], '/1:drag:1')
+    store().reorderRepeat(REPEAT, [ids[1]!, ids[2]!, ids[0]!], '/1:drag:2')
+
+    store().undo()
+    expect(store().value.repeats[REPEAT]).toEqual([ids[1]!, ids[0]!, ids[2]!])
+  })
+
+  test('an untagged reorder is its own step, which is what a click is', () => {
+    const ids = addThree()
+
+    store().reorderRepeat(REPEAT, [ids[1]!, ids[0]!, ids[2]!])
+    store().reorderRepeat(REPEAT, [ids[1]!, ids[2]!, ids[0]!])
+
+    store().undo()
+    expect(store().value.repeats[REPEAT]).toEqual([ids[1]!, ids[0]!, ids[2]!])
+  })
+
+  test('stepping back past the start does nothing rather than throwing', () => {
+    store().setArg('/0', 'only')
+    store().undo()
+    store().undo()
+    expect(store().value.args['/0']).toBeUndefined()
+  })
+
+  test('a new edit after an undo discards the redo stack', () => {
+    store().setArg('/0', 'a')
+    store().setFlag('/f', true)
+    store().undo()
+
+    store().setArg('/2', 'diverged')
+    store().redo()
+    // Redo would have restored a tree that no longer follows from what is on screen.
+    expect(store().value.flags['/f']).toBeUndefined()
+    expect(store().value.args['/2']).toBe('diverged')
+  })
+
+  test('loading a saved tree clears the history', () => {
+    store().setArg('/0', 'before')
+    store().load({ args: {}, flags: {}, choices: {}, repeats: {}, refs: {} })
+
+    store().undo()
+    // A step back into the previous command's tree would be a step into paths this
+    // definition does not have.
+    expect(store().value.args['/0']).toBeUndefined()
+  })
+})

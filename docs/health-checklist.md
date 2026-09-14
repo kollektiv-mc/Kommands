@@ -428,14 +428,6 @@ it should be stable between runs.
   with a reason. Raise `failBelow` as they close; it ends at 100 and the override
   comes out.
 
-**P2 — The label gate needs the suite's labels applied first**
-
-- CI's `pr-labelled` job fails a pull request without a `type:` and an `area:` label,
-  and Dependabot's pull requests ask for `type:chore` and `area:release`. This repo
-  has never had kollektiv's `scripts/sync-labels.sh` run against it
-  ([kollektiv#19](https://github.com/kollektiv-mc/Kollektiv/issues/19)), so some of
-  those labels do not exist here yet. Run it once, where `gh` is authenticated.
-
 **P3 — The scrollbar cannot be verified in this repo's own tooling**
 
 - `styles/index.css` now takes the `::-webkit-scrollbar` path for engines that have it
@@ -465,12 +457,20 @@ it should be stable between runs.
 - The title bar, settings dialog, icon set, pinned-generator store and its tile cost
   2.8 KB gzip; the dashboard tile's icon controls and the content-change comparison
   behind `revision` added 0.5 KB, and the collapse (`ui/Collapsible`, `lib/motion`, the
-  chevron) plus the web build's floating frame another 0.7 KB, leaving 116.6 KB against
-  the 120 KB ceiling. **3.4 KB of headroom.** That is still a pass, and
-  it is the reason the icons are six inline paths rather than a dependency. The next UI
-  feature of this size needs either a lazy boundary or a considered budget raise — and
-  the budget is a number someone can raise, which is why `check-bundle.ts` also asserts
-  three.js is structurally absent rather than merely small enough.
+  chevron) plus the web build's floating frame another 0.7 KB. The clause chain editor
+  (#34) added 0.5 KB more, leaving **117.2 KB against the 120 KB ceiling and 2.8 KB of
+  headroom.** That is still a pass, and it is the reason the icons are six inline paths
+  rather than a dependency. The next UI feature of this size needs either a lazy
+  boundary or a considered budget raise — and the budget is a number someone can raise,
+  which is why `check-bundle.ts` also asserts three.js is structurally absent rather
+  than merely small enough.
+
+  The chain editor is what this entry asked for and is worth reading as the worked
+  example: it is a whole node UI and it cost 0.5 KB here, because the editor itself is
+  a lazy chunk (1.2 KB) and only the undo history and its two controls are eager. The
+  0.5 KB is the part that genuinely belongs to every command, since undo steps a typed
+  argument as readily as a reorder. A Repeat appears in a minority of definitions, so
+  the rest is paid for by whoever opens one.
 
 **P2 — The version-comparison guard cannot see a named constant**
 

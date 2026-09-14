@@ -216,6 +216,24 @@ export interface UiMetadata {
   summary?: string
   /** Per-argument presentation. Derivation cannot produce these. */
   arguments?: Record<string, { label?: string; help?: string; group?: string }>
+  /**
+   * Per-clause presentation, keyed by the branch's leading literal.
+   *
+   * `arguments` above cannot carry this: a clause is a Choice *branch*, not an
+   * argument, so it has no argument name to key on. The chain editor derives a name
+   * from that leading literal when nothing is authored here, which is enough to label
+   * a node and too thin to explain one - `align` and `anchored` are the command's own
+   * words, not a description of what they do.
+   *
+   * Keyed by the literal rather than by branch index because an index is a statement
+   * about the definition's current shape. Skeletons are derived from mcmeta and
+   * regenerated, so a branch added upstream would silently repoint every entry after
+   * it; the token moves with its branch.
+   *
+   * Presentation, so it is outside the structural fingerprint by design and adding
+   * entries here never invalidates a saved command. See `fingerprint.ts`.
+   */
+  clauses?: Record<string, { label?: string; help?: string }>
 }
 
 export interface CommandDefinition {
