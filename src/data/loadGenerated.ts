@@ -30,8 +30,8 @@ function readPayload<T>(raw: unknown, key: string, version: string, file: string
   const payload = raw as Record<string, unknown>
   if (typeof payload.$generated !== 'object' || payload.$generated === null) {
     throw new Error(
-      `${file}: no $generated header. Either it was hand-edited — which the next ` +
-        `\`pnpm gen:commands\` reverts anyway — or it predates the header.`,
+      `${file}: no $generated header. Either it was hand-edited, which the next ` +
+        `\`pnpm gen:commands\` reverts anyway, or it predates the header.`,
     )
   }
   if (payload.version !== version) {
@@ -67,7 +67,7 @@ function loadersFor(version: VersionDefinition) {
   if (!hasGeneratedData(version.id)) {
     throw new Error(
       `no generated data for ${version.id}. Add it to src/data/versions, then run ` +
-        `\`pnpm gen:commands\` — see docs/adding-a-version.md.`,
+        `\`pnpm gen:commands\`. See docs/adding-a-version.md.`,
     )
   }
   return LOADERS[version.id]

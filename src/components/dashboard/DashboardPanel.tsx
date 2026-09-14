@@ -104,7 +104,7 @@ export function DashboardPanel({
         */}
         <IconButton
           disabled
-          title={`Maximize ${panel.title} — not yet available`}
+          title={`Maximize ${panel.title}: not yet available`}
           className="titlebar-no-drag"
         >
           <Icon name="maximize" size="sm" />

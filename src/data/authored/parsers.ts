@@ -116,7 +116,7 @@ export function lookupParser(parser: string): ParserBinding {
   if (!binding) {
     throw new Error(
       `unknown Brigadier parser: ${parser}. Add it to src/data/authored/parsers.ts with ` +
-        `an explicit kind — shallow if it is a scalar, deep if it needs a hand-authored ` +
+        `an explicit kind: shallow if it is a scalar, deep if it needs a hand-authored ` +
         `editor. See .claude/rules/generated-data.md for why this fails rather than ` +
         `falling back to raw_text.`,
     )

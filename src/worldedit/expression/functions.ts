@@ -95,9 +95,9 @@ export const UNIMPLEMENTED: Readonly<Record<string, string>> = {
   query: 'reads blocks already in the world, which this preview does not have',
   queryAbs: 'reads blocks already in the world, which this preview does not have',
   queryRel: 'reads blocks already in the world, which this preview does not have',
-  perlin: 'is not implemented yet — its noise has to be ported exactly, not approximated',
-  voronoi: 'is not implemented yet — its noise has to be ported exactly, not approximated',
-  ridgedmulti: 'is not implemented yet — its noise has to be ported exactly, not approximated',
+  perlin: 'is not implemented yet: its noise has to be ported exactly, not approximated',
+  voronoi: 'is not implemented yet: its noise has to be ported exactly, not approximated',
+  ridgedmulti: 'is not implemented yet: its noise has to be ported exactly, not approximated',
 }
 
 /**

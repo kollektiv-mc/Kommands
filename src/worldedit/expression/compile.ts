@@ -347,7 +347,7 @@ class Compiler {
     if (node.name === 'closest' || node.name === 'gclosest') {
       if (args.length !== 6) {
         this.issue(
-          `${node.name} takes 6 arguments — x, y, z, index, count and stride — not ${args.length}.`,
+          `${node.name} takes 6 arguments (x, y, z, index, count and stride), not ${args.length}.`,
           node.at,
         )
         return () => 0

@@ -51,6 +51,43 @@ const NO_INLINE_STYLES = {
     'Inline styles are only for dynamic/computed values — see docs/design-tokens.md.',
 }
 
+// Nothing published carries an em dash (kollektiv's docs/conventions.md
+// § Public copy). That repo's check-copy.sh reads every page of both websites
+// and this app's index.html, which between them hold one word of Kommands'
+// copy: its title. Everything a user here reads is rendered from these files,
+// so scanning only the HTML reported this repo clean without having read any
+// of it.
+//
+// A rule rather than a grep, because a regex over a .tsx cannot tell a
+// rendered string from a comment about one, and this tree comments heavily:
+// 160 files carry an em dash and all but a handful are prose between people
+// working on it. The parser already knows the difference. Comments are not
+// nodes, so they are simply never seen, which is the same line check-copy.sh
+// draws when it blanks out <!-- -->.
+//
+// Three node types carry copy: text between JSX tags, a string a component
+// hands to a prop or holds in a lookup, and the literal half of a template.
+const NO_EM_DASH_IN_COPY = [
+  {
+    selector: 'JSXText[value=/\u2014/]',
+    message:
+      'Published copy carries no em dash. Use a comma, a colon, or two sentences — ' +
+      'see kollektiv docs/conventions.md § Public copy.',
+  },
+  {
+    selector: 'Literal[value=/\u2014/]',
+    message:
+      'Published copy carries no em dash. Use a comma, a colon, or two sentences — ' +
+      'see kollektiv docs/conventions.md § Public copy.',
+  },
+  {
+    selector: 'TemplateElement[value.raw=/\u2014/]',
+    message:
+      'Published copy carries no em dash. Use a comma, a colon, or two sentences — ' +
+      'see kollektiv docs/conventions.md § Public copy.',
+  },
+]
+
 export default tseslint.config(
   // src/data/generated/** carries a DO-NOT-EDIT header and is the deriver's
   // output; linting it would report on a file nobody may edit.
@@ -81,6 +118,23 @@ export default tseslint.config(
     files: ['src/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': ['error', ...NO_VERSION_COMPARISONS, NO_INLINE_STYLES],
+    },
+  },
+  {
+    // The copy rule on top of the two above, minus the files that are not
+    // copy. A test names itself in prose a user never sees, and corpus.ts is
+    // WorldEdit's own suite transcribed as data, read by two test files and
+    // nothing else. Both are notes between people working here, the same
+    // category as a comment.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/**/*.test.{ts,tsx}', 'src/worldedit/expression/corpus.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...NO_VERSION_COMPARISONS,
+        NO_INLINE_STYLES,
+        ...NO_EM_DASH_IN_COPY,
+      ],
     },
   },
   {

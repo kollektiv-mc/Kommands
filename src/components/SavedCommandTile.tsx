@@ -22,9 +22,9 @@ const RESUMABILITY_NOTE = {
  */
 const STRUCTURE_NOTE = {
   verified: null,
-  stale: 'Saved against an older shape of this command — opens empty',
+  stale: 'Saved against an older shape of this command: opens empty',
   'unknown-command': 'The command this was built for is not in this build',
-  unverified: 'Saved before Kommands recorded command shapes — opens empty',
+  unverified: 'Saved before Kommands recorded command shapes: opens empty',
 } as const
 
 /**
@@ -235,7 +235,7 @@ export function SavedCommandTile({
             aria-pressed={saved.linked === true}
             title={
               !linkable
-                ? `Link ${saved.name} into Konnekt — needs the desktop build`
+                ? `Link ${saved.name} into Konnekt: needs the desktop build`
                 : saved.linked === true
                   ? `Unlink ${saved.name} from Konnekt`
                   : `Link ${saved.name} into Konnekt`

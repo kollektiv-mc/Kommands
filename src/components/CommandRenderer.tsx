@@ -169,7 +169,7 @@ function NodeView({ node, path, value, ctx, actions, scope }: NodeViewProps) {
             {/* An optional clause can be left out entirely, so "none" is a real
                 selection rather than the absence of one. It leads because it is where
                 a fresh command starts. */}
-            {node.optional && <option value={NO_BRANCH}>— none —</option>}
+            {node.optional && <option value={NO_BRANCH}>(none)</option>}
             {node.nodes.map((n, i) => (
               <option key={i} value={i}>
                 {branchLabel(n, i)}
