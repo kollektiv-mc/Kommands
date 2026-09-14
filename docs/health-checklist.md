@@ -428,14 +428,6 @@ it should be stable between runs.
   with a reason. Raise `failBelow` as they close; it ends at 100 and the override
   comes out.
 
-**P2 — The label gate needs the suite's labels applied first**
-
-- CI's `pr-labelled` job fails a pull request without a `type:` and an `area:` label,
-  and Dependabot's pull requests ask for `type:chore` and `area:release`. This repo
-  has never had kollektiv's `scripts/sync-labels.sh` run against it
-  ([kollektiv#19](https://github.com/kollektiv-mc/Kollektiv/issues/19)), so some of
-  those labels do not exist here yet. Run it once, where `gh` is authenticated.
-
 **P3 — The scrollbar cannot be verified in this repo's own tooling**
 
 - `styles/index.css` now takes the `::-webkit-scrollbar` path for engines that have it
