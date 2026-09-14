@@ -92,7 +92,7 @@ export function SaveCommandBar({
   if (status === 'unavailable') {
     return (
       <p className={LABEL}>
-        Saving is off — this browser is not letting the page store anything. Everything else still
+        Saving is off: this browser is not letting the page store anything. Everything else still
         works.
       </p>
     )
@@ -136,7 +136,7 @@ export function SaveCommandBar({
             disabled={empty || change === 'none'}
             aria-label={
               change === 'none'
-                ? 'Save changes — nothing has changed since the last save'
+                ? 'Save changes: nothing has changed since the last save'
                 : undefined
             }
             onClick={() => {
@@ -230,10 +230,10 @@ export function SaveCommandBar({
           aria-pressed={linked}
           aria-label={
             !linkable
-              ? 'link — needs the desktop build'
+              ? 'link: needs the desktop build'
               : saved
                 ? undefined
-                : 'link — save the command first'
+                : 'link: save the command first'
           }
           onClick={() => saved && void link(saved.id, !linked)}
         >
@@ -244,7 +244,7 @@ export function SaveCommandBar({
           className={MINOR}
           disabled={!saved}
           aria-pressed={pinned}
-          aria-label={saved ? undefined : 'pin — save the command first'}
+          aria-label={saved ? undefined : 'pin: save the command first'}
           onClick={() => saved && void pin(saved.id, !pinned)}
         >
           {pinned ? 'pinned' : 'pin'}
@@ -253,7 +253,7 @@ export function SaveCommandBar({
           type="button"
           className={MINOR}
           disabled={!saved}
-          aria-label={saved ? undefined : 'rename — save the command first'}
+          aria-label={saved ? undefined : 'rename: save the command first'}
           onClick={() => {
             if (!saved) return
             // Seeded with the current name rather than blank: a rename is usually an

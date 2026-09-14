@@ -65,7 +65,7 @@ describe('the renderer walks a definition and nothing else', () => {
     expect(screen.getByText('+ add')).toBeDefined()
     // The run clause is optional and unselected, so the form offers it rather than
     // asserting it: no `run` keyword and no command picker until it is chosen.
-    expect(screen.getByText('— none —')).toBeDefined()
+    expect(screen.getByText('(none)')).toBeDefined()
     expect(screen.queryByLabelText('command')).toBeNull()
   })
 

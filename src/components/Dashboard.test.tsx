@@ -198,7 +198,7 @@ test('the maximize control is present and says it does nothing yet', async () =>
   // gives: someone learning a thing is missing by finding nothing where they expected
   // something. The reason lives in the accessible name, not only in a tooltip.
   const maximize = await screen.findByRole('button', {
-    name: /Maximize Saved commands — not yet available/,
+    name: /Maximize Saved commands: not yet available/,
   })
   expect(maximize.hasAttribute('disabled')).toBe(true)
 })
@@ -288,7 +288,7 @@ test('the web build says what it cannot do rather than hiding the control', asyn
   // names the failure this guards against: a user learning that linking is
   // standalone-only by finding nothing where they expected something.
   const link = await screen.findByRole('button', {
-    name: /Link Starter kit into Konnekt — needs the desktop build/,
+    name: /Link Starter kit into Konnekt: needs the desktop build/,
   })
   expect(link.hasAttribute('disabled')).toBe(true)
   // And the reason is readable without hovering anything.

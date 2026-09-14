@@ -126,7 +126,7 @@ test('re-saving a command nobody has touched is offered as the no-op it is', asy
   // linked consumer would re-read for.
   await renderWithRouter(bar('/give @p stone', first!.id))
   const idle = await screen.findByRole('button', {
-    name: /Save changes — nothing has changed since the last save/,
+    name: /Save changes: nothing has changed since the last save/,
   })
   expect(idle).toHaveProperty('disabled', true)
 
@@ -152,13 +152,13 @@ test('the three tile verbs are here too, disabled until there is a command to ac
   // Present and disabled with the reason in the accessible name, rather than appearing
   // the moment a save succeeds. distribution.md § The split must be visible names the
   // failure: learning a thing exists by finding nothing where you expected something.
-  for (const name of [/^pin — save the command first/, /^rename — save the command first/]) {
+  for (const name of [/^pin: save the command first/, /^rename: save the command first/]) {
     expect(await screen.findByRole('button', { name })).toHaveProperty('disabled', true)
   }
   // link states the *build* reason first, because that one is permanent and the other
   // is not — a web session will never link however much it saves.
   expect(
-    await screen.findByRole('button', { name: /^link — needs the desktop build/ }),
+    await screen.findByRole('button', { name: /^link: needs the desktop build/ }),
   ).toHaveProperty('disabled', true)
 })
 

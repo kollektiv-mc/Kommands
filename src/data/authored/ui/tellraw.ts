@@ -13,7 +13,7 @@ export const tellrawUi: UiMetadata = {
     targets: { label: 'Recipients', help: 'Who sees the message.' },
     message: {
       label: 'Message',
-      help: 'Text, a translation key, a selector or a score — with children, colour and events.',
+      help: 'Text, a translation key, a selector or a score, with children, colour and events.',
     },
   },
 }

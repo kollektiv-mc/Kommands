@@ -70,7 +70,7 @@ export function previewProblems(
   if (!module.accepts(definition)) {
     return [
       `${definition.id}: module "${binding.module}" does not accept this definition. ` +
-        `Its accepts() asserts the argument types it reads — one of them has changed ` +
+        `Its accepts() asserts the argument types it reads: one of them has changed ` +
         `shape, or the binding is on the wrong command.`,
     ]
   }

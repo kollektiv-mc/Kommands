@@ -170,8 +170,8 @@ export function Dashboard() {
       */}
       {!linkable && (
         <p className={LABEL}>
-          Linking a command into Konnekt needs the standalone build — a browser cannot reach the
-          file the two share.
+          Linking a command into Konnekt needs the standalone build: a browser cannot reach the file
+          the two share.
         </p>
       )}
 
