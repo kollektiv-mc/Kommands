@@ -8,18 +8,13 @@ no `TODO.md`.
 
 ## Now
 
-Exit criterion: all four commands in the schema's acceptance set generate correct
-output, and one 3D preview is live. **Both halves are met.** What is left in the phase
-is the `/execute` editor.
+**This phase is complete.** Its exit criterion was that all four commands in the
+schema's acceptance set generate correct output and one 3D preview is live; both
+halves were met, and the `/execute` node editor that was the last item in it has
+landed. See § Done.
 
-- **The `/execute` node editor** — the clause chain becomes a node-based builder
-  rather than the stack of rows it is now. The current chain UI is a placeholder that
-  proved the data layer end to end; it is not the intended design. Stable instance
-  identity, its prerequisite, has landed.
-  [#34](https://github.com/kollektiv-mc/Kommands/issues/34)
-
-This phase proved the schema against real commands. The next one gives a command a
-life beyond the tab that built it — see § Next.
+Everything now open is § Next or later. This phase proved the schema against real
+commands; the next one gives a command a life beyond the tab that built it.
 
 ## Next
 
@@ -109,6 +104,33 @@ both are promoted to § Next.
 ## Done
 
 Completed phases, newest first. Kept for the reasoning, not the tick.
+
+- **The `/execute` node editor** — the clause chain is a chain of nodes rather than the
+  stack of rows that proved the data layer. What is worth recording is how little of it
+  was new. The chain already _was_ `Repeat(Choice(…))`, a linear ordered list of
+  alternatives, so only the drawing changed: `reorderRepeat` still takes a permutation,
+  the palette is still the Choice's branches read straight off the definition, and
+  `serializeCommand` never saw the change at all. The 150 data-layer tests were not
+  touched, which is the property that says the rewrite stayed a renderer.
+
+  Three things in it were not the obvious answer. It is **lazy**, and had to be: the
+  entry chunk measured 116.7 KB against a 120 KB budget, so a node UI in it would have
+  spent most of the remaining headroom on a feature a minority of definitions use. The
+  editor is a 1.2 KB chunk and the eager cost is 0.5 KB, all of it the undo history,
+  which genuinely belongs to every command. To get there `ClauseChain` takes the clause
+  bodies as a render prop rather than importing the walk, so the two files cannot form
+  a cycle — the kind that resolves at build time and breaks under `React.lazy`.
+
+  Selection turned out to be **free**, which was not the expectation. #34 listed it as
+  work, to be permuted on reorder exactly as values are. Keyed by instance id it needs
+  no permuting at all: the ids are the identity, so the mark follows its clause. That is
+  #33 still paying for itself.
+
+  And dragging is a pointer gesture, so the move controls stayed as buttons beside the
+  handle rather than being replaced by it. Not the placeholder surviving: without them
+  a chain cannot be reordered without a mouse, and `moveTo` is the half of dragging
+  worth testing because jsdom answers `getBoundingClientRect` with zeroes and cannot
+  measure the other half.
 
 - **Preview infrastructure, and the `worldedit/shape` module** — the part of this phase
   that had to run in a browser. A definition declares a preview and the rest follows:

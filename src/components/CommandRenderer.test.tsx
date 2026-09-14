@@ -57,12 +57,13 @@ describe('the renderer walks a definition and nothing else', () => {
     expect(screen.getAllByText('optional').length).toBeGreaterThan(0)
   })
 
-  test('renders /execute — repeat, choice and ref — with no special-casing', () => {
+  test('renders /execute — repeat, choice and ref — with no special-casing', async () => {
     // The acceptance case. If this needed a branch on definition.id anywhere in
     // CommandRenderer, the schema would be the thing that is wrong.
     renderDef(EXECUTE)
     expect(screen.getByText('execute')).toBeDefined()
-    expect(screen.getByText('+ add')).toBeDefined()
+    // findBy, because the clause chain is a lazy chunk and this is its first render.
+    expect(await screen.findByLabelText('Add clause')).toBeDefined()
     // The run clause is optional and unselected, so the form offers it rather than
     // asserting it: no `run` keyword and no command picker until it is chosen.
     expect(screen.getByText('(none)')).toBeDefined()

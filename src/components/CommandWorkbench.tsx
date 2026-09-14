@@ -8,7 +8,10 @@ import type { CommandDefinition } from '../schema/types'
 import { previewInputsKey, readPreviewInputs } from '../previews/inputs'
 import { previewModule } from '../previews/registry'
 import { useCommandStore } from '../stores/useCommandStore'
+import { canRedo, canUndo } from '../stores/commandHistory'
 import { PreviewCanvas } from './PreviewCanvas'
+import { Icon } from './ui/Icon'
+import { IconButton } from './ui/IconButton'
 import { LABEL, WARNING } from './editors/fieldStyles'
 import { ROW_ADD } from './editors/rowStyles'
 
@@ -59,6 +62,34 @@ export function CommandWorkbench({
   const reorderRepeat = useCommandStore((s) => s.reorderRepeat)
   const setRef = useCommandStore((s) => s.setRef)
   const reset = useCommandStore((s) => s.reset)
+  const undo = useCommandStore((s) => s.undo)
+  const redo = useCommandStore((s) => s.redo)
+  const history = useCommandStore((s) => s.history)
+
+  /**
+   * Undo and redo from the keyboard, unconditionally.
+   *
+   * Deliberately not skipped while a text field has focus, which is the usual
+   * compromise and the wrong one here. Every editor in this app is a controlled input
+   * over the value tree, so the browser's own undo stack for one of them is already
+   * out of step with what is on screen - React rewrites the value on each render and
+   * the native stack does not hear about it. Leaving `Ctrl+Z` to the browser inside a
+   * field would mean undo did something different depending on where the caret was.
+   *
+   * What makes taking it over feel native rather than blunt is the coalescing in
+   * `commandHistory.ts`: a burst of typing in one field is one step, so undo inside a
+   * field undoes what was typed there, which is what the browser would have done.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z') return
+      event.preventDefault()
+      if (event.shiftKey) redo()
+      else undo()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [undo, redo])
 
   /**
    * Which definition the stored value belongs to.
@@ -138,6 +169,15 @@ export function CommandWorkbench({
             <div className="flex items-center gap-2">
               <span className={LABEL}>{`Output · ${version.id}`}</span>
               <CopyButton text={output} />
+              {/* Beside the output rather than in the chain editor, because undo is
+                  about the command and not about one clause of it: it steps back a
+                  typed argument or a flipped flag just as readily as a reorder. */}
+              <IconButton title="Undo" onClick={undo} disabled={!canUndo(history)}>
+                <Icon name="undo" size="sm" />
+              </IconButton>
+              <IconButton title="Redo" onClick={redo} disabled={!canRedo(history)}>
+                <Icon name="redo" size="sm" />
+              </IconButton>
             </div>
             {/*
               One line of text in a two-line box, which is what "a bit larger and more

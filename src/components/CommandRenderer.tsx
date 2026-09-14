@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import type { SerializeContext } from '../data/versions/types'
 import { argumentOptions, lookupArgumentType } from '../schema/argument-types'
 import {
@@ -20,7 +21,21 @@ import {
   type UiMetadata,
 } from '../schema/types'
 import { FIELD, LABEL, WARNING } from './editors/fieldStyles'
-import { ROW_ADD, ROW_REMOVE } from './editors/rowStyles'
+
+/**
+ * The chain editor for a Repeat, fetched on first use.
+ *
+ * Lazy for the reason `docs/health-checklist.md` § Open backlog gave before this was
+ * written: the entry chunk measured 116.7 KB against a 120 KB budget, and the next UI
+ * feature of this size needed either a lazy boundary or a considered budget raise.
+ * It is also right on its own terms. A Repeat appears in a minority of definitions, so
+ * `/give` has no reason to carry `/execute`'s editor.
+ *
+ * The clause bodies are passed *in* as a render prop rather than imported there, so
+ * `ClauseChain` never reaches back into this module. A cycle here would be the kind
+ * that resolves at build time and breaks under `React.lazy`.
+ */
+const ClauseChain = lazy(() => import('./editors/ClauseChain'))
 
 /**
  * Renders a command definition.
@@ -36,7 +51,7 @@ interface Actions {
   setFlag: (path: Path, on: boolean) => void
   setChoice: (path: Path, index: number) => void
   addInstance: (path: Path, node: { min?: number; max?: number }) => void
-  reorderRepeat: (path: Path, ids: readonly InstanceId[]) => void
+  reorderRepeat: (path: Path, ids: readonly InstanceId[], tag?: string) => void
   setRef: (path: Path, definitionId: string) => void
 }
 
@@ -191,35 +206,25 @@ function NodeView({ node, path, value, ctx, actions, scope }: NodeViewProps) {
     }
 
     case 'repeat': {
-      // PROVISIONAL PRESENTATION. A Repeat is drawn as a stack of rows with move and
-      // remove buttons, and that is not the intended design — `/execute`'s clause chain
-      // is to become a node-based builder (see docs/roadmap.md § Now). These rows exist
-      // because the data layer needed proving end to end before the editor that will
-      // replace them is worth starting, and because a form is the cheapest thing that
-      // exercises add, remove and reorder against real values.
-      //
-      // What is *not* provisional is everything below this line that is not JSX: the
-      // id list handed to `reorderRepeat`, the identity model behind it, and the value
-      // tree it operates on. A node editor rebuilds the drawing and keeps all of it. Do
-      // not build further on the rows themselves.
+      // The rows this replaced were a documented placeholder: they proved the data
+      // layer end to end and caught two bugs no unit test saw, and they were never the
+      // design (#34). What survived the rewrite is everything that was not JSX - the id
+      // list handed to `reorderRepeat`, the identity model under it, and the value tree
+      // it permutes. The chain editor is a different *drawing* of the same three.
       const ids = repeatInstances(value.repeats, path, node)
-      const count = ids.length
-      // Each control hands the store the order it wants, rather than an index and a
-      // verb. Moving and removing are the same operation on a path-keyed tree, and
-      // saying so once is what keeps a removed clause's values from coming back.
-      const swap = (i: number, j: number) =>
-        ids.map((id, k) => (k === i ? ids[j]! : k === j ? ids[i]! : id))
-      const without = (i: number) => ids.filter((_, k) => k !== i)
-      const atMax = node.max !== undefined && count >= node.max
 
       return (
-        <div className="border-l-hairline border-border-subtle flex flex-col gap-2 pl-2">
-          {ids.map((id, i) => (
-            // Keyed on the instance's id, not its position. With `key={i}` React saw the
-            // same keys in the same order after a reorder and simply handed each mounted
-            // editor the next clause's props — values moved and component-internal state
-            // did not, so a dropdown's selection stayed on the clause that had not moved.
-            <div key={id} className="flex items-start gap-2">
+        <Suspense
+          fallback={<span className="text-text-faint text-2xs">Loading the clause editor…</span>}
+        >
+          <ClauseChain
+            ids={ids}
+            min={node.min ?? 0}
+            max={node.max}
+            naming={(id) => clauseNaming(node.node, instance(path, id), value, scope.ui)}
+            // The clause's own editors, rendered by this walk and handed over. The chain
+            // draws the node around them and knows nothing about what is inside.
+            renderClause={(id) => (
               <NodeView
                 node={node.node}
                 path={instance(path, id)}
@@ -228,58 +233,26 @@ function NodeView({ node, path, value, ctx, actions, scope }: NodeViewProps) {
                 actions={actions}
                 scope={scope}
               />
-              <div className="flex gap-1 pt-4">
-                <button
-                  type="button"
-                  className={ROW_REMOVE}
-                  aria-label={`Move clause ${i + 1} earlier`}
-                  disabled={i === 0}
-                  onClick={() => actions.reorderRepeat(path, swap(i, i - 1))}
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  className={ROW_REMOVE}
-                  aria-label={`Move clause ${i + 1} later`}
-                  disabled={i === count - 1}
-                  onClick={() => actions.reorderRepeat(path, swap(i, i + 1))}
-                >
-                  ↓
-                </button>
-                {count > (node.min ?? 0) && (
-                  <button
-                    type="button"
-                    className={ROW_REMOVE}
-                    aria-label={`Remove clause ${i + 1}`}
-                    onClick={() => actions.reorderRepeat(path, without(i))}
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-          {/* Hidden at `max` rather than disabled, matching how the remove button treats
-              `min`. The limit is a fact about the command's grammar, so the control that
-              would break it is not offered. */}
-          {!atMax && (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className={ROW_ADD}
-                // Labelled like its siblings, which say "Move clause 1 earlier" and
-                // "Remove clause 1". The visible text is ambiguous on its own: a deep
-                // editor inside the clause may have a `+ add` of its own, and
-                // `item_stack`'s does.
-                aria-label="Add clause"
-                onClick={() => actions.addInstance(path, node)}
-              >
-                + add
-              </button>
-            </div>
-          )}
-        </div>
+            )}
+            // Moving and removing are one action, because to a path-keyed tree they are
+            // one operation: a new ordering, with removal the case where an id is left
+            // out. Saying so once is what keeps a removed clause's values from coming
+            // back in the next one added.
+            //
+            // The chain's gesture tag is qualified with this Repeat's path before it
+            // reaches the store. The chain mints it from a counter of its own, so two
+            // chains on one page would otherwise both call their first drag `drag:1`
+            // and the second would coalesce into the first one's undo step.
+            onReorder={(next, gesture) =>
+              actions.reorderRepeat(
+                path,
+                next,
+                gesture === undefined ? undefined : `${path}:${gesture}`,
+              )
+            }
+            onAdd={() => actions.addInstance(path, node)}
+          />
+        </Suspense>
       )
     }
 
@@ -375,6 +348,40 @@ function RefView({
       )}
     </div>
   )
+}
+
+/**
+ * What a clause in a chain is called, and what it does.
+ *
+ * A clause is a Choice branch rather than an argument, so `UiMetadata.arguments` has
+ * no key for it and `ui.clauses` exists for exactly this. The authored entry is keyed
+ * by the branch's leading literal - the command's own word for it - so a definition
+ * regenerated from mcmeta with a branch inserted does not repoint every entry after it.
+ *
+ * Falls back to the derived name, which is the leading literal itself. That labels a
+ * node adequately and explains nothing, which is the gap `help` fills: `anchored` is
+ * what the command calls it, not what it means.
+ *
+ * A Repeat of something other than a Choice has no branch to read, and `/execute`'s is
+ * the only Repeat in the catalogue today. It gets a neutral name rather than a guess.
+ */
+function clauseNaming(
+  node: Node,
+  path: Path,
+  value: CommandValue,
+  ui?: UiMetadata,
+): { label: string; help?: string } {
+  if (node.kind !== 'choice') return { label: 'clause' }
+
+  const selected = choiceSelection(value.choices, path, node)
+  const chosen = selected === NO_BRANCH ? undefined : node.nodes[selected]
+  // An optional Choice starts with nothing applied, and that is a state rather than an
+  // error: the clause exists and has not been told what to be yet.
+  if (chosen === undefined) return { label: 'not set' }
+
+  const derived = branchLabel(chosen, selected)
+  const authored = ui?.clauses?.[derived]
+  return { label: authored?.label ?? derived, help: authored?.help }
 }
 
 function branchLabel(node: Node, index: number): string {

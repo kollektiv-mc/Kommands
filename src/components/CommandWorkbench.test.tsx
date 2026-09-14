@@ -180,7 +180,9 @@ test('driving /execute through the app, where the Ref was never wired', async ()
   // Untouched: no dangling keyword, and no doubled space where the empty repeat sits.
   expect(output()).toBe('/execute')
 
-  await user.click(screen.getByText('+ add'))
+  // findBy, not getBy: the clause chain is a lazy chunk, so the first render of a
+  // Repeat in this file shows the Suspense fallback until the import resolves.
+  await user.click(await screen.findByLabelText('Add clause'))
   await user.selectOptions(screen.getAllByLabelText('Clause')[0]!, '2')
   expect(output()).toBe('/execute as @p')
 
@@ -212,9 +214,9 @@ test('reordering clauses reorders the command, and removing one takes its values
   )
   const output = () => container.querySelector('code')?.textContent
 
-  await user.click(screen.getByText('+ add'))
+  await user.click(await screen.findByLabelText('Add clause'))
   await user.selectOptions(screen.getAllByLabelText('Clause')[0]!, '2')
-  await user.click(screen.getByText('+ add'))
+  await user.click(screen.getByLabelText('Add clause'))
   await user.selectOptions(screen.getAllByLabelText('Clause')[1]!, '3')
   expect(output()).toBe('/execute as @p at @p')
 
