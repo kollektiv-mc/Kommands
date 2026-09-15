@@ -2,11 +2,11 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "extraKnownMarketplaces": {
     "kollektiv": { "source": { "source": "github", "repo": "kollektiv-mc/Kollektiv" } },
-    "superpowers": { "source": { "source": "github", "repo": "obra/superpowers" } }
+    "superpowers-dev": { "source": { "source": "github", "repo": "obra/superpowers" } }
   },
   "enabledPlugins": {
     "suite-kit@kollektiv": true,
-    "superpowers@superpowers": true
+    "superpowers@superpowers-dev": true
   },
   "permissions": {
     "allow": [
