@@ -111,16 +111,26 @@ picks them up. Add this block if it is not present yet:
 ```json
 "extraKnownMarketplaces": {
   "kollektiv": { "source": { "source": "github", "repo": "kollektiv-mc/Kollektiv" } },
-  "superpowers": { "source": { "source": "github", "repo": "obra/superpowers" } }
+  "superpowers-dev": { "source": { "source": "github", "repo": "obra/superpowers" } }
 },
 "enabledPlugins": {
   "suite-kit@kollektiv": true,
-  "superpowers@superpowers": true
+  "superpowers@superpowers-dev": true
 }
 ```
 
+`superpowers-dev` is not a typo: the marketplace at `obra/superpowers` names itself
+that in its own manifest, and the manifest's name beats the key written here.
+
 Declaring a plugin does not install it. Claude Code prompts on first run with a
-`claude plugin install` line — run it once per machine.
+`claude plugin install` line — run it once per machine:
+
+```sh
+claude plugin marketplace add kollektiv-mc/Kollektiv
+claude plugin install suite-kit@kollektiv
+claude plugin marketplace add obra/superpowers
+claude plugin install superpowers@superpowers-dev
+```
 
 [superpowers](https://github.com/obra/superpowers) is the one third-party plugin
 the suite enables. Plugins cost context on every turn, so check the **Context
