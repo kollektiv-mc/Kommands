@@ -4,6 +4,7 @@
 # a finding here is a finding against the upstream file, which kollektiv holds
 # to the same gate.
 .claude/suite-check.py
+.claude/suite-memory.py
 .github/scripts/release-notes.py
 .github/scripts/release-notes_test.py
 
