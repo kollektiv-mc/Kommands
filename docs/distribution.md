@@ -302,13 +302,97 @@ CI. Both of the things that had to move with it have:
   needs the built frontend and system webkit headers, so in most environments it
   would report skip, and CI runs `suite-check.py --require-runnable`, where a
   skip is a failure. It runs instead as explicit steps in CI's `shell` job,
-  where the headers are installed. The manifest's `distribution` note records
-  the same reasoning beside the checks themselves.
+  where the headers are installed.
 - **[`suite.md`](suite.md)** no longer draws the line between the two products
   at "Konnekt is a Go module, Kommands is a Vite app". That was never the real
   argument for separate repositories, and it stopped being true here.
 
-What remains of [#44](https://github.com/kollektiv-mc/Kommands/issues/44) is the
-release workflow: the shell compiles and passes CI, but until a workflow
-produces installable artefacts there is nothing a user can download, which is
-why the manifest still lists `desktop-wails-v2` under `planned`.
+---
+
+## Releases
+
+`.github/workflows/release.yml` cuts them and `snapshot.yml` builds `main`
+nightly. Both produce the same three artefacts, and the shape of that set is a
+decision rather than a default.
+
+### Two of the three artefacts exist to register the URL scheme
+
+Windows gets an **NSIS installer**, not a loose `.exe`; Linux gets an **RPM**
+beside the bare binary. On both platforms the packaged form is the one that
+registers `kommands://`, and the loose binary registers nothing:
+
+- On Windows, `build/windows/installer/wails_tools.nsh` expands the `protocols`
+  block in `wails.json` into the `URL Protocol` registry keys, and
+  `project.nsi` calls that macro. Only the installer runs it.
+- On Linux, `build/linux/kommands.desktop` is what declares
+  `x-scheme-handler/kommands`, and its `Exec` line is `/usr/bin/kommands`. Only
+  a package installs it there.
+
+So on any platform where someone took the bare binary, nothing will ever hand
+this app a `kommands://` URL. Worth knowing before the bare Linux binary is
+treated as the normal download: it is the portable option, not the complete
+one.
+
+**Registration runs ahead of handling, deliberately.** Nothing here yet _acts_
+on a URL: `App.onSecondInstanceLaunch` forwards a second instance's argv,
+logs it and drops it, because the inbound direction is
+[#43](https://github.com/kollektiv-mc/Kommands/issues/43) and the one-shot
+handoff is [#46](https://github.com/kollektiv-mc/Kommands/issues/46). Until one
+of those lands, following a `kommands://` link opens or raises the window and
+discards the payload. That is the harmless half of the pair, and registering
+now means the scheme starts working the day a handler lands rather than
+needing everyone to reinstall.
+
+Konnekt is not the model for this, and the reason is worth stating rather than
+inferring from its files. It is in exactly the same place on the handler,
+`onSecondInstanceLaunch` logging and dropping against
+[konnekt#213](https://github.com/kollektiv-mc/Konnekt/issues/213) Phase 2, and
+it made the opposite call on registration: no `protocols` block in its
+`wails.json` and a bare `.exe` release, so `konnekt://` is registered by
+nothing there. Neither choice is an oversight. Copying its packaging would
+simply not give this app a registered scheme.
+
+macOS builds from source. `build/darwin/Info.plist` already carries the
+`CFBundleURLTypes` template, so a macOS build would register the scheme on the
+same terms as the other two; what is missing is a signed, notarised artefact,
+which needs a paid Developer ID rather than a workflow change.
+
+### The version ladder
+
+A release is `vX.Y.Z`, `vX.Y.Z-alpha.N` or `vX.Y.Z-beta.N` and nothing else.
+The Actions tab's "Run workflow" button takes a channel and an `X.Y.Z`, and
+`.github/scripts/release-tag.py` turns that into the next free tag, checks it,
+and creates it. A hand-pushed `v*` tag reaches the same rules.
+
+`version.go`'s `Version` is the single source of the version, and the release
+stamps it through `-ldflags "-X main.Version=<tag>"`. **It has to stay a `var`.**
+The linker's `-X` writes to a string variable and does nothing whatever against
+a `const`, with no error: the binary would ship claiming to be the dev version,
+in the capabilities probe and in the install marker Konnekt stats to learn what
+is installed. CI's `shell` job builds with a sentinel and reads it back on every
+push, and both release jobs assert the stamp against the tag before publishing.
+
+### The snapshot channel
+
+`main`, rebuilt nightly when it has moved, published as the rolling `snapshot`
+prerelease. Kommands does not update itself, so this is a download rather than
+a subscription: what it buys is running the newest code without a Go toolchain
+and a webkit build.
+
+A snapshot is versioned `<base>-snapshot.<YYYYMMDDHHMM>.<sha7>`, where the base
+is `version.go`'s. The timestamp is what makes two snapshots orderable at all,
+and it comes from the commit rather than from the clock so a re-run on an
+unchanged `main` produces the same version.
+
+The thing that can go wrong quietly is the base falling behind. Cut a release
+whose version reaches `version.go`'s base and every later snapshot sorts below
+it: the snapshot RPM stops upgrading, because `dnf` orders it with `rpmvercmp`
+and sees an older package, and this page starts claiming to be newer than a
+release it is not. `.github/scripts/version-precedence.py` annotates the run
+that first produces one, and `release-tag.py` refuses a tag that would cause it,
+because the fix is a commit on `main` and no workflow will make one.
+
+That semver's ordering and `rpmvercmp`'s agree across every shape this ladder
+emits is checked rather than assumed: `version-precedence_test.py` puts the
+pairs through rpm's own `vercmp`. They do disagree in two places, both outside
+the ladder, and the test file records which and why neither can occur.

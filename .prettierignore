@@ -39,3 +39,9 @@ tokens.source.json
 
 # Vendored by kollektiv's scripts/sync-notes.sh beside the release-notes generator.
 .github/release.yml
+
+# Wails' own packaging templates, copied verbatim from the CLI's buildassets
+# and expanded by `wails build` from wails.json. info.json is the only one
+# Prettier can parse, and reformatting it would put this repo's layout on a
+# file upstream owns and regenerates, for no gain.
+build/windows/

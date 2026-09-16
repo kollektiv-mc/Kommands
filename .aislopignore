@@ -21,3 +21,8 @@ tokens.source.json
 dist
 build/bin
 wailsjs
+
+# Wails' own packaging templates, copied verbatim from the CLI's buildassets
+# (pkg/buildassets/build/windows). Not authored here and expanded at build
+# time from wails.json, so a finding against one is a finding against Wails.
+build/windows

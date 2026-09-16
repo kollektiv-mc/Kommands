@@ -1,0 +1,443 @@
+name: Release
+
+# Two ways in, one pipeline.
+#
+# The Actions tab's "Run workflow" button is the normal path: pick a channel
+# and the X.Y.Z it belongs to, and the resolve job turns that into the tag (the
+# next alpha.N or beta.N of that version, or the bare vX.Y.Z for stable),
+# checks it against the existing tags and version.go's base, and creates it.
+# Pushes made with GITHUB_TOKEN never trigger workflows, so creating the tag
+# from inside this run does not start a second one; the build carries on here,
+# at that tag.
+#
+# A hand-pushed v* tag still works. It goes through the same resolve job, minus
+# the tag creation, so both paths are held to the same rules, and a tag that
+# would strand the snapshot channel fails here rather than shipping.
+#
+# What the rules are, and why each exists, is documented in
+# .github/scripts/release-tag.py; the ladder itself is in docs/distribution.md.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: 'alpha and beta count up within a version (vX.Y.Z-alpha.N); stable is the bare vX.Y.Z'
+        type: choice
+        required: true
+        default: alpha
+        options: [alpha, beta, stable]
+      version:
+        description: 'The X.Y.Z this build belongs to. No v, no suffix.'
+        type: string
+        required: true
+
+# One release at a time. Two dispatches side by side would both resolve to the
+# same next counter; run in sequence, the second sees the first's tag and
+# refuses it.
+concurrency:
+  group: release
+
+# Read by default; the two jobs that need to write say so themselves.
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.decide.outputs.tag }}
+      rpm_version: ${{ steps.decide.outputs.rpm_version }}
+      prerelease: ${{ steps.decide.outputs.prerelease }}
+    steps:
+      # A release is cut from the default branch. Anything else is a hotfix
+      # somebody should be doing deliberately, which is what the hand-pushed
+      # tag path is for.
+      - name: Refuse a dispatch off the default branch
+        if: github.event_name == 'workflow_dispatch' && github.ref_name != github.event.repository.default_branch
+        run: |
+          echo "::error::Releases are cut from ${{ github.event.repository.default_branch }}, not ${{ github.ref_name }}. Push a v* tag by hand to release another ref."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The inputs reach the script as environment, never as shell text, so a
+      # version field containing anything but a version is data the script
+      # rejects rather than something bash runs.
+      - id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          BASE="$(sed -n 's/^var Version = "\([^"]*\)".*/\1/p' version.go | head -n1)"
+          if [ -z "$BASE" ]; then
+            echo "::error::could not read Version out of version.go. It has to stay a one-line 'var Version = \"X.Y.Z-dev\"' declaration; see the note in that file."
+            exit 1
+          fi
+          git ls-remote --tags --refs origin | sed 's#.*refs/tags/##' > "$RUNNER_TEMP/tags.txt"
+          # Empty when nothing is released yet, which the script treats as
+          # "no final has shipped".
+          LATEST="$(gh api "repos/${{ github.repository }}/releases/latest" --jq .tag_name 2>/dev/null || true)"
+          BASE="$BASE" LATEST="$LATEST" TAGS_FILE="$RUNNER_TEMP/tags.txt" \
+            python3 .github/scripts/release-tag.py
+
+      # A lightweight tag on the dispatched commit, pushed with the job's own
+      # token. That push is the one event GitHub deliberately does not fan out
+      # into another run.
+      - name: Create the tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ steps.decide.outputs.tag }}
+        run: |
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG"
+
+  # Windows ships an installer rather than a bare .exe, and that is the whole
+  # reason this job differs from Konnekt's. kommands:// is registered by the
+  # installer: wails_tools.nsh expands wails.json's `protocols` block into the
+  # "URL Protocol" registry keys and project.nsi calls that macro. A loose .exe
+  # registers nothing, so the scheme handoff (#46) would be dead on Windows.
+  build-windows:
+    needs: resolve
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      # GenerateNSISInstaller warns and returns *nil* when makensis is absent,
+      # so a runner image without it would produce a green build and no
+      # installer. Fail here instead, where the message names the cause.
+      - name: Check makensis is present
+        shell: pwsh
+        run: |
+          if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) {
+            Write-Output "::error::makensis is not on PATH, and wails would skip the installer with only a warning. The windows-latest image ships NSIS; if that changed, install it here."
+            exit 1
+          }
+          makensis /VERSION
+
+      - name: Build
+        shell: pwsh
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: wails build -platform windows/amd64 -nsis -ldflags "-X main.Version=$env:TAG"
+
+      # project.nsi's OutFile is ..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe,
+      # INFO_PROJECTNAME defaults to wails.json's name and ARCH is amd64 when
+      # only the amd64 binary is passed, so this is build/bin/kommands-amd64-installer.exe.
+      - name: Stage release asset
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist-release | Out-Null
+          Copy-Item build/bin/kommands-amd64-installer.exe dist-release/kommands-windows-amd64-installer.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kommands-windows-amd64-installer
+          path: dist-release/kommands-windows-amd64-installer.exe
+          if-no-files-found: error
+
+  build-linux:
+    needs: resolve
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      # actions/checkout needs git; everything else here is the toolchain wails
+      # build needs. webkit2gtk-4.1 pins the glibc 2.35 / libsoup3 floor this
+      # binary targets, which is the same floor Konnekt builds against, so the
+      # two apps demand the same Linux of a machine that runs both.
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git ca-certificates curl build-essential pkg-config \
+            libgtk-3-dev libwebkit2gtk-4.1-dev
+          # The workspace is bind-mounted from the host and owned by a
+          # different uid than this container's root, so git refuses to touch
+          # it, which breaks the VCS stamping in the go build that wails shells
+          # out to (exit 128). actions/checkout sets this too, but only in a
+          # temporary global config that does not survive its own step.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      - name: Build
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: wails build -tags webkit2_41 -ldflags "-X main.Version=$TAG"
+
+      # The stamp is asserted rather than assumed. `-X` writes to a string
+      # *variable* and does nothing at all against a constant, with no error,
+      # so version.go going back to a const would otherwise ship a binary
+      # quietly claiming to be the dev version. CI's shell job makes the same
+      # assertion on every push; this one guards the artefact that reaches
+      # people, and the marker file Konnekt reads to learn what is installed.
+      - name: Assert the version stamp landed
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          STAMPED="$(./build/bin/kommands -version)"
+          if [ "$STAMPED" != "$TAG" ]; then
+            echo "::error::the binary reports '$STAMPED' but this is $TAG. -ldflags -X did not reach main.Version; check that version.go still declares it as a var."
+            exit 1
+          fi
+          echo "::notice::binary reports $STAMPED"
+
+      - name: Stage release asset
+        run: |
+          mkdir -p dist-release
+          cp build/bin/kommands dist-release/kommands-linux-amd64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kommands-linux-amd64
+          path: dist-release/kommands-linux-amd64
+          if-no-files-found: error
+
+  # The RPM is not an optional convenience on Linux, for the same reason the
+  # Windows job builds an installer: build/linux/kommands.desktop is what
+  # declares x-scheme-handler/kommands, and its Exec line is /usr/bin/kommands.
+  # Only a package installs it, so a bare binary registers no scheme either.
+  package-rpm:
+    needs: [resolve, build-linux]
+    runs-on: ubuntu-latest
+    container: rockylinux/rockylinux:10
+    steps:
+      - name: Install packaging dependencies
+        run: dnf install -y git rpm-build rpmdevtools
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: kommands-linux-amd64
+          path: dist-release
+
+      # The RPM version is the tag's with "-" as "~", which sorts before the
+      # base version the way a prerelease should: v0.1.0-alpha.1 packages as
+      # 0.1.0~alpha.1. The resolve job computed it alongside the tag, and
+      # version-precedence_test.py checks that rpm's own ordering agrees with
+      # semver's across every shape this ladder emits.
+      - name: Build RPM
+        env:
+          RPM_VERSION: ${{ needs.resolve.outputs.rpm_version }}
+        run: |
+          rpmdev-setuptree
+          cp dist-release/kommands-linux-amd64 build/appicon-256.png build/linux/kommands.desktop ~/rpmbuild/SOURCES/
+          rpmbuild -bb build/linux/kommands.spec --define "_version $RPM_VERSION"
+
+          mkdir -p dist-rpm
+          cp ~/rpmbuild/RPMS/x86_64/*.rpm dist-rpm/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kommands-rpm
+          path: dist-rpm/*.rpm
+          if-no-files-found: error
+
+  publish:
+    needs: [resolve, build-windows, build-linux, package-rpm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # Build provenance, below. `id-token` is what lets the job request the
+      # OIDC token Sigstore signs against, and it is the reason the attestation
+      # cannot be forged by anyone who is not this workflow in this repository.
+      id-token: write
+      attestations: write
+    steps:
+      # Before the artifacts land: actions/checkout cleans the workspace, so
+      # running it second would delete them. Only needed for the notes script
+      # below, nothing else in this job reads the tree.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: kommands-*
+          path: dist-release
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist-release
+        run: sha256sum * > checksums.txt
+
+      # checksums.txt answers "did this download arrive intact". It cannot
+      # answer "did this come from Kommands", because it is published in the
+      # same release by whoever published the binaries: anyone able to write a
+      # release writes both halves.
+      #
+      # An attestation answers the second question. Each artifact's digest is
+      # bound to this workflow, this repository and this commit, signed with a
+      # short-lived Sigstore certificate issued against the job's OIDC token,
+      # and recorded in a public transparency log. Nothing here holds a signing
+      # key, so there is no key to leak and none to rotate.
+      #
+      # Attested here rather than in the three build jobs on purpose: these are
+      # the exact bytes `gh release create` uploads below, so what is signed is
+      # what a person downloads, with no artifact round-trip in between.
+      - name: Attest build provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: 'dist-release/kommands-*'
+
+      # The generator is vendored from kollektiv and its only input here is
+      # .github/changelog.json, this repo's list of paths that never reach what
+      # ships. It drops a pull request whose files all sit under those, and
+      # files the rest by their type: label, counting maintenance and
+      # documentation in a footer line rather than listing them. GitHub's own
+      # generator can do neither.
+      #
+      # It reads that config relative to its own path, not the cwd, so the
+      # working-directory below does not reach it.
+      #
+      # The baseline it picks is the latest published release, which is the
+      # previous one: this release's own entry does not exist yet.
+      - name: Generate release notes
+        working-directory: dist-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SERVER: ${{ github.server_url }}
+          HEAD_REF: ${{ needs.resolve.outputs.tag }}
+        run: |
+          # Fall back to GitHub's generator rather than to nothing. On the paths
+          # that get here, the very first release so no baseline, or an API
+          # failure, a full list shaped by .github/release.yml beats an empty
+          # release body. A commit link is the floor under that.
+          #
+          # Warn rather than fail: a release must not be blocked on its notes,
+          # but a body that quietly includes the docs again should not look like
+          # a clean run either.
+          if ! python3 "$GITHUB_WORKSPACE/.github/scripts/release-notes.py" > changes.md \
+            || [ ! -s changes.md ]; then
+            echo "::warning::release-notes.py failed; falling back to GitHub's generated notes"
+            if ! gh api --method POST "repos/$REPO/releases/generate-notes" \
+              -f tag_name="$HEAD_REF" --jq .body > changes.md || [ ! -s changes.md ]; then
+              echo "::warning::generate-notes failed too; the body falls back to a commit link"
+              echo "**Commits**: $SERVER/$REPO/commits/$HEAD_REF" > changes.md
+            fi
+          fi
+
+      - name: Publish release
+        working-directory: dist-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          PRERELEASE: ${{ needs.resolve.outputs.prerelease }}
+        run: |
+          # The preamble. The notes script produces what changed and nothing
+          # else, which leaves a reader no answer to "which file do I want, and
+          # is it safe to run".
+          #
+          # The pre-release line is decided by the tag, so it is right for as
+          # long as the tags are and there is nothing to remember to delete.
+          : > notes.md
+          case "$TAG" in
+            *-*) printf '%s\n\n' \
+              "Pre-release. Expect rough edges and breaking changes between versions." \
+              >> notes.md ;;
+          esac
+
+          cat >> notes.md <<EOF
+          Windows and Linux builds are attached below. macOS builds from source.
+
+          The Windows download is an installer rather than a loose .exe, and the
+          Linux RPM is worth preferring over the bare binary, for the same
+          reason: both register the \`kommands://\` URL scheme, and a loose
+          binary registers nothing. The binaries carry no code-signing
+          certificate, so Windows SmartScreen warns on first launch: choose
+          More info, then Run anyway.
+
+          Kommands does not update itself. It never opens a socket to a
+          Minecraft server and has no backend of any kind; what it saves stays
+          on this machine.
+
+          Every artifact here is built by GitHub Actions from the tagged commit
+          and carries a signed build provenance attestation. To check that what
+          you downloaded is what this workflow built:
+
+          \`\`\`
+          gh attestation verify <file> --repo $REPO
+          \`\`\`
+
+          Without the \`gh\` CLI, \`checksums.txt\` confirms the download
+          arrived intact.
+
+          EOF
+          cat changes.md >> notes.md
+
+          # GitHub's prerelease flag is a separate decision from the line
+          # above, and the resolve job made it: an alpha or beta is flagged
+          # only once a final has shipped. Flagging drops a release out of
+          # /releases/latest, which the notes baseline and the snapshot
+          # workflow both read, and while every release is an alpha that would
+          # leave both with nothing to measure against.
+          flags=()
+          if [ "$PRERELEASE" = 'true' ]; then
+            flags+=(--prerelease)
+          fi
+
+          # Assets are named rather than globbed with `*`, which would now pick
+          # up the changes.md and notes.md written beside them. Same list
+          # snapshot.yml uploads.
+          gh release create "$TAG" \
+            kommands-* checksums.txt \
+            --title "$TAG" --notes-file notes.md \
+            --repo "$REPO" "${flags[@]}"
