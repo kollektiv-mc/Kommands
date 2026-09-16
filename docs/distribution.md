@@ -328,19 +328,34 @@ registers `kommands://`, and the loose binary registers nothing:
   `x-scheme-handler/kommands`, and its `Exec` line is `/usr/bin/kommands`. Only
   a package installs it there.
 
-So the scheme half of [#46](https://github.com/kollektiv-mc/Kommands/issues/46)
-is dead on any platform where someone downloaded the bare binary. Worth knowing
-before the bare Linux binary is treated as the normal download: it is the
-portable option, not the complete one.
+So on any platform where someone took the bare binary, nothing will ever hand
+this app a `kommands://` URL. Worth knowing before the bare Linux binary is
+treated as the normal download: it is the portable option, not the complete
+one.
 
-Konnekt is not a model here. It ships a bare `.exe` and its `wails.json`
-carries no `protocols` block at all, so `konnekt://` is registered by nothing
-on Windows today.
+**Registration runs ahead of handling, deliberately.** Nothing here yet _acts_
+on a URL: `App.onSecondInstanceLaunch` forwards a second instance's argv,
+logs it and drops it, because the inbound direction is
+[#43](https://github.com/kollektiv-mc/Kommands/issues/43) and the one-shot
+handoff is [#46](https://github.com/kollektiv-mc/Kommands/issues/46). Until one
+of those lands, following a `kommands://` link opens or raises the window and
+discards the payload. That is the harmless half of the pair, and registering
+now means the scheme starts working the day a handler lands rather than
+needing everyone to reinstall.
+
+Konnekt is not the model for this, and the reason is worth stating rather than
+inferring from its files. It is in exactly the same place on the handler,
+`onSecondInstanceLaunch` logging and dropping against
+[konnekt#213](https://github.com/kollektiv-mc/Konnekt/issues/213) Phase 2, and
+it made the opposite call on registration: no `protocols` block in its
+`wails.json` and a bare `.exe` release, so `konnekt://` is registered by
+nothing there. Neither choice is an oversight. Copying its packaging would
+simply not give this app a registered scheme.
 
 macOS builds from source. `build/darwin/Info.plist` already carries the
-`CFBundleURLTypes` template, so the scheme works there once a build is cut;
-what is missing is a signed, notarised artefact, which needs a paid Developer
-ID rather than a workflow change.
+`CFBundleURLTypes` template, so a macOS build would register the scheme on the
+same terms as the other two; what is missing is a signed, notarised artefact,
+which needs a paid Developer ID rather than a workflow change.
 
 ### The version ladder
 
