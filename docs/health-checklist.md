@@ -38,6 +38,8 @@ go vet ./shell/... ./scripts/gen-appicon ./scripts/coverage-floor
 go test ./shell/...
 go run ./scripts/coverage-floor  # shell/ statement-coverage floor, threshold in the script
 python3 .github/scripts/release-notes_test.py  # release-notes classifier, vendored from kollektiv
+python3 .github/scripts/release-tag_test.py    # the release tag ladder
+python3 .github/scripts/version-precedence_test.py  # semver ordering, and rpm's agreement with it
 npx --yes aislop@0.16.0 ci       # AI-slop gate, policy in .aislop/base.yml, ratchet in .aislop/config.yml
 ```
 
@@ -56,12 +58,14 @@ fingerprint index is derived from data already in the tree, so it has no skip at
 The `gen:fingerprints` diff is the one to read rather than regenerate past — see the
 release gate under § 3.
 
-When the Wails v2 shell lands ([#44](https://github.com/kollektiv-mc/Kommands/issues/44)) this repo has a second toolchain, and
-`health.commands` has to grow the Go checks with it — otherwise `/suite-kit:health` and
-CI report green while covering half the product, which is the same failure the
-skip-is-not-a-pass rule below exists to prevent. Until `go.mod` exists the manifest
-records the pending change in its `distribution` block rather than declaring a check
-that cannot run.
+The Go checks in that list are the second toolchain's, and they are there for the
+reason the skip-is-not-a-pass rule below exists: a manifest covering only the
+frontend would have reported green while covering half the product. What is
+deliberately _not_ declared is the full shell compile, which needs the built
+frontend and system webkit headers and would report skip nearly everywhere. It
+runs as explicit steps in CI's `shell` job instead, alongside the `-ldflags`
+probe that proves the release stamp reaches the binary. See
+[`distribution.md`](distribution.md) § Releases.
 
 Where the plugin is not installed — CI, a cloud container, an unattended agent —
 [`.claude/suite-check.py`](../.claude/suite-check.py) reads the same manifest and runs
@@ -437,9 +441,10 @@ it should be stable between runs.
   finding applied here, not something reproduced locally: headless Chromium reserves no
   gutter for any of the four combinations, so a container test cannot tell a working
   4px bar from a missing one. The engines that matter — WebKitGTK, WebView2, WKWebView
-  — are the standalone build's, and nothing in CI runs them. Worth a manual check on a
-  real desktop build before the shell's first release, and worth remembering that a
-  regression here would be invisible to `pnpm test`.
+  — are the standalone build's, and nothing in CI runs them. That manual check is
+  now possible rather than hypothetical: the release and snapshot workflows produce
+  an installable build on two of those three engines, so the first artefact is the
+  moment to look. A regression here stays invisible to `pnpm test` either way.
 
 **P2 — The organizer maximize control is drawn but does nothing**
 
@@ -614,11 +619,13 @@ it should be stable between runs.
 - The web build now shows the `link` control on every tile, disabled, with the reason in
   its accessible name and once in the dashboard header — which is the half of the
   distribution check that could be closed today. The other half is a _route to the
-  desktop build_, and there is no build to route to: the Wails shell is
-  [#44](https://github.com/kollektiv-mc/Kommands/issues/44) and unstarted. A link to a
-  download that does not exist would be a worse answer than the sentence, so the box
-  above stays unticked and this entry holds the remainder. It closes with #44, in the
-  same change that produces the first artefact worth linking.
+  desktop build_, and there is still no build to route to, though the reason has
+  changed: [#44](https://github.com/kollektiv-mc/Kommands/issues/44)'s release and
+  snapshot workflows now exist, but no release has been cut, so `/releases/latest`
+  is a 404. A link to a download that does not exist would be a worse answer than
+  the sentence, so the box above stays unticked and the control keeps its stated
+  reason. This closes on the first published release, which is the change that
+  makes the link resolve, not the one that added the workflow.
 
 **P3 — The splash's display size is off-scale and unenforced**
 

@@ -30,6 +30,35 @@ jobs:
 
       - run: python3 .github/scripts/release-notes_test.py
 
+  # This repo's own two release scripts, kept in a separate job from the
+  # vendored generator above because only these need `rpm` installed.
+  #
+  # They decide which tag a release is cut as and whether the snapshot channel
+  # has stranded, and neither failure announces itself afterwards: a tag that
+  # sorts below an existing one leaves /releases/latest pointing at the older
+  # release forever, and a stranded snapshot RPM simply stops upgrading. Both
+  # are pure and offline, so they run on every push rather than at the moment
+  # someone is cutting a release.
+  #
+  # `rpm` is installed for one class of case in version-precedence_test.py: it
+  # puts every version shape this ladder emits through rpm's own vercmp and
+  # checks the answer matches semver's. Without the binary that class reports a
+  # skip, and a skip is not a pass, so it is installed rather than tolerated.
+  release-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install rpm
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - run: python3 .github/scripts/version-precedence_test.py
+      - run: python3 .github/scripts/release-tag_test.py
+
   # The JS toolchain. This used to be the only job "because there is one
   # toolchain"; #44 ended that — the Go shell has its own job below, because it
   # needs system webkit headers this half never touches, and a platform failure
@@ -133,3 +162,21 @@ jobs:
       - run: go vet -tags desktop,production,webkit2_41 ./...
       - name: Compile the desktop shell
         run: go build -tags desktop,production,webkit2_41 -o build/bin/kommands .
+
+      # The release and snapshot workflows stamp the version with
+      # `-ldflags "-X main.Version=<tag>"`. The linker's -X writes to a string
+      # *variable*: against a `const` it does nothing at all and reports no
+      # error, so the shell would ship claiming to be whatever version.go says,
+      # in the marker file Konnekt stats and in the capabilities probe. That is
+      # not hypothetical, it is what this repo had until #44 closed. Building
+      # with a sentinel and reading it back is the only check that catches it,
+      # because every other signal is identical either way.
+      - name: Assert the version stamp reaches the binary
+        run: |
+          go build -tags desktop,production,webkit2_41 \
+            -ldflags "-X main.Version=ldflags-probe" -o build/bin/kommands-probe .
+          STAMPED="$(./build/bin/kommands-probe -version)"
+          if [ "$STAMPED" != "ldflags-probe" ]; then
+            echo "::error::the binary reports '$STAMPED', not the stamped value. -ldflags -X did not reach main.Version; version.go has to declare it as a var, not a const."
+            exit 1
+          fi

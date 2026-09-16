@@ -111,7 +111,7 @@ Each fact lives in exactly one file. This file links; it does not restate.
 | File                         | Answers                                                            |
 | ---------------------------- | ------------------------------------------------------------------ |
 | `docs/architecture.md`       | How the system fits together, and why it is shaped this way        |
-| `docs/distribution.md`       | The web and standalone builds, and the Konnekt boundary            |
+| `docs/distribution.md`       | The web and standalone builds, the Konnekt boundary, and releases  |
 | `docs/persistence.md`        | Saved commands, links, and the file Konnekt reads                  |
 | `docs/command-schema.md`     | The authoritative command definition schema                        |
 | `docs/minecraft-versions.md` | Which syntax differs per version, and what 1.21.1 emits            |
