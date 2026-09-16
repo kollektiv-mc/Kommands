@@ -41,10 +41,11 @@ appears there. See `docs/adding-a-preview.md`.
 The desktop shell is a Go/Wails v2 module at the repo root
 ([#44](https://github.com/kollektiv-mc/Kommands/issues/44)): cgo-free, tested
 core packages under `shell/`, assembled by `main.go`, which embeds the Vite
-build from `dist/`. `.claude/suite.json` declares the Go checks that run
-anywhere (`go vet` / `go test` over `shell/`); compiling the shell itself needs
-`pnpm build` first plus system webkit2gtk headers, and runs as CI's `shell`
-job. See `docs/distribution.md`.
+build from `dist/`. `.claude/suite.json` runs `go vet` and `go test` over
+`./...`; the root package compiles that embed, so both need `pnpm build` first
+and the runner reports them as skipped, with the reason, where `dist/` is
+absent. Linking the shell additionally needs system webkit2gtk headers, and
+runs as CI's `shell` job. See `docs/distribution.md`.
 
 Run `/suite-kit:health` before calling any task done. It runs lint, typecheck, tests,
 both coverage floors, format, the entry-chunk bundle budget and the aislop gate, and
