@@ -116,6 +116,20 @@ jobs:
       # genuinely run here, so a skip means the setup above broke rather than a
       # check that legitimately does not apply — and a skip reported as green is
       # how this repo spent its whole pre-scaffold life looking healthy.
+      #
+      # ruff is installed because health.commands includes the aislop gate, and
+      # aislop's Python engines run only when a ruff binary is on PATH. Without
+      # it they report `[ok] 0 issues` rather than saying they did nothing, so
+      # this job was scoring no Python here and calling it a pass. The runner now
+      # refuses to pretend otherwise, which under --require-runnable is a
+      # failure; installing ruff is what makes the comment above true again.
+      #
+      # The version must match the one in .github/workflows/aislop.yml. The
+      # runner reads `ruff==` from this directory to know what to expect, and two
+      # different answers make it decline to guess, which would quietly retire
+      # the check this pin exists to keep honest.
+      - run: pip install ruff==0.16.7
+
       - name: Health manifest
         run: ./.claude/suite-check.py --require-runnable
 
