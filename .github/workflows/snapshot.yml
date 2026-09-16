@@ -150,7 +150,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist-release | Out-Null
           Copy-Item build/bin/kommands-amd64-installer.exe dist-release/kommands-windows-amd64-installer.exe
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: kommands-windows-amd64-installer
           path: dist-release/kommands-windows-amd64-installer.exe
@@ -217,7 +217,7 @@ jobs:
           mkdir -p dist-release
           cp build/bin/kommands dist-release/kommands-linux-amd64
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: kommands-linux-amd64
           path: dist-release/kommands-linux-amd64
@@ -249,7 +249,7 @@ jobs:
           mkdir -p dist-rpm
           cp ~/rpmbuild/RPMS/x86_64/*.rpm dist-rpm/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: kommands-rpm
           path: dist-rpm/*.rpm
