@@ -59,6 +59,14 @@
         "run": "python3 .github/scripts/release-notes_test.py"
       },
       {
+        "name": "release tag ladder",
+        "run": "python3 .github/scripts/release-tag_test.py"
+      },
+      {
+        "name": "version precedence",
+        "run": "python3 .github/scripts/version-precedence_test.py"
+      },
+      {
         "name": "aislop",
         "run": "npx --yes aislop@0.16.0 ci"
       }
