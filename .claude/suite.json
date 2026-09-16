@@ -44,11 +44,11 @@
       },
       {
         "name": "go vet",
-        "run": "go vet ./shell/... ./scripts/gen-appicon ./scripts/coverage-floor"
+        "run": "go vet ./..."
       },
       {
         "name": "go test",
-        "run": "go test ./shell/..."
+        "run": "go test ./..."
       },
       {
         "name": "go coverage floor",
