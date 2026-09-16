@@ -50,6 +50,7 @@ var appIcon []byte
 type shellFlags struct {
 	serve     bool
 	servePort int
+	version   bool
 }
 
 func parseFlags(args []string) shellFlags {
@@ -58,6 +59,7 @@ func parseFlags(args []string) shellFlags {
 	set.BoolVar(&parsed.serve, "serve", false,
 		"also serve the UI to a browser on localhost (the local-webapp surface)")
 	set.IntVar(&parsed.servePort, "serve-port", 8642, "port for --serve, bound to 127.0.0.1 only")
+	set.BoolVar(&parsed.version, "version", false, "print the version and exit")
 	set.SetOutput(os.Stderr)
 	if err := set.Parse(args); err != nil {
 		slog.Warn("ignoring unrecognised launch arguments", "error", err)
@@ -67,6 +69,15 @@ func parseFlags(args []string) shellFlags {
 
 func main() {
 	flags := parseFlags(os.Args[1:])
+	// Before anything that touches the disk. The point of this flag is to be
+	// answerable from a build script: CI stamps Version through -ldflags and
+	// runs this to prove the stamp landed, which is a check that has to work
+	// on a machine with no data directory and no display.
+	if flags.version {
+		fmt.Println(Version)
+		return
+	}
+
 	dataDir := paths.DataDir()
 	slog.Info("starting", "version", Version, "dataDir", dataDir)
 
