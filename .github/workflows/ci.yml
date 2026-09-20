@@ -86,7 +86,7 @@ jobs:
       # never goes stale and the key never needs a fallback: a hit means the run below
       # touches no network at all. Without this, an mcmeta outage would fail the
       # generated-file check on a change that has nothing to do with it.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .cache/mcmeta
           key: mcmeta-${{ hashFiles('src/data/versions/*.ts') }}
