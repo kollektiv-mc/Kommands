@@ -29,37 +29,29 @@ Ordering here **is** fixed, because the dependencies are real.
 
 ### 1. Persistence, and the dashboard it unlocks
 
-- **Saved commands** — the repo persists nothing today. A stable `id` generated once
-  and never reused, a content `revision`, and the **value tree** rather than the
-  rendered string. This is the prerequisite for everything below it and for Konnekt's
-  side of the link, so it comes first. Tree-versus-text is **settled** — see
-  [`persistence.md`](persistence.md) § What a saved command is — as is how values are
-  keyed, which is the part that carries the risk. What remains open in it is a declared
-  value shape per argument type. [#42](https://github.com/kollektiv-mc/Kommands/issues/42)
-- **The dashboard** — `/` is still the `Landing` placeholder, eight hand-authored
-  tiles all tagged _Coming soon_. It becomes a view of real saved commands, with the
-  `unavailable` storage state rendered as a state rather than an error. [#51](https://github.com/kollektiv-mc/Kommands/issues/51)
-- **Tile-to-editor transition**, and **a command navbar beside the workbench** — all
-  78 derived definitions are already reachable through one route; what is missing is a
-  way to see them. [#52](https://github.com/kollektiv-mc/Kommands/issues/52), [#53](https://github.com/kollektiv-mc/Kommands/issues/53)
+**Landed.** Saved commands store the value tree under a stable `id` and a content
+`revision` ([#42](https://github.com/kollektiv-mc/Kommands/issues/42)); `/` is a
+dashboard of them ([#51](https://github.com/kollektiv-mc/Kommands/issues/51)), a tile
+expands into the editor, and a command navbar sits beside the workbench
+([#52](https://github.com/kollektiv-mc/Kommands/issues/52),
+[#53](https://github.com/kollektiv-mc/Kommands/issues/53)). What remains open inside it
+is a declared value shape per argument type; see [`persistence.md`](persistence.md).
 
 ### 2. The standalone build
 
-- **A Wails v2 shell** — Go, single-window, serving the embedded Vite build, with
-  command data bundled rather than fetched so the app works with no internet at all.
-  Independent of the persistence work and can proceed in parallel; both are needed
-  before anything in § 3. This is where the repo grows a second toolchain.
-  [#44](https://github.com/kollektiv-mc/Kommands/issues/44)
+- **A Wails v2 shell**: the shell, both surfaces and the release and snapshot
+  workflows have landed. No release has been cut yet, and the Windows installer job
+  has been red since 17 September for want of NSIS
+  ([#87](https://github.com/kollektiv-mc/Kommands/issues/87)). The first release is
+  what closes [#44](https://github.com/kollektiv-mc/Kommands/issues/44).
 
 ### 3. Reaching Konnekt
 
-- **The shared file** — `os.UserConfigDir()/kommands/saved-commands.json`, written
-  atomically, read-only from Konnekt's side. Blocked on both of the above.
-  **Standalone only, permanently**: a browser tab cannot write to a shared location on
-  disk, and that split has to be visible in the web UI rather than discovered.
-  It carries only the commands the user **linked**, one at a time, never everything
-  saved — see [`persistence.md`](persistence.md) § The shared file.
-  [#45](https://github.com/kollektiv-mc/Kommands/issues/45)
+- **The shared file**: **landed**
+  ([#45](https://github.com/kollektiv-mc/Kommands/issues/45)).
+  `os.UserConfigDir()/kommands/saved-commands.json`, written atomically, read-only from
+  Konnekt's side, standalone only. It carries only the commands the user **linked**;
+  see [`persistence.md`](persistence.md) § The shared file.
 - **`konnekt://` handoff** — the one-shot path, which keeps no relationship after the
   command arrives. Not the same feature as the link above. [#46](https://github.com/kollektiv-mc/Kommands/issues/46)
 
