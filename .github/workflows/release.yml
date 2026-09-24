@@ -61,9 +61,9 @@ jobs:
           echo "::error::Releases are cut from ${{ github.event.repository.default_branch }}, not ${{ github.ref_name }}. Push a v* tag by hand to release another ref."
           exit 1
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
@@ -110,18 +110,18 @@ jobs:
     needs: resolve
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.tag }}
 
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: true
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: pnpm
@@ -167,7 +167,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist-release | Out-Null
           Copy-Item build/bin/kommands-amd64-installer.exe dist-release/kommands-windows-amd64-installer.exe
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: kommands-windows-amd64-installer
           path: dist-release/kommands-windows-amd64-installer.exe
@@ -197,18 +197,18 @@ jobs:
           # temporary global config that does not survive its own step.
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.tag }}
 
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: true
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: pnpm
@@ -245,7 +245,7 @@ jobs:
           mkdir -p dist-release
           cp build/bin/kommands dist-release/kommands-linux-amd64
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: kommands-linux-amd64
           path: dist-release/kommands-linux-amd64
@@ -263,11 +263,11 @@ jobs:
       - name: Install packaging dependencies
         run: dnf install -y git rpm-build rpmdevtools
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.tag }}
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: kommands-linux-amd64
           path: dist-release
@@ -288,7 +288,7 @@ jobs:
           mkdir -p dist-rpm
           cp ~/rpmbuild/RPMS/x86_64/*.rpm dist-rpm/
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: kommands-rpm
           path: dist-rpm/*.rpm
@@ -308,15 +308,15 @@ jobs:
       # Before the artifacts land: actions/checkout cleans the workspace, so
       # running it second would delete them. Only needed for the notes script
       # below, nothing else in this job reads the tree.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.tag }}
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: kommands-*
           path: dist-release
@@ -341,7 +341,7 @@ jobs:
       # the exact bytes `gh release create` uploads below, so what is signed is
       # what a person downloads, with no artifact round-trip in between.
       - name: Attest build provenance
-        uses: actions/attest@v4
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: 'dist-release/kommands-*'
 
