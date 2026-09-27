@@ -72,6 +72,26 @@ pnpm dev
 | [Health checklist](docs/health-checklist.md)       | The quality yardstick this repo is measured against           |
 | [Suite](docs/suite.md)                             | The umbrella this repo belongs to, and the tooling it shares  |
 
+## Licence
+
+Kommands is free software under the [MIT licence](LICENSE): use it, change it and
+share it, commercially or not, as long as the licence notice travels with it.
+
+The MIT licence covers the code written for this project. It does not cover the
+following, which belong to others and keep their own terms:
+
+| What                                                         | Where                                | Owner and terms                                                                                                                                                           |
+| ------------------------------------------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Minecraft game data (command tree, registries, block states) | `src/data/generated/`                | Mojang's, from the game's data generator, via [misode/mcmeta](https://github.com/misode/mcmeta). Not licensed by this project.                                            |
+| WorldEdit expression test cases                              | `src/worldedit/expression/corpus.ts` | Transcribed from WorldEdit's `ExpressionTest.java` and `RealExpressionTest.java`, [GPL-3.0](https://github.com/EngineHub/WorldEdit/blob/master/LICENSE.txt), EngineHub.   |
+| Ranade, Excon and Satoshi fonts                              | `src/assets/fonts/`                  | Indian Type Foundry's, under the [ITF Free Font License](https://www.fontshare.com/licenses/itf-ffl). Free to use; not open source, and not redistributable on their own. |
+
+Third-party packages the app is built from carry their own licences, all
+permissive (MIT, BSD, Unlicense); see each package.
+
+NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR
+MICROSOFT.
+
 ## Credits
 
 Minecraft data is sourced from [misode/mcmeta](https://github.com/misode/mcmeta).

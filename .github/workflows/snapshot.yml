@@ -147,6 +147,28 @@ jobs:
             exit 1
           }
 
+      # project.nsi turns wails.json's productVersion into VIProductVersion by
+      # appending ".0", and NSIS accepts only numbers there. The committed
+      # "0.1.0-dev" is not, so stamp the numeric core of this build's version.
+      # The full version still reaches the binary through -X main.Version.
+      - name: Stamp the installer version
+        shell: bash
+        env:
+          FULL_VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          node - <<'EOF'
+          const fs = require('node:fs')
+          const full = process.env.FULL_VERSION
+          const core = full.replace(/^v/, '').replace(/[-+].*$/, '')
+          if (!/^\d+\.\d+\.\d+$/.test(core)) {
+            console.log(`::error::cannot derive a numeric installer version from '${full}'.`)
+            process.exit(1)
+          }
+          const config = JSON.parse(fs.readFileSync('wails.json', 'utf8'))
+          config.info.productVersion = core
+          fs.writeFileSync('wails.json', JSON.stringify(config, null, 2) + '\n')
+          EOF
+
       - name: Build
         shell: pwsh
         env:

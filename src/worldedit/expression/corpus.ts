@@ -7,6 +7,9 @@
  * case. `expression.test.ts` reads them to check the evaluator; `print.test.ts` reads
  * the same sources to check that printing an AST and parsing it back is the identity.
  *
+ * Being transcribed, the cases are EngineHub's work under WorldEdit's GPL-3.0, not this
+ * repo's MIT licence. README.md § Licence lists this file among the exceptions.
+ *
  * They live here rather than inside `expression.test.ts` because two suites need them
  * and a test file cannot be imported for its data: importing one re-runs its
  * `describe`/`test` registrations in the importing file, silently doubling the suite.

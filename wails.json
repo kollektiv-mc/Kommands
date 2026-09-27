@@ -13,6 +13,7 @@
   },
   "info": {
     "productVersion": "0.1.0-dev",
+    "copyright": "Copyright (c) 2026 Alessandro Gekeler",
     "protocols": [
       {
         "scheme": "kommands",
