@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from '@tanstack/react-router'
 import { router } from './router'
 import { applyTheme } from './lib/theme'
+import { applyFonts } from './lib/fonts'
+import { readFonts } from './storage/preferences'
 import { initialTheme } from './components/SettingsDialog'
 import { probeLocalBackend } from './storage'
 import './styles/index.css'
@@ -18,6 +20,7 @@ if (!container) throw new Error('no #root element in index.html')
 // decision, and the light theme adjusts the accent as well as the ground; applying
 // them separately here is how a half-applied theme reaches the first paint.
 applyTheme(initialTheme())
+applyFonts(readFonts())
 
 // Also before the first render, and for the same class of reason: which storage
 // backend this session has must be settled before anything reads it, or the

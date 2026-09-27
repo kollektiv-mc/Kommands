@@ -115,15 +115,19 @@ a drop shadow, it needs a different surface or border instead.
 ## The three faces
 
 `type.family` names Ranade (`--font-sans`), Excon (`--font-title`), and Satoshi
-(`--font-display`). Those are real font files, not system faces, and the token
-source cannot carry them — it holds values, not binaries. The `.woff2` files are
-therefore vendored into `src/assets/fonts/` and declared as `@font-face` rules in
-`src/styles/index.css`, alongside Konnekt's copies of the same three.
+(`--font-display`). They are Indian Type Foundry fonts under the ITF Free Font
+License, which allows using and embedding them but forbids redistributing the files,
+so **this repo does not ship them** (kollektiv-mc/Kollektiv#40). With no
+`@font-face` rule, each stack falls through to the system faces after the name: that
+is the default look, not a failure. A machine that has the faces installed still
+renders them, because the names stay first in their stacks.
 
-This is the one part of the token layer that is **not** generated, and the one that
-fails silently: with the files absent every stack falls through to its next entry,
-the app still renders, and the two products quietly stop looking alike. `--font-mono`
-is the exception — it is system faces the whole way down and needs no file.
+Each of the four `--font-*` properties can be overridden per person from the
+Settings dialog: `src/lib/fonts.ts` sets the chosen family in front of the token's own
+stack on `<html>`, so the rest of the stack still catches a family that is not
+installed. The list of installed families comes from the shell's `GET /api/fonts` on
+the standalone build, and from the browser's Local Font Access API on the web where
+the browser has it. Everywhere else the field takes a typed name.
 
 ## Component patterns
 

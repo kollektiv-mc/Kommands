@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/wailsapp/wails/v2"
@@ -29,6 +30,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
 
 	"kommands/shell/api"
+	"kommands/shell/fonts"
 	"kommands/shell/paths"
 	"kommands/shell/serve"
 )
@@ -86,6 +88,10 @@ func main() {
 		StorePath:      paths.StorePath(dataDir),
 		SharedPath:     paths.SharedPath(dataDir),
 		KonnektPresent: paths.KonnektPresent,
+		// Scanned once, on the first request, not at startup: the list is only
+		// needed when the Settings dialog opens, and a font installed while the
+		// app runs appears after a restart.
+		FontFamilies: sync.OnceValue(func() []string { return fonts.Families(fonts.Dirs()) }),
 	})
 
 	if flags.serve {
