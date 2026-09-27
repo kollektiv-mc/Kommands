@@ -40,6 +40,9 @@ type Config struct {
 	// KonnektPresent answers whether a Konnekt install exists on this machine,
 	// so the UI can show the konnekt:// affordance only when it leads somewhere.
 	KonnektPresent func() bool
+	// FontFamilies lists the font families installed on this machine, for the
+	// Settings dialog's font rows. See shell/fonts.
+	FontFamilies func() []string
 }
 
 // maxEntryBytes bounds one saved command arriving over PUT. Far above any real
@@ -64,6 +67,7 @@ func New(config Config) http.Handler {
 	mux.HandleFunc("GET /api/saved-commands", s.list)
 	mux.HandleFunc("PUT /api/saved-commands/{id}", s.put)
 	mux.HandleFunc("DELETE /api/saved-commands/{id}", s.remove)
+	mux.HandleFunc("GET /api/fonts", s.fonts)
 	return mux
 }
 
@@ -94,6 +98,16 @@ func (s *service) capabilities(w http.ResponseWriter, _ *http.Request) {
 			"present": s.config.KonnektPresent(),
 		},
 	})
+}
+
+// fonts answers the installed font families. An empty list is a valid answer:
+// the dialog still takes a typed family name.
+func (s *service) fonts(w http.ResponseWriter, _ *http.Request) {
+	families := s.config.FontFamilies()
+	if families == nil {
+		families = []string{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"families": families})
 }
 
 func (s *service) list(w http.ResponseWriter, _ *http.Request) {

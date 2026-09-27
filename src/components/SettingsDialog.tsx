@@ -3,6 +3,7 @@ import { applyTheme, type Theme } from '../lib/theme'
 import { probedBackend } from '../storage/probe'
 import { storageKind } from '../stores/useSavedCommandsStore'
 import { readTheme, writeTheme } from '../storage/preferences'
+import { FontSettings } from './FontSettings'
 import { IconButton } from './ui/IconButton'
 import { Icon } from './ui/Icon'
 import { LABEL } from './editors/fieldStyles'
@@ -20,12 +21,15 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 /**
  * The settings the app actually has.
  *
- * Two sections and no more, which is the point of the file rather than a stage it is
- * passing through. The title bar this opens from matches Konnekt's, and Konnekt's
- * carries a gear; a gear that opens nothing is worse than no gear, and a gear that
- * opens a page of invented preferences is worse than either. So both rows below are
- * backed by code that already existed before this dialog did:
+ * Only settings something stands behind, which is the point of the file rather than a
+ * stage it is passing through. The title bar this opens from matches Konnekt's, and
+ * Konnekt's carries a gear; a gear that opens nothing is worse than no gear, and a gear
+ * that opens a page of invented preferences is worse than either. So every row below is
+ * backed by code that does the work:
  *
+ * - **Fonts** — the repo ships no font files, so the default is the system faces, and
+ *   a person may want others. `lib/fonts.ts` applies a choice; `FontSettings` explains
+ *   why each row is a free-text field with suggestions rather than a fixed list.
  * - **Theme** — `tokens.css` has defined `[data-theme='light']` since the token
  *   pipeline landed and nothing has ever set it. This is the switch that was missing,
  *   not a feature being added to the token layer.
@@ -107,6 +111,11 @@ export function SettingsDialog({
                 ))}
               </div>
             </Row>
+          </section>
+
+          <section className="flex flex-col gap-1.5">
+            <h2 className="text-text-muted text-3xs font-mono tracking-widest uppercase">Fonts</h2>
+            <FontSettings />
           </section>
 
           <section className="flex flex-col gap-1.5">

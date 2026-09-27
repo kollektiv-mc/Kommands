@@ -18,6 +18,8 @@
  * panel arrangement costs a rearrangement nobody was asked to do; surfacing it would be
  * an error message about something that does not matter.
  */
+import { FONT_ROLES, type FontChoice } from '../lib/fonts'
+
 const KEY = 'kommands.dashboard-layout'
 
 export interface StoredLayout {
@@ -74,13 +76,14 @@ export function writeLayout(layout: StoredLayout): void {
 }
 
 /**
- * The three preferences below share this module's contract, not the saved-command one:
+ * The preferences below share this module's contract, not the saved-command one:
  * local, disposable, silent on failure, and never part of the file Konnekt reads. They
  * are separate keys rather than one blob because they have nothing to do with each
  * other, and a single key would make a malformed layout cost someone their theme.
  */
 const THEME_KEY = 'kommands.theme'
 const PINNED_KEY = 'kommands.pinned-generators'
+const FONTS_KEY = 'kommands.fonts'
 
 /** The stored theme, or null when none was chosen or storage is refused. */
 export function readTheme(): 'dark' | 'light' | null {
@@ -143,6 +146,35 @@ export function readPinnedGenerators(): PinnedGenerator[] {
 export function writePinnedGenerators(pinned: readonly PinnedGenerator[]): void {
   try {
     window.localStorage.setItem(PINNED_KEY, JSON.stringify(pinned))
+  } catch {
+    // See the module comment.
+  }
+}
+
+/**
+ * The font chosen for each role, or an empty choice when none was. Role-wise, like
+ * the pinned list: an unknown role or a non-string value drops itself, not the rest.
+ */
+export function readFonts(): FontChoice {
+  try {
+    const raw = window.localStorage.getItem(FONTS_KEY)
+    if (raw === null) return {}
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed !== 'object' || parsed === null) return {}
+    const choice: FontChoice = {}
+    for (const role of FONT_ROLES) {
+      const family = (parsed as Record<string, unknown>)[role]
+      if (typeof family === 'string' && family.trim() !== '') choice[role] = family
+    }
+    return choice
+  } catch {
+    return {}
+  }
+}
+
+export function writeFonts(choice: FontChoice): void {
+  try {
+    window.localStorage.setItem(FONTS_KEY, JSON.stringify(choice))
   } catch {
     // See the module comment.
   }

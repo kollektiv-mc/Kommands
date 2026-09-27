@@ -18,6 +18,7 @@ func testHandler(t *testing.T) (http.Handler, string) {
 		StorePath:      filepath.Join(dir, "store.json"),
 		SharedPath:     filepath.Join(dir, "saved-commands.json"),
 		KonnektPresent: func() bool { return true },
+		FontFamilies:   func() []string { return []string{"Alpha", "Beta"} },
 	})
 	return handler, dir
 }
@@ -170,5 +171,33 @@ func TestUnknownApiPathIs404(t *testing.T) {
 	handler, _ := testHandler(t)
 	if response := do(t, handler, http.MethodGet, "/api/unknown", ""); response.Code != http.StatusNotFound {
 		t.Fatalf("status = %d", response.Code)
+	}
+}
+
+func TestFonts(t *testing.T) {
+	handler, _ := testHandler(t)
+	response := do(t, handler, http.MethodGet, "/api/fonts", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d", response.Code)
+	}
+	var body struct {
+		Families []string `json:"families"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(body.Families, ",") != "Alpha,Beta" {
+		t.Fatalf("families = %q", body.Families)
+	}
+}
+
+func TestFontsEmptyIsAnArray(t *testing.T) {
+	handler := New(Config{
+		KonnektPresent: func() bool { return false },
+		FontFamilies:   func() []string { return nil },
+	})
+	response := do(t, handler, http.MethodGet, "/api/fonts", "")
+	if got := strings.TrimSpace(response.Body.String()); got != `{"families":[]}` {
+		t.Fatalf("body = %s", got)
 	}
 }

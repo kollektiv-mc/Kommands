@@ -16,11 +16,13 @@ beforeEach(() => {
 test('the dialog offers only settings this app actually has', async () => {
   await renderWithRouter(<SettingsDialog theme="dark" onTheme={() => {}} onClose={() => {}} />)
 
-  // Two sections and no more, which is the point of the file rather than a stage it is
-  // passing through. A gear that opens a page of invented preferences is worse than a
-  // gear that opens nothing.
-  expect(screen.getByRole('heading', { name: 'Appearance' })).toBeDefined()
-  expect(screen.getByRole('heading', { name: 'Build' })).toBeDefined()
+  // Only sections something stands behind. A gear that opens a page of invented
+  // preferences is worse than a gear that opens nothing.
+  expect(screen.getAllByRole('heading').map((heading) => heading.textContent)).toEqual([
+    'Appearance',
+    'Fonts',
+    'Build',
+  ])
   expect(screen.getByRole('radiogroup', { name: 'Theme' })).toBeDefined()
 })
 
