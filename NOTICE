@@ -1,0 +1,65 @@
+Kommands
+Copyright (c) 2026 Alessandro Gekeler
+
+The code written for Kommands is licensed under the MIT licence in LICENSE.
+
+That licence does not cover the material below. It belongs to others, keeps its
+own terms, and is listed here so that nobody reusing Kommands mistakes it for
+MIT-licensed code.
+
+
+Material in this repository
+---------------------------
+
+Minecraft game data
+  Where:   src/data/generated/
+  Owner:   Mojang AB. Produced by the Minecraft data generator and obtained
+           through misode/mcmeta (https://github.com/misode/mcmeta), which
+           carries no licence of its own.
+  Terms:   Not licensed by this project. Use is subject to Mojang's terms.
+
+WorldEdit expression test cases
+  Where:   src/worldedit/expression/corpus.ts
+  Owner:   EngineHub. Transcribed from WorldEdit's ExpressionTest.java and
+           RealExpressionTest.java.
+  Terms:   GNU General Public License v3.0
+           (https://github.com/EngineHub/WorldEdit/blob/master/LICENSE.txt).
+
+Windows and macOS packaging templates
+  Where:   build/windows/installer/, build/windows/info.json,
+           build/windows/wails.exe.manifest, build/darwin/Info.plist
+  Owner:   Generated from the Wails project templates, Copyright (c)
+           2018-Present Lea Anthony.
+  Terms:   MIT. The Wails licence text is among the bundled licences below.
+
+scripts/licences/
+  The licence texts of bundled packages that ship none themselves, copied
+  from each package's own repository. Each keeps its own licence.
+
+
+Software bundled into every build
+---------------------------------
+
+Every build carries third-party-licenses.txt beside its interface: the full
+licence text of each npm package bundled into the interface, and in the
+desktop build also of each Go module and the Go standard library linked into
+the shell. It is generated from the lockfile on every build by
+scripts/write-notices.ts, so it lists exactly what that build contains. All
+are permissive licences (MIT, BSD, Unlicense).
+
+
+Fonts
+-----
+
+No font files are distributed. The interface's font stacks name Ranade, Excon
+and Satoshi, which are Indian Type Foundry fonts under the ITF Free Font
+License and are used only where already installed; everywhere else the
+system's own fonts are used.
+
+
+Trademarks
+----------
+
+NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG
+OR MICROSOFT. Minecraft is a trademark of Mojang AB. WorldEdit is a project of
+EngineHub. Kommands is not affiliated with either.

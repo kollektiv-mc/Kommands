@@ -4,7 +4,7 @@
   "outputfilename": "kommands",
   "frontend:dir": ".",
   "frontend:install": "pnpm install",
-  "frontend:build": "pnpm build",
+  "frontend:build": "pnpm build:desktop",
   "frontend:dev:watcher": "pnpm dev",
   "frontend:dev:serverUrl": "auto",
   "author": {
