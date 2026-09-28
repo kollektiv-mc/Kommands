@@ -17,7 +17,8 @@ Package manager: **pnpm**.
 | Command                           | Does                                                                                   |
 | --------------------------------- | -------------------------------------------------------------------------------------- |
 | `pnpm dev`                        | Dev server                                                                             |
-| `pnpm build`                      | `tsc && vite build`                                                                    |
+| `pnpm build`                      | `tsc && vite build`, then the bundled licence texts into `dist/` (see `NOTICE`)        |
+| `pnpm build:desktop`              | The same with the Go shell's licences too; what `wails build` runs                     |
 | `pnpm typecheck`                  | `tsc --noEmit`                                                                         |
 | `pnpm lint`                       | `eslint src scripts`                                                                   |
 | `pnpm format`                     | `prettier --write .`                                                                   |

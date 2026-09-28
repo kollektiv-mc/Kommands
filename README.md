@@ -77,16 +77,10 @@ pnpm dev
 Kommands is free software under the [MIT licence](LICENSE): use it, change it and
 share it, commercially or not, as long as the licence notice travels with it.
 
-The MIT licence covers the code written for this project. It does not cover the
-following, which belong to others and keep their own terms:
-
-| What                                                         | Where                                | Owner and terms                                                                                                                                                         |
-| ------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Minecraft game data (command tree, registries, block states) | `src/data/generated/`                | Mojang's, from the game's data generator, via [misode/mcmeta](https://github.com/misode/mcmeta). Not licensed by this project.                                          |
-| WorldEdit expression test cases                              | `src/worldedit/expression/corpus.ts` | Transcribed from WorldEdit's `ExpressionTest.java` and `RealExpressionTest.java`, [GPL-3.0](https://github.com/EngineHub/WorldEdit/blob/master/LICENSE.txt), EngineHub. |
-
-Third-party packages the app is built from carry their own licences, all
-permissive (MIT, BSD, Unlicense); see each package.
+The MIT licence covers the code written for this project. [NOTICE](NOTICE) lists
+what it does not cover: Minecraft game data, WorldEdit test cases transcribed under
+the GPL, and the Wails packaging templates. It also explains the licence texts that
+every build ships in `third-party-licenses.txt`.
 
 NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR
 MICROSOFT.
