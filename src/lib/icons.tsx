@@ -1,11 +1,10 @@
 /**
  * Every icon this app draws, as raw path data.
  *
- * **Not a library.** Konnekt reaches for `lucide-react`; this app cannot. The entry
- * chunk measures 112 KB gzipped against a CI-enforced 120 KB ceiling
- * (`scripts/check-bundle.ts`), and the budget exists to keep three.js and the preview
- * modules lazy — spending a third of the remaining headroom on an icon package to draw
- * twelve glyphs would be exactly the trade it is there to prevent. `CommandOverlay`
+ * **Not a library.** Konnekt reaches for `lucide-react`; this app does not. The entry
+ * chunk is held to a CI-enforced 120 KB gzip ceiling (`scripts/check-bundle.ts`), and
+ * an icon package to draw a dozen glyphs is exactly the kind of weight that budget is
+ * there to keep out of the page every session loads. `CommandOverlay`
  * already said as much in a comment when it drew its close button as a `×`; this is
  * that comment, generalised, so the next control does not invent a seventh answer.
  *

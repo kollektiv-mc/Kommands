@@ -2,7 +2,6 @@ import type { CommandDefinition } from '../schema/types'
 import type { VersionDefinition } from './versions/types'
 import { loadCommands } from './loadGenerated'
 import { authoredCommands } from './authored/commands'
-import { withUi } from './authored/ui'
 
 /**
  * Every command the app offers, from wherever it came.
@@ -20,16 +19,22 @@ import { withUi } from './authored/ui'
 export function loadCatalogue(
   version: VersionDefinition,
 ): Promise<Readonly<Record<string, CommandDefinition>>> {
-  return loadCommands(version).then((derived) => {
-    const merged: Record<string, CommandDefinition> = {}
-    // Authored last, so a hand-written definition overrides a derived one of the same
-    // id. That is the documented escape hatch for a skeleton mcmeta gets wrong — and
-    // it is deliberate rather than incidental, so it is written down here.
-    for (const [id, definition] of Object.entries({ ...derived, ...authoredCommands })) {
-      merged[id] = withUi(definition)
-    }
-    return merged
-  })
+  // The presentation metadata comes in with the data it decorates rather than with the
+  // entry chunk. It is prose (labels, help, every /execute clause described), it grows
+  // with every command that gains an authored face, and nothing needs it before a
+  // catalogue has been asked for.
+  return Promise.all([loadCommands(version), import('./authored/ui')]).then(
+    ([derived, { withUi }]) => {
+      const merged: Record<string, CommandDefinition> = {}
+      // Authored last, so a hand-written definition overrides a derived one of the same
+      // id. That is the documented escape hatch for a skeleton mcmeta gets wrong — and
+      // it is deliberate rather than incidental, so it is written down here.
+      for (const [id, definition] of Object.entries({ ...derived, ...authoredCommands })) {
+        merged[id] = withUi(definition)
+      }
+      return merged
+    },
+  )
 }
 
 /** The catalogue as a list, ordered for display. */

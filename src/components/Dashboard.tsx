@@ -35,9 +35,9 @@ const CTA =
  * room than that sentence needs.
  *
  * Panels stack vertically and the page scrolls, rather than sitting on a draggable
- * grid. Konnekt uses `react-grid-layout` for its canvas; this app has roughly 5 KB of
- * entry-chunk budget left against a CI-enforced ceiling, and that library plus its CSS
- * would spend most of it on a rearrangement nobody asked for.
+ * grid. Konnekt uses `react-grid-layout` for its canvas; this app's dashboard is its
+ * entry chunk, held to a CI-enforced ceiling, and that library plus its CSS would spend
+ * a large share of it on a rearrangement nobody asked for.
  *
  * Every tile still reads its `preview` string rather than re-serializing, and a pinned
  * generator reads a label snapshotted at pin time. That is the whole reason both fields
