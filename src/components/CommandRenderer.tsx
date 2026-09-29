@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useId } from 'react'
 import type { SerializeContext } from '../data/versions/types'
 import { argumentOptions, lookupArgumentType } from '../schema/argument-types'
 import {
@@ -20,7 +20,9 @@ import {
   type Node,
   type UiMetadata,
 } from '../schema/types'
-import { FIELD, LABEL, WARNING } from './editors/fieldStyles'
+import { LABEL, WARNING } from './editors/fieldStyles'
+import { Listbox } from './ui/Listbox'
+import type { ListOption } from '../lib/listbox'
 
 /**
  * The chain editor for a Repeat, fetched on first use.
@@ -193,22 +195,12 @@ function NodeView({ node, path, value, ctx, actions, scope }: NodeViewProps) {
       const chosen = selected === NO_BRANCH ? undefined : node.nodes[selected]
       return (
         <div className="flex items-end gap-2">
-          <select
-            className={FIELD}
-            value={selected}
+          <Listbox
             aria-label="Clause"
-            onChange={(e) => actions.setChoice(path, Number(e.target.value))}
-          >
-            {/* An optional clause can be left out entirely, so "none" is a real
-                selection rather than the absence of one. It leads because it is where
-                a fresh command starts. */}
-            {node.optional && <option value={NO_BRANCH}>(none)</option>}
-            {node.nodes.map((n, i) => (
-              <option key={i} value={i}>
-                {branchLabel(n, i)}
-              </option>
-            ))}
-          </select>
+            value={String(selected)}
+            options={branchOptions(node)}
+            onChange={(next) => actions.setChoice(path, Number(next))}
+          />
           {chosen && (
             <NodeView
               node={chosen}
@@ -322,6 +314,7 @@ function RefView({
   actions,
   scope,
 }: NodeViewProps & { node: Extract<Node, { kind: 'ref' }> }) {
+  const labelId = useId()
   const isAny = node.definitionId === REF_ANY
   const chosenId = isAny ? (value.refs[path] ?? '') : node.definitionId
   const target = scope.catalogue[chosenId]
@@ -333,21 +326,20 @@ function RefView({
   return (
     <div className="border-l-hairline border-border-subtle flex flex-col gap-2 pl-2">
       {isAny && (
-        <label className="flex flex-col gap-1">
-          <span className={LABEL}>command</span>
-          <select
-            className={FIELD}
+        // Labelled by id rather than by wrapping: a click inside a wrapping label that
+        // lands on something other than its control clicks the control too.
+        <div className="flex flex-col gap-1">
+          <span id={labelId} className={LABEL}>
+            command
+          </span>
+          <Listbox
+            aria-labelledby={labelId}
             value={chosenId}
-            onChange={(e) => actions.setRef(path, e.target.value)}
-          >
-            <option value="">choose a command</option>
-            {Object.values(scope.catalogue).map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.label}
-              </option>
-            ))}
-          </select>
-        </label>
+            placeholder="choose a command"
+            options={Object.values(scope.catalogue).map((d) => ({ value: d.id, label: d.label }))}
+            onChange={(next) => actions.setRef(path, next)}
+          />
+        </div>
       )}
       {target && scope.depth > 0 && (
         <NodeView
@@ -402,6 +394,17 @@ function clauseNaming(
   return { label: authored?.label ?? derived, help: authored?.help }
 }
 
+/**
+ * A Choice's branches as list options, values being the branch index.
+ *
+ * An optional clause can be left out entirely, so "none" is a real selection rather
+ * than the absence of one. It leads because it is where a fresh command starts.
+ */
+function branchOptions(node: Extract<Node, { kind: 'choice' }>): ListOption[] {
+  const branches = node.nodes.map((n, i) => ({ value: String(i), label: branchLabel(n, i) }))
+  return node.optional ? [{ value: String(NO_BRANCH), label: '(none)' }, ...branches] : branches
+}
+
 function branchLabel(node: Node, index: number): string {
   if (node.kind === 'literal') return node.token
   if (node.kind === 'sequence') {
@@ -434,44 +437,84 @@ function ArgumentView({ node, path, value, ctx, actions, ui, forced }: ArgumentV
   // definition with no authored metadata still renders something addressable.
   const presentation = ui?.arguments?.[node.name]
 
-  // Help and warnings sit outside the label, not inside it. A wrapping label
-  // contributes all of its text to the accessible name of the control it wraps, so
-  // help text inside one produces a field announced as "Recipients Who receives the
-  // item." — and a warning would append itself to that as the user typed.
+  const controlId = useId()
+  const labelId = useId()
+  const notesId = useId()
+  const hasNotes = Boolean(presentation?.help) || forced !== undefined || diagnostics.length > 0
+  const group = type.labelling === 'group'
+  const labelText = (
+    <>
+      {presentation?.label ?? node.name}
+      {node.optional && <span className="text-text-faint"> optional</span>}
+    </>
+  )
+  const editor = (
+    <Editor
+      id={group ? undefined : controlId}
+      describedBy={group || !hasNotes ? undefined : notesId}
+      value={current}
+      onChange={(next) => actions.setArg(path, next)}
+      options={options}
+      diagnostics={diagnostics}
+      ctx={ctx}
+    />
+  )
+
+  // The label points at its control by id rather than wrapping it. A wrapping label
+  // labels only its first labelable descendant (a stepper's step-down button), and a
+  // click anywhere inside it clicks that control too. An editor of several fields is a
+  // fieldset the label names instead, and each of its fields names itself.
+  //
+  // Help and warnings sit outside the label either way and reach the control as its
+  // description, so a field is announced as "Recipients", then "Who receives the
+  // item.", rather than as one run-on name that grows a warning as the user types.
   return (
     <div className="flex flex-col gap-1">
-      <label className="flex flex-col gap-1">
-        <span className={LABEL}>
-          {presentation?.label ?? node.name}
-          {node.optional && <span className="text-text-faint"> optional</span>}
+      {group ? (
+        <span id={labelId} className={LABEL}>
+          {labelText}
         </span>
-        <Editor
-          value={current}
-          onChange={(next) => actions.setArg(path, next)}
-          options={options}
-          diagnostics={diagnostics}
-          ctx={ctx}
-        />
-      </label>
-      {presentation?.help && <span className="text-text-faint text-3xs">{presentation.help}</span>}
-      {/*
-        Said beside the field rather than left for the output to explain, because the
-        output only shows the result: a `0` nobody typed, or a `<seconds>` in a command
-        that looked finished. The field is where the person can do something about it.
-      */}
-      {forced?.how === 'default' && (
-        <span className="text-text-faint text-3xs">
-          {`Written as ${forced.text} because a later value is set.`}
-        </span>
+      ) : (
+        <label id={labelId} htmlFor={controlId} className={LABEL}>
+          {labelText}
+        </label>
       )}
-      {forced?.how === 'placeholder' && (
-        <span className={WARNING}>Needed because a later value is set.</span>
+      {group ? (
+        <fieldset
+          aria-labelledby={labelId}
+          aria-describedby={hasNotes ? notesId : undefined}
+          className="min-w-0"
+        >
+          {editor}
+        </fieldset>
+      ) : (
+        editor
       )}
-      {diagnostics.map((d, i) => (
-        <span key={i} className={WARNING}>
-          {d.message}
-        </span>
-      ))}
+      {hasNotes && (
+        <div id={notesId} className="flex flex-col gap-1">
+          {presentation?.help && (
+            <span className="text-text-faint text-3xs">{presentation.help}</span>
+          )}
+          {/*
+            Said beside the field rather than left for the output to explain, because the
+            output only shows the result: a `0` nobody typed, or a `<seconds>` in a command
+            that looked finished. The field is where the person can do something about it.
+          */}
+          {forced?.how === 'default' && (
+            <span className="text-text-faint text-3xs">
+              {`Written as ${forced.text} because a later value is set.`}
+            </span>
+          )}
+          {forced?.how === 'placeholder' && (
+            <span className={WARNING}>Needed because a later value is set.</span>
+          )}
+          {diagnostics.map((d, i) => (
+            <span key={i} className={WARNING}>
+              {d.message}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

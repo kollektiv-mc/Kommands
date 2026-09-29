@@ -58,3 +58,19 @@ if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.sho
 if (typeof window !== 'undefined') {
   window.scrollTo = () => {}
 }
+
+/**
+ * `CSS.escape`, which jsdom does not provide.
+ *
+ * user-event calls it to find the next radio in a group when an arrow key moves the
+ * selection, so without it a keyboard test of a radio group throws inside the library
+ * rather than asserting anything. The escaping here is the specification's for the
+ * characters an id or a name in this app can contain; it is a stand-in for the
+ * platform's, not a reimplementation of it.
+ */
+if (typeof globalThis.CSS === 'undefined') {
+  Object.defineProperty(globalThis, 'CSS', { value: {}, configurable: true })
+}
+if (typeof globalThis.CSS.escape !== 'function') {
+  globalThis.CSS.escape = (value: string) => value.replace(/([^\w-])/g, '\\$1')
+}

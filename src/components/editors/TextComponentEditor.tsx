@@ -1,11 +1,9 @@
-import { useId } from 'react'
 import type { SerializeContext } from '../../data/versions/types'
 import {
   CLICK_ACTIONS,
   HOVER_ACTIONS,
   TEXT_CONTENT_KINDS,
   emptyTextComponent,
-  type ClickAction,
   type HoverAction,
   type HoverEvent,
   type TextComponent,
@@ -15,6 +13,8 @@ import {
 import type { EditorProps } from '../../schema/types'
 import { TEXT_COLORS } from '../../data/authored/text-colors'
 import { RegistryPicker } from './RegistryPicker'
+import { Combobox } from '../ui/Combobox'
+import { Listbox } from '../ui/Listbox'
 import { FIELD, LABEL } from './fieldStyles'
 import { ROW, ROW_ADD, ROW_GROUP, ROW_REMOVE } from './rowStyles'
 
@@ -31,6 +31,13 @@ import { ROW, ROW_ADD, ROW_GROUP, ROW_REMOVE } from './rowStyles'
  */
 
 const FLAGS = ['bold', 'italic', 'underlined', 'strikethrough', 'obfuscated'] as const
+
+const asOptions = <V extends string>(values: readonly V[]) =>
+  values.map((v) => ({ value: v, label: v }))
+const KIND_OPTIONS = asOptions(TEXT_CONTENT_KINDS)
+const CLICK_OPTIONS = asOptions(CLICK_ACTIONS)
+const HOVER_OPTIONS = asOptions(HOVER_ACTIONS)
+const COLOR_OPTIONS = asOptions(TEXT_COLORS)
 
 interface TextComponentFieldsProps {
   value: TextComponent
@@ -157,18 +164,12 @@ function ContentFields({ value, onChange, ariaPrefix, ctx }: PartProps) {
 
   return (
     <>
-      <select
-        className={FIELD}
+      <Listbox
         value={content.kind}
         aria-label={`${ariaPrefix} kind`}
-        onChange={(e) => setKind(e.target.value as TextContentKind)}
-      >
-        {TEXT_CONTENT_KINDS.map((kind) => (
-          <option key={kind} value={kind}>
-            {kind}
-          </option>
-        ))}
-      </select>
+        options={KIND_OPTIONS}
+        onChange={setKind}
+      />
 
       {content.kind === 'text' && (
         <input
@@ -305,23 +306,13 @@ function ColorField({
   onChange: (next: TextComponent) => void
   ariaPrefix: string
 }) {
-  const listId = useId()
   return (
-    <>
-      <input
-        type="text"
-        className={FIELD}
-        value={value.color ?? ''}
-        list={listId}
-        aria-label={`${ariaPrefix} colour`}
-        onChange={(e) => onChange({ ...value, color: e.target.value || undefined })}
-      />
-      <datalist id={listId}>
-        {TEXT_COLORS.map((color) => (
-          <option key={color} value={color} />
-        ))}
-      </datalist>
-    </>
+    <Combobox
+      value={value.color ?? ''}
+      options={COLOR_OPTIONS}
+      aria-label={`${ariaPrefix} colour`}
+      onChange={(next) => onChange({ ...value, color: next || undefined })}
+    />
   )
 }
 
@@ -389,23 +380,12 @@ function EventFields({ value, onChange, ariaPrefix, ctx }: PartProps) {
       {click && (
         <div className={ROW}>
           <span className={LABEL}>click</span>
-          <select
-            className={FIELD}
+          <Listbox
             value={click.action}
             aria-label={`${ariaPrefix} click action`}
-            onChange={(e) =>
-              onChange({
-                ...value,
-                clickEvent: { ...click, action: e.target.value as ClickAction },
-              })
-            }
-          >
-            {CLICK_ACTIONS.map((action) => (
-              <option key={action} value={action}>
-                {action}
-              </option>
-            ))}
-          </select>
+            options={CLICK_OPTIONS}
+            onChange={(action) => onChange({ ...value, clickEvent: { ...click, action } })}
+          />
           <input
             type="text"
             className={FIELD}
@@ -430,20 +410,12 @@ function EventFields({ value, onChange, ariaPrefix, ctx }: PartProps) {
         <div className="flex flex-col gap-2">
           <div className={ROW}>
             <span className={LABEL}>hover</span>
-            <select
-              className={FIELD}
+            <Listbox
               value={hover.action}
               aria-label={`${ariaPrefix} hover action`}
-              onChange={(e) =>
-                onChange({ ...value, hoverEvent: blankHover(e.target.value as HoverAction) })
-              }
-            >
-              {HOVER_ACTIONS.map((action) => (
-                <option key={action} value={action}>
-                  {action}
-                </option>
-              ))}
-            </select>
+              options={HOVER_OPTIONS}
+              onChange={(action) => onChange({ ...value, hoverEvent: blankHover(action) })}
+            />
             {hover.action === 'show_item' && (
               <>
                 <RegistryPicker

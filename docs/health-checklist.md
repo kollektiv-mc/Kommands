@@ -419,13 +419,15 @@ belongs here.
 The not-yet-closed follow-ups. Keep this section short and current; everything above
 it should be stable between runs.
 
-**P2 — The aislop gate holds 93, not the suite's 100**
+**P2 — The aislop gate holds 95, not the suite's 100**
 
 - `.aislop/config.yml` overrides the vendored base's `failBelow: 100` with the score
-  the tree had when the gate was adopted, so a new finding still fails the build
-  while the existing 24 warnings are worked off. They are, by rule: eleven
-  `jsx-a11y` findings (`SavedCommandTile`, `SelectorEditor`, `RegistryPicker`,
-  `TextComponentEditor`, `CommandOverlay`, `SettingsDialog`), four `then` properties
+  the tree has, so a new finding still fails the build while the existing warnings
+  are worked off. It was 93 with 24 warnings when the gate was adopted; the suite
+  controls (#107) closed the three datalist findings in `SelectorEditor`,
+  `RegistryPicker` and `TextComponentEditor`. What is left, by rule: eleven
+  `jsx-a11y` findings (`SavedCommandTile`, `CommandOverlay`, `SettingsDialog`,
+  `FontSettings`), four `then` properties
   the expression parser and CSG compiler put on objects (`unicorn/no-thenable`), two
   `setState` calls inside effects (`SaveCommandBar`, `CommandWorkbench`), a component
   created during render (`PreviewStage`), a duplicate block in

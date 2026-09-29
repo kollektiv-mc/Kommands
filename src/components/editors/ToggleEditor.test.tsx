@@ -13,7 +13,7 @@ function setup(value: boolean | '', options: ArgumentOptions) {
   const { getByRole } = render(
     <ToggleEditor value={value} onChange={onChange} options={options} diagnostics={[]} ctx={ctx} />,
   )
-  return { box: getByRole('checkbox') as HTMLInputElement, onChange }
+  return { box: getByRole('switch') as HTMLInputElement, onChange }
 }
 
 describe('ToggleEditor', () => {

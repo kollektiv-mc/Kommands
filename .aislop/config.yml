@@ -33,4 +33,5 @@ ci:
   # judgement for a health session, not a CI change, so the gate holds the
   # score it found rather than the score it wants. Raise this as findings
   # close; never lower it. docs/health-checklist.md lists what is open.
-  failBelow: 93
+  # 95 since the suite controls replaced the three datalists (#107).
+  failBelow: 95

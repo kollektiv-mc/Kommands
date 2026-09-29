@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { SerializeContext } from '../../data/versions/types'
 import {
   ITEM_COMPONENTS,
@@ -13,8 +12,9 @@ import type { EditorProps } from '../../schema/types'
 import { AttributeModifiersEditor } from './AttributeModifiersEditor'
 import { EnchantmentLevelsEditor } from './EnchantmentLevelsEditor'
 import { RegistryPicker } from './RegistryPicker'
+import { MenuButton } from '../ui/MenuButton'
 import { TextComponentFields } from './TextComponentEditor'
-import { FIELD, LABEL } from './fieldStyles'
+import { LABEL } from './fieldStyles'
 import { ROW, ROW_ADD, ROW_GROUP, ROW_REMOVE } from './rowStyles'
 
 /**
@@ -88,36 +88,18 @@ function AddComponent({
   options: readonly ItemComponentSpec[]
   onAdd: (id: string, value: unknown) => void
 }) {
-  const [choice, setChoice] = useState('')
+  // One step rather than two: choosing a component adds it. The select and the
+  // separate "+ add" button it replaced asked for the same decision twice.
   return (
-    <div className="flex items-center gap-2">
-      <select
-        className={FIELD}
-        value={choice}
-        aria-label="Add component"
-        onChange={(e) => setChoice(e.target.value)}
-      >
-        <option value="">choose a component…</option>
-        {options.map((spec) => (
-          <option key={spec.id} value={spec.id}>
-            {spec.label}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        className={ROW_ADD}
-        disabled={choice === ''}
-        onClick={() => {
-          const spec = options.find((s) => s.id === choice)
-          if (!spec) return
-          onAdd(spec.id, spec.defaultValue())
-          setChoice('')
-        }}
-      >
-        + add
-      </button>
-    </div>
+    <MenuButton
+      label="Add component"
+      icon="plus"
+      items={options.map((spec) => ({
+        key: spec.id,
+        label: spec.label,
+        onSelect: () => onAdd(spec.id, spec.defaultValue()),
+      }))}
+    />
   )
 }
 

@@ -5,6 +5,7 @@ import { expect, test } from 'vitest'
 import { TextComponentFields } from './TextComponentEditor'
 import { v1_21_1 } from '../../data/versions/1.21.1'
 import { makeRegistryLookup } from '../../data/versions/registry'
+import { pick } from '../../test-controls'
 import type { SerializeContext } from '../../data/versions/types'
 import {
   emptyTextComponent,
@@ -70,7 +71,7 @@ test('switching content kind clears the previous kind rather than keeping both',
   const { current } = renderEditor()
 
   await user.type(screen.getByLabelText('Message text'), 'hi')
-  await user.selectOptions(screen.getByLabelText('Message kind'), 'translate')
+  await pick(user, screen.getByLabelText('Message kind'), 'translate')
   await user.type(screen.getByLabelText('Message translation key'), 'chat.type.text')
 
   expect(current()).toBe('{"translate":"chat.type.text"}')
@@ -81,7 +82,7 @@ test('a score needs both halves before it is worth emitting', async () => {
   const user = userEvent.setup()
   const { current } = renderEditor()
 
-  await user.selectOptions(screen.getByLabelText('Message kind'), 'score')
+  await pick(user, screen.getByLabelText('Message kind'), 'score')
   await user.type(screen.getByLabelText('Message objective'), 'kills')
   // Half a score emits nothing at all rather than half a component.
   expect(current()).toBe('')
@@ -128,7 +129,7 @@ test('a click event writes this version’s wrapper and payload key', async () =
 
   await user.type(screen.getByLabelText('Message text'), 'Click')
   await user.click(screen.getByLabelText('Add Message click event'))
-  await user.selectOptions(screen.getByLabelText('Message click action'), 'run_command')
+  await pick(user, screen.getByLabelText('Message click action'), 'run_command')
   await user.type(screen.getByLabelText('Message click value'), '/say hi')
 
   expect(current()).toBe('{"text":"Click","clickEvent":{"action":"run_command","value":"/say hi"}}')
@@ -140,7 +141,7 @@ test('a hover event picks its item from the version registry', async () => {
 
   await user.type(screen.getByLabelText('Message text'), 'Item')
   await user.click(screen.getByLabelText('Add Message hover event'))
-  await user.selectOptions(screen.getByLabelText('Message hover action'), 'show_item')
+  await pick(user, screen.getByLabelText('Message hover action'), 'show_item')
   await user.type(screen.getByLabelText('Message hover item'), 'stone')
 
   expect(current()).toBe(

@@ -30,6 +30,18 @@ export interface Diagnostic {
 export interface EditorProps<T = unknown> {
   value: T
   onChange: (next: T) => void
+  /**
+   * The id the argument's `<label htmlFor>` points at, for an editor that is one
+   * control. The editor puts it on that control. Absent when an editor is rendered
+   * outside the form, as a test fixture or inside another editor.
+   *
+   * Labelled by id rather than by wrapping. A wrapping label labels only its first
+   * labelable descendant, which for a stepper is the step-down button, and a click on
+   * anything inside it that is not a control clicks that control too.
+   */
+  id?: string
+  /** The id of the argument's help and warnings, for `aria-describedby`. */
+  describedBy?: string
   options: Readonly<Record<string, unknown>>
   /** Warnings for this argument. Rendered alongside the editor, never instead of it. */
   diagnostics: readonly Diagnostic[]
@@ -55,6 +67,13 @@ export interface ArgumentType<T = unknown> {
   /** Returns warnings. Never throws, never blocks. Reads registries from ctx. */
   validate: (value: T, options: ArgumentOptions, ctx: SerializeContext) => Diagnostic[]
   defaultValue: (options: ArgumentOptions) => T
+  /**
+   * How the argument's label reaches the editor. `'control'`, the default, is an
+   * editor that is one field: the label points at it by `id`. `'group'` is an editor
+   * of several fields (an item and its components, a text component): the renderer
+   * wraps it in a group the label names, and each field inside names itself.
+   */
+  labelling?: 'control' | 'group'
 }
 
 /**
@@ -76,6 +95,8 @@ export interface ErasedArgumentType {
   editor: ComponentType<{
     value: unknown
     onChange: (next: unknown) => void
+    id?: string
+    describedBy?: string
     options: ArgumentOptions
     diagnostics: readonly Diagnostic[]
     ctx: SerializeContext
@@ -83,6 +104,7 @@ export interface ErasedArgumentType {
   serialize: (value: unknown, ctx: SerializeContext) => string
   validate: (value: unknown, options: ArgumentOptions, ctx: SerializeContext) => Diagnostic[]
   defaultValue: (options: ArgumentOptions) => unknown
+  labelling?: 'control' | 'group'
 }
 
 // ── Nodes ───────────────────────────────────────────────────────────────────
