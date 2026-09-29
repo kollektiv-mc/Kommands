@@ -12,7 +12,7 @@ import {
   type InstanceId,
   type Path,
 } from '../schema/paths'
-import type { CommandValue } from '../schema/serialize'
+import type { CommandValue, ForcedSlot } from '../schema/serialize'
 import {
   REF_ANY,
   type CommandDefinition,
@@ -83,9 +83,17 @@ interface Scope {
    * stops early.
    */
   depth: number
+  /**
+   * The empty arguments the output had to write because a later one is set.
+   *
+   * Keyed by the same absolute paths inside an embedded command as outside it, which
+   * is why a Ref can hand it on unchanged.
+   */
+  forced: ReadonlyMap<Path, ForcedSlot>
 }
 
 const DEFAULT_MAX_DEPTH = 8
+const NOTHING_FORCED: ReadonlyMap<Path, ForcedSlot> = new Map()
 
 interface CommandRendererProps {
   definition: CommandDefinition
@@ -98,6 +106,14 @@ interface CommandRendererProps {
    */
   catalogue?: Catalogue
   maxDepth?: number
+  /**
+   * Which empty arguments the output wrote anyway, from `serializeWithReport`.
+   *
+   * Handed in rather than computed here, because the workbench already serialized
+   * this tree to show the output, and a second walk would be a second copy of the rule
+   * that decides what a later argument forces.
+   */
+  forced?: ReadonlyMap<Path, ForcedSlot>
 }
 
 export function CommandRenderer({
@@ -107,6 +123,7 @@ export function CommandRenderer({
   actions,
   catalogue = {},
   maxDepth = DEFAULT_MAX_DEPTH,
+  forced = NOTHING_FORCED,
 }: CommandRendererProps) {
   return (
     <div className="flex flex-col gap-2">
@@ -116,7 +133,7 @@ export function CommandRenderer({
         value={value}
         ctx={ctx}
         actions={actions}
-        scope={{ ui: definition.ui, catalogue, depth: maxDepth }}
+        scope={{ ui: definition.ui, catalogue, depth: maxDepth, forced }}
       />
     </div>
   )
@@ -147,6 +164,7 @@ function NodeView({ node, path, value, ctx, actions, scope }: NodeViewProps) {
           ctx={ctx}
           actions={actions}
           ui={scope.ui}
+          forced={scope.forced.get(path)}
         />
       )
 
@@ -310,7 +328,7 @@ function RefView({
 
   // The embedded command's own metadata, and one less depth to spend. Its values are
   // keyed below this Ref's path, so two embedded commands never collide.
-  const inner: Scope = { ui: target?.ui, catalogue: scope.catalogue, depth: scope.depth - 1 }
+  const inner: Scope = { ...scope, ui: target?.ui, depth: scope.depth - 1 }
 
   return (
     <div className="border-l-hairline border-border-subtle flex flex-col gap-2 pl-2">
@@ -400,9 +418,11 @@ interface ArgumentViewProps {
   ctx: SerializeContext
   actions: Actions
   ui?: UiMetadata
+  /** Set when the output wrote this argument although it is empty. */
+  forced?: ForcedSlot
 }
 
-function ArgumentView({ node, path, value, ctx, actions, ui }: ArgumentViewProps) {
+function ArgumentView({ node, path, value, ctx, actions, ui, forced }: ArgumentViewProps) {
   const type = lookupArgumentType(node.type)
   // The same options the serializer builds, so the field and the command agree about
   // what an untouched argument holds — including that an optional one holds nothing.
@@ -434,6 +454,19 @@ function ArgumentView({ node, path, value, ctx, actions, ui }: ArgumentViewProps
         />
       </label>
       {presentation?.help && <span className="text-text-faint text-3xs">{presentation.help}</span>}
+      {/*
+        Said beside the field rather than left for the output to explain, because the
+        output only shows the result: a `0` nobody typed, or a `<seconds>` in a command
+        that looked finished. The field is where the person can do something about it.
+      */}
+      {forced?.how === 'default' && (
+        <span className="text-text-faint text-3xs">
+          {`Written as ${forced.text} because a later value is set.`}
+        </span>
+      )}
+      {forced?.how === 'placeholder' && (
+        <span className={WARNING}>Needed because a later value is set.</span>
+      )}
       {diagnostics.map((d, i) => (
         <span key={i} className={WARNING}>
           {d.message}

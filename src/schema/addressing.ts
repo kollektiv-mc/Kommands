@@ -1,4 +1,4 @@
-import type { ArgumentTypeKey, Node } from './types'
+import type { ArgumentNode, ArgumentTypeKey, Node } from './types'
 import { ROOT, STATIC, walk, type Path, type RepeatInstances } from './paths'
 
 /**
@@ -114,6 +114,23 @@ export function staticLocations(root: Node): StaticLocation[] {
 export function resolveTarget(root: Node, selector: string): StaticLocation[] {
   const { name, chain } = parseSelector(selector)
   return staticLocations(root).filter((l) => l.name === name && endsWith(l.literals, chain))
+}
+
+/**
+ * The argument nodes a selector names, as the objects themselves.
+ *
+ * For attaching authored data to a derived tree, where what is wanted is the node to
+ * rewrite rather than where it sits. More than one is the same authoring mistake it is
+ * for a constraint, and the caller reports it rather than picking one.
+ */
+export function argumentNodesFor(root: Node, selector: string): ArgumentNode[] {
+  const { name, chain } = parseSelector(selector)
+  const found: ArgumentNode[] = []
+  walk(root, ROOT, STATIC, (node, _path, literals) => {
+    if (node.kind === 'argument' && node.name === name && endsWith(literals, chain))
+      found.push(node)
+  })
+  return found
 }
 
 /** A live path, and which of the value tables it keys into. */

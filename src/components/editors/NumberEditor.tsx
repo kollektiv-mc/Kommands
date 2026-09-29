@@ -1,4 +1,5 @@
 import type { EditorProps } from '../../schema/types'
+import { defaultText } from '../../schema/default-text'
 import { FIELD } from './fieldStyles'
 
 /** Backs `integer`, `float` and `double`. min/max come from Brigadier properties. */
@@ -13,6 +14,7 @@ export function NumberEditor({ value, onChange, options, diagnostics }: EditorPr
       min={min}
       max={max}
       step={options.integral === false ? 'any' : 1}
+      placeholder={defaultText(options)}
       aria-invalid={diagnostics.length > 0}
       onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
     />

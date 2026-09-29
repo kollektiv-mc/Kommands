@@ -6,7 +6,8 @@ import { EXECUTE } from './fixtures'
 import { generate as GENERATE } from '../data/authored/commands/worldedit/generate'
 import { NO_REGISTRIES } from '../data/versions/registry'
 import type { CommandDefinition, Node } from './types'
-import { aliasNames, serializeCommand, type CommandValue } from './serialize'
+import { aliasNames, serializeCommand, serializeWithReport, type CommandValue } from './serialize'
+import { argumentNodesFor } from './addressing'
 import { evaluateConstraints } from './constraints'
 import { serializeTextComponent, textComponentField, type TextComponent } from './text-component'
 import { writeSnbt } from './snbt'
@@ -401,12 +402,17 @@ describe('the canonical /execute fixture', () => {
     const tail = (PARTICLE.root as Extract<Node, { kind: 'sequence' }>).nodes[6]
     expect(tail).toMatchObject({ kind: 'choice', optional: true })
 
+    // Speed and count set, position and delta not. This used to assert
+    // `/particle minecraft:flame 0 10`, which Brigadier reads as a position of `0 10`
+    // and rejects. The two empty slots before the values are now held open. This
+    // fixture is the bare derived definition, with no authored defaults attached, so
+    // they are held by placeholders; the catalogue's copy fills them (see below).
     const bare = serializeCommand(
       PARTICLE,
       value({ args: { '/1': 'minecraft:flame', '/4': 0, '/5': 10 } }),
       ctx,
     )
-    expect(bare).toBe('/particle minecraft:flame 0 10')
+    expect(bare).toBe('/particle minecraft:flame <pos> <delta> 0 10')
   })
 
   test('selecting the force clause does not conjure a viewer list', () => {
@@ -417,7 +423,111 @@ describe('the canonical /execute fixture', () => {
       value({ args: { '/1': 'minecraft:flame', '/4': 0, '/5': 10 }, choices: { '/6': 0 } }),
       ctx,
     )
-    expect(out).toBe('/particle minecraft:flame 0 10 force')
+    expect(out).toBe('/particle minecraft:flame <pos> <delta> 0 10 force')
+  })
+})
+
+/** A copy of the definition with one argument's authored default set, as withDefaults would. */
+function withArgumentDefault(
+  definition: CommandDefinition,
+  selector: string,
+  fallback: unknown,
+): CommandDefinition {
+  const copy = structuredClone(definition)
+  const nodes = argumentNodesFor(copy.root, selector)
+  expect(nodes).toHaveLength(1)
+  nodes[0]!.default = fallback
+  return copy
+}
+
+/** `/random reset minecraft:loot 42`, with only the last of its two bools given. */
+const randomReset = (includeSequenceId: boolean): CommandValue =>
+  value({
+    choices: { '/1': 0, '/1/|0/1': 1 },
+    args: {
+      '/1/|0/1/|1/0': 'minecraft:loot',
+      '/1/|0/1/|1/1': 42,
+      '/1/|0/1/|1/3': includeSequenceId,
+    },
+  })
+
+describe('a later argument keeps its slot when an earlier optional one is empty', () => {
+  const commands = (commandsPayload as unknown as { commands: Record<string, CommandDefinition> })
+    .commands
+  const EFFECT = commands['vanilla:effect']!
+  const PARTICLE = commands['vanilla:particle']!
+  const RANDOM = commands['vanilla:random']!
+  // `/effect give <targets> <effect>`, then the optional `<seconds> <amplifier>
+  // <hideParticles>` branch, which is the second of the tail's two.
+  const giveTail = (args: Record<string, unknown>) =>
+    value({
+      choices: { '/1': 1, '/1/|1/3': 1 },
+      args: { '/1/|1/1': '@p', '/1/|1/2': 'minecraft:speed', ...args },
+    })
+
+  test('an amplifier alone no longer lands in the seconds slot', () => {
+    // The bug, as it was reported: this came out as `… speed 2 false`, a two-second
+    // effect at the default strength with an extra `false` from the untouched bool.
+    const out = serializeCommand(EFFECT, giveTail({ '/1/|1/3/|1/1': 2 }), ctx)
+    expect(out).toBe('/effect give @p minecraft:speed <seconds> 2')
+  })
+
+  test('an untouched optional bool contributes nothing', () => {
+    expect(serializeCommand(EFFECT, giveTail({ '/1/|1/3/|1/0': 30 }), ctx)).toBe(
+      '/effect give @p minecraft:speed 30',
+    )
+  })
+
+  test('an optional bool the user set is written, true or false', () => {
+    expect(
+      serializeCommand(EFFECT, giveTail({ '/1/|1/3/|1/0': 30, '/1/|1/3/|1/2': true }), ctx),
+    ).toBe('/effect give @p minecraft:speed 30 <amplifier> true')
+    expect(
+      serializeCommand(EFFECT, giveTail({ '/1/|1/3/|1/0': 30, '/1/|1/3/|1/2': false }), ctx),
+    ).toBe('/effect give @p minecraft:speed 30 <amplifier> false')
+  })
+
+  test('an authored default fills the slot instead of a placeholder', () => {
+    const withAmplifierDefault = withArgumentDefault(EFFECT, 'give/amplifier', 0)
+    const out = serializeCommand(
+      withAmplifierDefault,
+      giveTail({ '/1/|1/3/|1/0': 30, '/1/|1/3/|1/2': true }),
+      ctx,
+    )
+    expect(out).toBe('/effect give @p minecraft:speed 30 0 true')
+  })
+
+  test('the report names every slot that was filled, and how', () => {
+    const def = withArgumentDefault(PARTICLE, 'pos', '~ ~ ~')
+    const report = serializeWithReport(
+      def,
+      value({ args: { '/1': 'minecraft:flame', '/4': 0, '/5': 10 } }),
+      ctx,
+    )
+    expect(report.text).toBe('/particle minecraft:flame ~ ~ ~ <delta> 0 10')
+    expect([...report.forced]).toEqual([
+      ['/2', { how: 'default', text: '~ ~ ~' }],
+      ['/3', { how: 'placeholder', text: '<delta>' }],
+    ])
+  })
+
+  test('nothing is filled when nothing later is set', () => {
+    const report = serializeWithReport(
+      withArgumentDefault(PARTICLE, 'pos', '~ ~ ~'),
+      value({ args: { '/1': 'minecraft:flame' } }),
+      ctx,
+    )
+    expect(report.text).toBe('/particle minecraft:flame')
+    expect(report.forced.size).toBe(0)
+  })
+
+  test('a default of true is written as true, which is why bools have no type-level fallback', () => {
+    // `/random reset <sequence> <seed> [includeWorldSeed] [includeSequenceId]`, both
+    // bools defaulting to true in game. A fallback of false would have silently flipped
+    // the first one whenever only the second was set.
+    const def = withArgumentDefault(RANDOM, 'reset/includeWorldSeed', true)
+    const out = serializeCommand(def, randomReset(false), ctx)
+    expect(out).toBe('/random reset minecraft:loot 42 true false')
   })
 })
 

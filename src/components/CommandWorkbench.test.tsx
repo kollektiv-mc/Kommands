@@ -5,6 +5,7 @@ import { CommandWorkbench } from './CommandWorkbench'
 import commandsPayload from '../data/generated/1.21.1/commands.json'
 import { makeRegistryLookup } from '../data/versions/registry'
 import { withUi } from '../data/authored/ui'
+import { withDefaults } from '../data/authored/defaults'
 import { generate } from '../data/authored/commands/worldedit/generate'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import type { CommandDefinition } from '../schema/types'
@@ -505,4 +506,46 @@ test('a Repeat stops offering + add at its max', async () => {
   await user.click(screen.getByLabelText('Add clause'))
   expect(screen.getAllByLabelText('Item')).toHaveLength(2)
   expect(screen.queryByLabelText('Add clause')).toBeNull()
+})
+
+test('a field the output had to fill says so, and says why', () => {
+  // `/effect give … 60 _ true`: the amplifier is empty, but hideParticles after it is
+  // set, so the output writes the amplifier the game assumes rather than letting
+  // `true` slide into its slot. The field is where that is explained.
+  const effect = withDefaults(commands['vanilla:effect']!)
+  const { setChoice, setArg } = useCommandStore.getState()
+  setChoice('/1', 1)
+  setChoice('/1/|1/3', 1)
+  setArg('/1/|1/2', 'minecraft:speed')
+  setArg('/1/|1/3/|1/0', 60)
+  setArg('/1/|1/3/|1/2', true)
+
+  const { container } = render(
+    <CommandWorkbench definition={effect} version={v1_21_1} registries={registries} />,
+  )
+
+  expect(container.querySelector('code')?.textContent).toBe(
+    '/effect give @p minecraft:speed 60 0 true',
+  )
+  expect(screen.getByText('Written as 0 because a later value is set.')).toBeDefined()
+})
+
+test('a forced field with no known default is flagged rather than guessed', () => {
+  // The duration has no single default (30 seconds, or one tick for instant effects
+  // and saturation), so a set amplifier leaves it as a visible gap.
+  const effect = withDefaults(commands['vanilla:effect']!)
+  const { setChoice, setArg } = useCommandStore.getState()
+  setChoice('/1', 1)
+  setChoice('/1/|1/3', 1)
+  setArg('/1/|1/2', 'minecraft:speed')
+  setArg('/1/|1/3/|1/1', 2)
+
+  const { container } = render(
+    <CommandWorkbench definition={effect} version={v1_21_1} registries={registries} />,
+  )
+
+  expect(container.querySelector('code')?.textContent).toBe(
+    '/effect give @p minecraft:speed <seconds> 2',
+  )
+  expect(screen.getByText('Needed because a later value is set.')).toBeDefined()
 })

@@ -1,5 +1,6 @@
 import type { EditorProps } from '../../schema/types'
 import { selectorsFor } from '../../data/authored/selectors'
+import { defaultText } from '../../schema/default-text'
 import { FIELD } from './fieldStyles'
 
 /**
@@ -19,6 +20,7 @@ export function SelectorEditor({ value, onChange, options, diagnostics }: Editor
         type="text"
         className={FIELD}
         value={value}
+        placeholder={defaultText(options)}
         list={listId}
         aria-invalid={diagnostics.length > 0}
         onChange={(e) => onChange(e.target.value)}

@@ -485,16 +485,12 @@ it should be stable between runs.
 
 **P2 — One schema field is documented and read by nothing**
 
-- `ArgumentNode.default` exists in the type and in `command-schema.md`, and no code in
-  `src/` reads it. A documented field with no behaviour reads as a guarantee, which is
-  worse than an absent one — and `ArgumentType.defaultValue` is the mechanism actually
-  used, so it is not clear this field should exist rather than be deleted.
-  `RepeatNode.max` was the second and is now real, enforced in `addInstance` where the
-  instance is created; `variadic` was the third, and reaches the editor through
-  `argumentOptions` with invariant 6 checking it across the catalogue.
-  `CommandDefinition.versions` has since joined the list: the catalogue merges without
-  consulting it, because with one version a range check would be untestable code
-  standing in for a decision nobody has had to make yet.
+- `CommandDefinition.versions`: the catalogue merges without consulting it, because
+  with one version a range check would be untestable code standing in for a decision
+  nobody has had to make yet. It was one of four. `RepeatNode.max` is enforced in
+  `addInstance`; `variadic` reaches the editor through `argumentOptions`, checked by
+  invariant 6; and `ArgumentNode.default` now means the game's value for an omitted
+  argument, written when a later argument forces its slot (see `command-schema.md`).
   [#30](https://github.com/kollektiv-mc/Kommands/issues/30).
 
 **P2 — `^` associativity is pinned here and by nothing upstream**

@@ -11,16 +11,26 @@ export interface SelectorShorthand {
   label: string
   /** Matches exactly one entity, so it is offered when amount is 'single'. */
   single: boolean
-  /** Matches only players, so it is offered when type is 'players'. */
-  playersOnly: boolean
+  /**
+   * Accepted by an argument limited to players.
+   *
+   * Not the same as "matches only players", which is what this used to say and why
+   * `@s` was left out: `/give @s …` was flagged as invalid, though it is how most
+   * people give themselves anything. Java Edition reads `@s` as a player-type selector
+   * and fails only at run time if the executor is not a player. `@e` and `@n` can
+   * select any entity, and a player-only argument refuses to parse them.
+   */
+  playerType: boolean
 }
 
 export const SELECTOR_SHORTHANDS: readonly SelectorShorthand[] = [
-  { token: '@p', label: 'Nearest player', single: true, playersOnly: true },
-  { token: '@r', label: 'Random player', single: true, playersOnly: true },
-  { token: '@s', label: 'The executing entity', single: true, playersOnly: false },
-  { token: '@a', label: 'All players', single: false, playersOnly: true },
-  { token: '@e', label: 'All entities', single: false, playersOnly: false },
+  { token: '@p', label: 'Nearest player', single: true, playerType: true },
+  { token: '@r', label: 'Random player', single: true, playerType: true },
+  { token: '@s', label: 'The executing entity', single: true, playerType: true },
+  { token: '@a', label: 'All players', single: false, playerType: true },
+  { token: '@e', label: 'All entities', single: false, playerType: false },
+  // Added in 1.21, the version this app targets.
+  { token: '@n', label: 'Nearest entity', single: true, playerType: false },
 ]
 
 /** The shorthands legal for a given Brigadier `type`/`amount` pair. */
@@ -30,6 +40,6 @@ export function selectorsFor(options: {
 }): readonly SelectorShorthand[] {
   return SELECTOR_SHORTHANDS.filter(
     (s) =>
-      (options.amount !== 'single' || s.single) && (options.type !== 'players' || s.playersOnly),
+      (options.amount !== 'single' || s.single) && (options.type !== 'players' || s.playerType),
   )
 }

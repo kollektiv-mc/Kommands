@@ -1,4 +1,5 @@
 import type { EditorProps } from '../../schema/types'
+import { defaultText } from '../../schema/default-text'
 import { FIELD } from './fieldStyles'
 
 /**
@@ -15,7 +16,9 @@ export function TextEditor({ value, onChange, options, diagnostics }: EditorProp
       type="text"
       className={FIELD}
       value={value}
-      placeholder={typeof options.placeholder === 'string' ? options.placeholder : undefined}
+      placeholder={
+        typeof options.placeholder === 'string' ? options.placeholder : defaultText(options)
+      }
       aria-invalid={diagnostics.length > 0}
       onChange={(e) => onChange(e.target.value)}
     />

@@ -86,9 +86,30 @@ A user-supplied value. `type` is a key into the argument-type registry.
   typeOptions?: object      // passed to the editor and validator, e.g. { min: 1 }
   optional?: boolean        // derived from Brigadier `executable` flags
   variadic?: boolean        // consumes all remaining tokens, joined with spaces
-  default?: unknown
+  default?: unknown         // what the game assumes when this is left out; authored
 }
 ```
+
+`default` is what the game uses for an optional argument that is left out, written in
+the argument type's own value shape. It reaches the output in one situation only.
+Brigadier reads arguments by position, so when a later part of the same sequence is
+set and this argument is empty, dropping it would slide the later value into its slot:
+`/effect give @p speed` with only an amplifier used to come out as `speed 2`, a
+two-second effect. In that case the serializer writes the default, or the argument's
+`<name>` placeholder when it has none. Anywhere else an empty optional argument still
+contributes nothing, and its editor shows the default as the value in force.
+
+Defaults are never derived, because Brigadier's tree carries none. Each one lives in
+`src/data/authored/defaults/`, keyed by the same selectors constraints use, and names a
+value minecraft.wiki documents. One whose value depends on something else is left out on
+purpose: `/effect give`'s duration is 30 seconds for most effects and one tick for
+instant ones, so it is written as `<seconds>` when forced, which asks rather than
+guesses. `defaults.test.ts` holds every entry to the bar invariant 7 holds a constraint
+target: one optional argument per selector, and a value its type accepts.
+
+An optional `bool` has three states for the same reason: `true`, `false`, and `''` for
+"not given", which contributes nothing. With only two, every untouched optional bool on
+a selected branch wrote `false`.
 
 ### `SequenceNode`
 

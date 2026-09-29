@@ -56,9 +56,51 @@ export function serializeCommand(
   ctx: SerializeContext,
   options: SerializeOptions = {},
 ): string {
+  return serializeWithReport(definition, value, ctx, options).text
+}
+
+/**
+ * An optional argument the output had to write although it was left empty.
+ *
+ * Brigadier reads arguments by position, so when a later part of the same sequence is
+ * set, an empty one before it cannot simply be dropped: the later value would slide
+ * into its slot. It is written as its authored game default when it has one
+ * (`'default'`), and as its `<name>` placeholder when it does not (`'placeholder'`).
+ */
+export interface ForcedSlot {
+  how: 'default' | 'placeholder'
+  /** What was written in the argument's place. */
+  text: string
+}
+
+export interface SerializeReport {
+  text: string
+  /** Every argument written because a later one needed its slot, by path. */
+  forced: ReadonlyMap<Path, ForcedSlot>
+}
+
+/**
+ * The command text, and which empty arguments had to be written to produce it.
+ *
+ * One walk for both, because the second answer is a by-product of the first: the form
+ * says "written as 0 because a later value is set" beside exactly the fields the
+ * output filled, and computing that separately would be a second copy of the rule
+ * that could disagree with the first.
+ */
+export function serializeWithReport(
+  definition: CommandDefinition,
+  value: CommandValue,
+  ctx: SerializeContext,
+  options: SerializeOptions = {},
+): SerializeReport {
+  const forced = new Map<Path, ForcedSlot>()
   const depth = options.maxDepth ?? DEFAULT_MAX_DEPTH
-  const body = serializeNode(definition.root, ROOT, value, ctx, options, depth)
-  return body === '' ? '' : dialectPrefix(definition.dialect) + body
+  const body = serializeNode(definition.root, ROOT, value, ctx, { ...options, forced }, depth)
+  return { text: body === '' ? '' : dialectPrefix(definition.dialect) + body, forced }
+}
+
+interface WalkOptions extends SerializeOptions {
+  forced?: Map<Path, ForcedSlot>
 }
 
 /**
@@ -94,7 +136,7 @@ function serializeNode(
   path: Path,
   value: CommandValue,
   ctx: SerializeContext,
-  options: SerializeOptions,
+  options: WalkOptions,
   depth: number,
 ): string {
   if (depth <= 0) return ''
@@ -121,17 +163,36 @@ function serializeNode(
     }
 
     case 'sequence': {
-      // Every empty part is dropped, not only the trailing ones. An unfilled optional
-      // tail disappearing is what gives `/give @p stone` rather than `/give @p stone `;
-      // dropping middle empties too is what stops an unselected optional clause from
-      // leaving a doubled space behind it, which is not a visible gap — just malformed
-      // text that reads as valid. A gap that *should* be visible is never empty by the
-      // time it arrives here: a required argument carries its `<name>` placeholder and
-      // a required Ref its `<command>`.
-      const parts = node.nodes
-        .map((n, i) => serializeNode(n, child(path, i), value, ctx, options, depth))
+      // An empty part is dropped when nothing after it is set. An unfilled optional
+      // tail disappearing is what gives `/give @p stone` rather than `/give @p stone `,
+      // and an unselected optional clause leaving nothing behind is what stops a
+      // doubled space, which is not a visible gap, just malformed text that reads as
+      // valid.
+      //
+      // An empty *argument* with something set after it is different, and dropping it
+      // too was a bug: Brigadier reads arguments by position, so the later value slid
+      // into its slot. `/effect give @p speed` with only an amplifier came out as
+      // `speed 2 false`, a two-second effect. So an argument before the last part that
+      // says anything is written as the game's own default for it, or as its `<name>`
+      // placeholder when the game documents none. A keyword-led part (an unselected
+      // clause, an empty repeat, no flags) is still dropped: it has no position to hold.
+      const parts = node.nodes.map((n, i) =>
+        serializeNode(n, child(path, i), value, ctx, options, depth),
+      )
+      let last = -1
+      parts.forEach((part, i) => {
+        if (part !== '') last = i
+      })
+      return parts
+        .map((part, i) => {
+          const n = node.nodes[i]
+          if (part !== '' || i > last || n?.kind !== 'argument') return part
+          const slot = forcedSlot(n, ctx)
+          options.forced?.set(child(path, i), slot)
+          return slot.text
+        })
         .filter((part) => part !== '')
-      return parts.join(' ')
+        .join(' ')
     }
 
     case 'choice': {
@@ -175,4 +236,13 @@ function serializeNode(
       return serializeNode(target.root, path, value, ctx, options, depth - 1)
     }
   }
+}
+
+/** What an empty argument is written as when a later part needs its slot. */
+function forcedSlot(node: Extract<Node, { kind: 'argument' }>, ctx: SerializeContext): ForcedSlot {
+  if (node.default !== undefined) {
+    const text = lookupArgumentType(node.type).serialize(node.default, ctx)
+    if (text !== '') return { how: 'default', text }
+  }
+  return { how: 'placeholder', text: `<${node.name}>` }
 }
