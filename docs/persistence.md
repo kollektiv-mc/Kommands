@@ -433,6 +433,14 @@ version bump will meet.
 This is roughly half the real work in saved commands, and it is invisible in the issue
 as written, because `unknown` hides it.
 
+One shape is written down already. An optional `bool` stores `true`, `false`, or `''`
+for "not given", and a tree saved before `''` existed holds either a boolean or nothing,
+both of which still load. What such a tree _serializes to_ can differ from its cached
+`preview`, and on purpose: an untouched optional bool no longer writes `false`, and an
+empty argument that a later one forces is written as its game default or its `<name>`
+placeholder rather than dropped (`command-schema.md` § `ArgumentNode`). A tile shows the
+corrected text once the command is saved again.
+
 ---
 
 ## Testing obligations

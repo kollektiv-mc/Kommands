@@ -114,6 +114,21 @@ export interface ArgumentNode {
   optional?: boolean
   /** Consumes all remaining tokens, joined with spaces. */
   variadic?: boolean
+  /**
+   * What the game assumes when this optional argument is left out, in the argument
+   * type's own value shape.
+   *
+   * Written only when a later part of the same sequence is set and the argument is
+   * not, because Brigadier reads arguments by position: leaving this one out would
+   * shift the later value into its slot. Anywhere else an untouched optional argument
+   * contributes nothing, exactly as before, and its editor shows this value as the
+   * one in force.
+   *
+   * Never derived. Brigadier's tree carries no defaults, so every one comes from
+   * `src/data/authored/defaults/` and names a value the game documents. An argument
+   * without one is written as its `<name>` placeholder when a later part forces it,
+   * which is a visible gap rather than a guess.
+   */
   default?: unknown
 }
 

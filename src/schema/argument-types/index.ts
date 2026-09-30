@@ -71,13 +71,17 @@ const warn = (message: string): Diagnostic[] => [{ severity: 'warning', message 
  * and the output cannot disagree about what an untouched field holds.
  */
 export function argumentOptions(
-  node: Pick<ArgumentNode, 'typeOptions' | 'optional' | 'variadic'>,
+  node: Pick<ArgumentNode, 'typeOptions' | 'optional' | 'variadic' | 'default'>,
 ): ArgumentOptions {
-  if (!node.optional && !node.variadic) return node.typeOptions ?? {}
+  if (!node.optional && !node.variadic && node.default === undefined) return node.typeOptions ?? {}
   return {
     ...node.typeOptions,
     ...(node.optional ? { optional: true } : {}),
     ...(node.variadic ? { variadic: true } : {}),
+    // Travels with the options so an editor can show the value in force when the field
+    // is empty. It is the game's value, not a seed: the field stays empty, and the
+    // serializer writes it only when a later argument needs this slot filled.
+    ...(node.default !== undefined ? { default: node.default } : {}),
   }
 }
 
@@ -117,12 +121,18 @@ const TYPES: ErasedArgumentType[] = [
   numberType('integer', true),
   numberType('float', false),
   numberType('double', false),
-  defineArgumentType<boolean>({
+  // Three states for an optional bool: true, false, and '' for "not given". Two was one
+  // too few. A checkbox that could only say true or false wrote `false` into every
+  // command whose branch held an untouched optional bool, so `/effect give … 30` came
+  // out as `… 30 false`. An optional bool that is not given now contributes nothing,
+  // like every other optional argument, and ToggleEditor stores '' whenever the box is
+  // put back to the value the game assumes.
+  defineArgumentType<boolean | ''>({
     key: 'bool',
     editor: ToggleEditor,
-    serialize: (value) => (value ? 'true' : 'false'),
+    serialize: (value) => (value === '' ? '' : value ? 'true' : 'false'),
     validate: () => [],
-    defaultValue: () => false,
+    defaultValue: (options) => (options.optional ? '' : false),
   }),
   defineArgumentType<string>({
     key: 'entity_selector',

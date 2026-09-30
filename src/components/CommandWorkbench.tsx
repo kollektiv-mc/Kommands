@@ -3,7 +3,7 @@ import type { RegistryLookup, SerializeContext, VersionDefinition } from '../dat
 import { CommandRenderer, type Catalogue } from './CommandRenderer'
 import { embeddableIn } from '../data/catalogue'
 import { evaluateConstraints } from '../schema/constraints'
-import { EMPTY_VALUE, serializeCommand } from '../schema/serialize'
+import { EMPTY_VALUE, serializeWithReport } from '../schema/serialize'
 import type { CommandDefinition } from '../schema/types'
 import { previewInputsKey, readPreviewInputs } from '../previews/inputs'
 import { previewModule } from '../previews/registry'
@@ -118,7 +118,7 @@ export function CommandWorkbench({
   const embeddable = useMemo(() => embeddableIn(catalogue, definition), [catalogue, definition])
   const resolve = useMemo(() => (id: string) => embeddable[id], [embeddable])
 
-  const output = serializeCommand(definition, value, ctx, { resolve })
+  const { text: output, forced } = serializeWithReport(definition, value, ctx, { resolve })
   const warnings = evaluateConstraints(definition, value)
 
   /**
@@ -214,6 +214,7 @@ export function CommandWorkbench({
         ctx={ctx}
         actions={{ setArg, setFlag, setChoice, addInstance, reorderRepeat, setRef }}
         catalogue={embeddable}
+        forced={forced}
       />
 
       {/* Last, and a sibling of the output panel rather than a wrapper around it. The
