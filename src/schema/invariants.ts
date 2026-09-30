@@ -15,9 +15,11 @@ import type { CommandDefinition, Node } from './types'
  * test suite runs this over the whole catalogue, which is where it should fail.
  */
 export function definitionProblems(definition: CommandDefinition): string[] {
-  return [...variadicProblems(definition.root, false), ...addressingProblems(definition)].map(
-    (problem) => `${definition.id}: ${problem}`,
-  )
+  return [
+    ...variadicProblems(definition.root, false),
+    ...addressingProblems(definition),
+    ...presentationProblems(definition),
+  ].map((problem) => `${definition.id}: ${problem}`)
 }
 
 /**
@@ -64,6 +66,47 @@ function addressingProblems(definition: CommandDefinition): string[] {
         : `. Qualify it, as in "${suggestion}"`
     return [`${where} names "${selector}", which matches ${rest.length + 1} nodes${advice}`]
   })
+}
+
+/**
+ * Every key in a definition's `ui` must name something in it.
+ *
+ * Presentation is matched by name, not checked by type: an argument label keyed by a
+ * name the skeleton does not have, or a clause keyed by a keyword no branch starts
+ * with, is silently never shown. A regenerated skeleton that renames an argument, or
+ * a typo, would leave the form quietly back on its Brigadier names. More than one
+ * match is fine here, unlike a constraint's target: `targets` is labelled "Targets"
+ * in every `/execute` clause that has one, on purpose.
+ */
+function presentationProblems(definition: CommandDefinition): string[] {
+  const ui = definition.ui
+  if (!ui) return []
+  const leading = new Set(leadingKeywords(definition.root))
+  return [
+    ...Object.keys(ui.arguments ?? {})
+      .filter((selector) => resolveTarget(definition.root, selector).length === 0)
+      .map((selector) => `ui.arguments names "${selector}", which is not an argument here`),
+    ...Object.keys(ui.clauses ?? {})
+      .filter((keyword) => !leading.has(keyword))
+      .map((keyword) => `ui.clauses names "${keyword}", which no branch starts with`),
+  ]
+}
+
+/** The keyword each Choice branch in the tree starts with, where it starts with one. */
+function leadingKeywords(node: Node): string[] {
+  switch (node.kind) {
+    case 'choice':
+      return node.nodes.flatMap((branch) => {
+        const first = branch.kind === 'sequence' ? branch.nodes[0] : branch
+        return [...(first?.kind === 'literal' ? [first.token] : []), ...leadingKeywords(branch)]
+      })
+    case 'sequence':
+      return node.nodes.flatMap(leadingKeywords)
+    case 'repeat':
+      return leadingKeywords(node.node)
+    default:
+      return []
+  }
 }
 
 /**

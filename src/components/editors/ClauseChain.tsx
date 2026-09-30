@@ -2,61 +2,84 @@ import {
   useCallback,
   useRef,
   useState,
+  type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
-import type { InstanceId } from '../../schema/paths'
+import type { InstanceId, Path } from '../../schema/paths'
 import { moveTo } from '../../lib/reorder'
+import { useReorderFlip } from '../../lib/useReorderFlip'
+import { useLit, useOutputHover } from '../../stores/useOutputHover'
+import { Collapsible } from '../ui/Collapsible'
 import { Icon } from '../ui/Icon'
-import { ROW_ADD } from './rowStyles'
+import { MenuButton, type MenuItem } from '../ui/MenuButton'
+import { FOCUS, HELP } from './fieldStyles'
+
 /**
- * A Repeat, drawn as a chain of nodes.
+ * A Repeat, drawn as a numbered chain of steps: `/execute`'s clauses.
  *
- * This is the editor `/execute`'s clause chain was always meant to have, replacing the
- * stack of rows that proved the data layer (#34). It is **lazy**: `CommandRenderer`
- * reaches it through `React.lazy`, because a Repeat appears in a minority of
- * definitions and the entry chunk had 3.3 KB of headroom against its 120 KB budget
- * when this landed. `/give` should not pay for `/execute`'s editor.
+ * **Lazy**: `CommandRenderer` reaches it through `React.lazy`, because a Repeat appears
+ * in a minority of definitions and `/give` should not pay for `/execute`'s editor.
  *
  * It renders no clause itself. `renderClause` hands back the subtree, so this file
- * imports nothing from `CommandRenderer` and the two cannot form a cycle - which is
- * also what keeps the walk in one place rather than forking a second one here.
+ * imports nothing from `CommandRenderer` and the two cannot form a cycle, and the walk
+ * stays in one place rather than forking a second one here. Nor does it know which
+ * command it is drawing: the step kinds, their help and their groups come in as data
+ * from the definition's `ui.clauses`, and the last step (`run`) is whatever Choice the
+ * renderer found after the Repeat by its shape.
+ *
+ * Each step says what it is once, in its header, as the keyword the output shows, with
+ * what it writes beside it; the form under it holds only what is left to fill. It
+ * used to say "as" three times: the card title, a picker, and grey text by the field.
  *
  * **What it deliberately is not.** Konnekt's scheduler is the obvious reference and
- * most of it does not apply: that is a free-form graph with persisted `x`/`y`, typed
- * ports, an edge model and cycle detection. A chain whose order *is* its structure
- * needs none of them. Position is the index, and there are no edges to store because
- * the sequence is the edge. If free positioning is ever wanted, that is a different
- * feature and not a wider version of this one - the value tree holds command values
- * only, and layout in there would serialize into a command.
+ * most of it does not apply: that is a free-form graph with persisted positions, typed
+ * ports and edges. A chain whose order *is* its structure needs none of them. Position
+ * is the index, and there are no edges to store because the sequence is the edge.
  */
 
+/** A kind of step the add menu offers: a branch of the Repeat's Choice. */
+export interface StepKind {
+  branch: number
+  label: string
+  help?: string
+  group?: string
+}
+
+/** What a step is called, what it writes, and which output pieces are its. */
+export interface StepNaming {
+  label: string
+  help?: string
+  /** The step's own text in the command, without its keyword: `@a[tag=boss]` after `as`. */
+  summary: string
+  /** The path `Segment.field` names for this step's keyword, for hover linking. */
+  field: Path
+}
+
 export interface ClauseChainProps {
-  /** The instances, in order. The order of this list is the order of the clauses. */
+  /** The instances, in order. The order of this list is the order of the steps. */
   ids: readonly InstanceId[]
-  /** Below this many clauses, removal is not offered. */
+  /** Below this many steps, removal is not offered. */
   min: number
   /** At this many, adding is not offered. Undefined means no ceiling. */
   max?: number
+  naming: (id: InstanceId) => StepNaming
   /**
-   * What this clause is called and what it does, as its chosen branch currently reads.
-   *
-   * One callback rather than a `label` and a `help` prop, because both answers come
-   * from resolving the same branch and splitting them would resolve it twice per
-   * clause per render.
+   * The kinds of step there are, in the order the add menu lists them. Empty for a
+   * Repeat of something other than a Choice, whose add button adds one plain instance.
    */
-  naming: (id: InstanceId) => { label: string; help?: string }
-  /** The clause's own editors. Rendered by the caller's walk, not by this file. */
+  kinds: readonly StepKind[]
+  /** The step's own editors. Rendered by the caller's walk, not by this file. */
   renderClause: (id: InstanceId) => ReactNode
   /**
-   * Hand back a new ordering, with `gesture` naming the drag it came from.
-   *
-   * A pointer crossing three card midpoints reorders three times, and all three are
-   * one thing the user did. The tag is what lets the store collapse them into one undo
-   * step; a click on a move control passes none, because one click is one step.
+   * Hand back a new ordering, with `gesture` naming the drag it came from, so the store
+   * can make one undo step of a drag that crossed three cards. A click passes none.
    */
   onReorder: (ids: readonly InstanceId[], gesture?: string) => void
-  onAdd: () => void
+  /** Add a step at `at`, of the kind `branch` names when there are kinds. */
+  onAdd: (at: number, branch?: number) => void
+  /** The step that ends the chain (`run`), drawn after the rest and never moved. */
+  tail?: StepNaming & { body: ReactNode }
 }
 
 export default function ClauseChain({
@@ -64,33 +87,28 @@ export default function ClauseChain({
   min,
   max,
   naming,
+  kinds,
   renderClause,
   onReorder,
   onAdd,
+  tail,
 }: ClauseChainProps) {
   /**
-   * The clause the user last moved or picked up.
-   *
-   * Keyed by instance id, which is what makes it free: ids are stable identities
-   * (#33), so a permutation moves the clause and the mark follows it with no work at
-   * all. Keyed by index it would have to be permuted alongside the values, and getting
-   * that subtly wrong is how a highlight ends up on the clause that did not move.
-   *
-   * It answers one question, and the question is real: after dragging the sixth clause
-   * up to second, which one is it now? In a chain of eight otherwise similar rows that
-   * is genuinely hard to see.
+   * The step the user last moved or picked up, so that after dragging the sixth step
+   * up to second it is still plain which one it is. Keyed by instance id, so it follows
+   * the step through any reordering with no work at all.
    */
   const [marked, setMarked] = useState<InstanceId | null>(null)
   const [dragging, setDragging] = useState<InstanceId | null>(null)
-  const cards = useRef(new Map<InstanceId, HTMLElement>())
+  /** Collapsed steps, by id. Local: folding a step is a view of it, not a value. */
+  const [folded, setFolded] = useState<ReadonlySet<InstanceId>>(new Set())
+  /** The steps there when the chain mounted. Only steps added later fade in. */
+  const [present] = useState(() => new Set(ids))
+  const flip = useReorderFlip(ids, dragging)
 
   /**
-   * Names the drag currently in progress, so its reorders coalesce into one undo step.
-   *
-   * A counter rather than the dragged id: dragging the same clause twice in a row has
-   * to be two steps, and an id-derived tag would make it one. The caller qualifies this
-   * with the Repeat's path before it reaches the store, since two chains on one page
-   * each count from zero.
+   * Names the drag in progress, so its reorders coalesce into one undo step. A counter
+   * rather than the dragged id: dragging the same step twice in a row is two steps.
    */
   const gesture = useRef(0)
 
@@ -98,30 +116,55 @@ export default function ClauseChain({
   const atMax = max !== undefined && count >= max
   const canRemove = count > min
 
-  const register = useCallback((id: InstanceId, element: HTMLElement | null) => {
-    if (element === null) cards.current.delete(id)
-    else cards.current.set(id, element)
+  /** Which slot the pointer is over, by step midpoint. */
+  const slotAt = useCallback((clientY: number, cards: HTMLElement[]): number => {
+    let slot = 0
+    cards.forEach((card, index) => {
+      const box = card.getBoundingClientRect()
+      if (clientY > box.top + box.height / 2) slot = index
+    })
+    return slot
   }, [])
 
-  /** Which slot the pointer is currently over, by card midpoint. */
-  const slotAt = useCallback(
-    (clientY: number): number => {
-      let slot = 0
-      ids.forEach((id, index) => {
-        const card = cards.current.get(id)
-        if (card === undefined) return
-        const box = card.getBoundingClientRect()
-        if (clientY > box.top + box.height / 2) slot = index
-      })
-      return slot
-    },
-    [ids],
-  )
+  const list = useRef<HTMLOListElement>(null)
+
+  const reorder = (next: readonly InstanceId[], tag?: string) => {
+    flip.capture()
+    if (tag === undefined) onReorder(next)
+    else onReorder(next, tag)
+  }
+
+  const move = (id: InstanceId, by: number) => {
+    const from = ids.indexOf(id)
+    const next = moveTo(ids, from, from + by)
+    // `moveTo` hands back the same array when the move goes nowhere, and a reorder that
+    // changes nothing would still push an undo step that appears to do nothing.
+    if (next === ids) return
+    setMarked(id)
+    reorder(next)
+  }
+
+  const remove = (id: InstanceId) => {
+    if (marked === id) setMarked(null)
+    reorder(ids.filter((held) => held !== id))
+  }
+
+  const add = (at: number, branch?: number) => {
+    flip.capture()
+    onAdd(at, branch)
+  }
+
+  const addItems = (at: number): MenuItem[] =>
+    kinds.map((kind) => ({
+      key: String(kind.branch),
+      label: kind.label,
+      description: kind.help,
+      group: kind.group,
+      onSelect: () => add(at, kind.branch),
+    }))
 
   const startDrag = (id: InstanceId) => (event: ReactPointerEvent<HTMLButtonElement>) => {
-    // Captured on the handle, so the gesture survives the pointer leaving it. Without
-    // this a drag ends the moment the cursor outruns a 24px button, which at any real
-    // speed is immediately.
+    // Captured on the handle, so the gesture survives the pointer leaving it.
     event.currentTarget.setPointerCapture(event.pointerId)
     gesture.current += 1
     setDragging(id)
@@ -129,156 +172,294 @@ export default function ClauseChain({
   }
 
   const moveDrag = (id: InstanceId) => (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (dragging !== id) return
+    if (dragging !== id || !list.current) return
+    const cards = [...list.current.querySelectorAll<HTMLElement>(':scope > [data-step]')]
     const from = ids.indexOf(id)
-    const to = slotAt(event.clientY)
-    if (from !== to) onReorder(moveTo(ids, from, to), `drag:${gesture.current}`)
+    const to = slotAt(event.clientY, cards)
+    if (from !== to) reorder(moveTo(ids, from, to), `drag:${gesture.current}`)
   }
 
   const endDrag = () => setDragging(null)
 
-  const move = (id: InstanceId, by: number) => {
-    const from = ids.indexOf(id)
-    const next = moveTo(ids, from, from + by)
-    // `moveTo` hands back the same array when the move goes nowhere, and a reorder
-    // that changes nothing would still push an undo step. The buttons at the ends of
-    // the chain are disabled, so this is not reachable from the UI today - but that
-    // makes the disabled attribute the only thing standing between a user and an undo
-    // that appears to do nothing, which is too much weight for it to carry.
-    if (next === ids) return
-    setMarked(id)
-    onReorder(next)
+  /** Arrow keys on the handle move the step, so reordering never needs a pointer. */
+  const onHandleKey = (id: InstanceId) => (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+    event.preventDefault()
+    move(id, event.key === 'ArrowUp' ? -1 : 1)
   }
 
-  const remove = (id: InstanceId) => {
-    if (marked === id) setMarked(null)
-    onReorder(ids.filter((held) => held !== id))
-  }
+  const toggleFold = (id: InstanceId) =>
+    setFolded((was) => {
+      const next = new Set(was)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   return (
-    <div className="flex flex-col gap-1">
-      <ol className="flex list-none flex-col gap-1">
+    <div className="flex flex-col">
+      <ol ref={list} className="relative flex list-none flex-col">
         {ids.map((id, index) => {
-          const { label, help } = naming(id)
+          const step = naming(id)
+          const n = index + 1
+          const open = !folded.has(id)
           return (
-            // Keyed on the instance's id, never its position. With `key={index}` React
-            // sees the same keys in the same order after a reorder and hands each
-            // mounted editor the next clause's props: values move and component-internal
-            // state does not, so a dropdown's selection stays on the clause that did not.
-            <li key={id} ref={(element) => register(id, element)}>
-              <div
-                className={
-                  'border-hairline bg-elevated rounded-panel flex flex-col gap-2 p-2 ' +
-                  (marked === id ? 'border-accent' : 'border-border-subtle') +
-                  (dragging === id ? ' opacity-60' : '')
-                }
-              >
-                <div className="flex items-center gap-2">
-                  {/*
-                    The handle is a real button, not a div with a pointer handler. It
-                    carries the drag, and being focusable is what lets the keyboard
-                    controls beside it be reached at all.
-                    `touch-none` because a touch drag would otherwise scroll the page
-                    instead of moving the clause: the browser claims the gesture for
-                    panning before the pointer handler sees the second event.
-                  */}
+            // Keyed on the instance's id, never its position: with `key={index}` a
+            // reorder hands each mounted editor the next step's props, and a picker's
+            // local state stays on the step that did not move.
+            <li
+              key={id}
+              data-step={id}
+              ref={(element) => flip.register(id, element)}
+              className={`group/step relative grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 pb-3 ${present.has(id) ? '' : 'content-in'} ${dragging === id ? 'z-10' : ''}`}
+            >
+              <Rail>{n}</Rail>
+              <StepCard
+                label={step.label}
+                name={`Step ${n}, ${step.label}`}
+                summary={step.summary}
+                field={step.field}
+                emphasis={marked === id || dragging === id}
+                handle={
+                  // A real button, not a div with a pointer handler: it carries the
+                  // drag, and being focusable is what lets the arrow keys reach it.
+                  // `touch-none`, or a touch drag scrolls the page instead.
                   <button
                     type="button"
-                    className="text-text-faint hover:text-text-primary cursor-grab touch-none"
-                    aria-label={`Reorder clause ${index + 1}`}
+                    className={`${FOCUS} text-text-faint hover:text-text-secondary hover:bg-hover flex h-7 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded`}
+                    aria-label={`Reorder step ${n}`}
+                    title="Drag, or use the arrow keys, to reorder"
                     onPointerDown={startDrag(id)}
                     onPointerMove={moveDrag(id)}
                     onPointerUp={endDrag}
                     onPointerCancel={endDrag}
+                    onKeyDown={onHandleKey(id)}
                   >
                     <Icon name="grip" size="sm" />
                   </button>
-                  <span className="text-text-faint text-3xs w-4 text-right font-mono">
-                    {index + 1}
-                  </span>
-                  <span className="text-text-primary text-1xs min-w-0 flex-1 truncate font-mono">
-                    {label}
-                  </span>
-                  {/*
-                    Kept as buttons with the accessible names the rows used, and that is
-                    not the placeholder surviving. Dragging is a pointer gesture, so
-                    without these the only way to reorder a chain needs a mouse - and
-                    the aislop gate already counts eleven jsx-a11y findings against a
-                    ratchet this must not push further. The names are good names for the
-                    operations, so changing them would cost the keyboard path its
-                    clarity to prove a point about the rewrite.
-                  */}
-                  <button
-                    type="button"
-                    className={ROW_REMOVE_DISABLED}
-                    aria-label={`Move clause ${index + 1} earlier`}
-                    disabled={index === 0}
-                    onClick={() => move(id, -1)}
-                  >
-                    <Icon name="chevronUp" size="sm" />
-                  </button>
-                  <button
-                    type="button"
-                    className={ROW_REMOVE_DISABLED}
-                    aria-label={`Move clause ${index + 1} later`}
-                    disabled={index === count - 1}
-                    onClick={() => move(id, 1)}
-                  >
-                    <Icon name="chevronDown" size="sm" />
-                  </button>
-                  {canRemove && (
+                }
+                actions={
+                  <>
+                    <StepAction
+                      label={`Move step ${n} earlier`}
+                      icon="chevronUp"
+                      disabled={index === 0}
+                      onClick={() => move(id, -1)}
+                    />
+                    <StepAction
+                      label={`Move step ${n} later`}
+                      icon="chevronDown"
+                      disabled={index === count - 1}
+                      onClick={() => move(id, 1)}
+                    />
                     <button
                       type="button"
-                      className="text-text-faint hover:text-danger"
-                      aria-label={`Remove clause ${index + 1}`}
-                      onClick={() => remove(id)}
+                      aria-expanded={open}
+                      aria-label={`${open ? 'Collapse' : 'Expand'} step ${n}`}
+                      title={open ? 'Collapse' : 'Expand'}
+                      onClick={() => toggleFold(id)}
+                      className={`${FOCUS} text-text-faint hover:text-text-primary hover:bg-hover flex h-7 w-7 items-center justify-center rounded`}
                     >
-                      <Icon name="close" size="sm" />
+                      <Icon
+                        name="chevronDown"
+                        size="sm"
+                        className={`duration-panel transition-transform motion-reduce:transition-none ${open ? '' : '-rotate-90'}`}
+                      />
                     </button>
-                  )}
-                </div>
-                {help !== undefined && <span className="text-text-faint text-3xs">{help}</span>}
-                <div className="border-t-hairline border-border-subtle pt-2">
-                  {renderClause(id)}
-                </div>
-              </div>
-              {/* The link to the next node. Drawn between cards rather than on one, so
-                  the last clause does not trail a connector into empty space. */}
-              {index < count - 1 && (
-                <div aria-hidden="true" className="flex justify-center">
-                  {/* A hairline border rather than a 1px block: 0.5px is the width
-                      every other rule in this app is drawn at, and `w-px` would be the
-                      one line in the chain that is twice as heavy as the card it
-                      joins. */}
-                  <span className="border-l-hairline border-border-subtle h-2" />
+                    {canRemove && (
+                      <StepAction
+                        label={`Remove step ${n}`}
+                        icon="close"
+                        danger
+                        onClick={() => remove(id)}
+                      />
+                    )}
+                  </>
+                }
+              >
+                <Collapsible open={open}>
+                  <div className="flex flex-col gap-1 pb-2">
+                    {step.help && <p className={`${HELP} px-3`}>{step.help}</p>}
+                    {renderClause(id)}
+                  </div>
+                </Collapsible>
+              </StepCard>
+              {/* A step can go between any two, not only at the end. */}
+              {!atMax && kinds.length > 0 && index < count - 1 && (
+                <div className="absolute -bottom-2 left-0.5 z-10 opacity-0 transition-opacity group-hover/step:opacity-100 focus-within:opacity-100 motion-reduce:transition-none">
+                  <MenuButton
+                    label={`Insert a step after step ${n}`}
+                    icon="plus"
+                    iconOnly
+                    keywords
+                    items={addItems(index + 1)}
+                  />
                 </div>
               )}
             </li>
           )
         })}
       </ol>
-      {/* Hidden at `max` rather than disabled, matching how removal treats `min`. The
-          limit is a fact about the command's grammar, so the control that would break
-          it is not offered. */}
+      {/* Hidden at `max` rather than disabled: the limit is a fact about the command's
+          grammar, so the control that would break it is not offered. */}
       {!atMax && (
-        <div className="flex">
-          <button
-            type="button"
-            className={ROW_ADD}
-            // Labelled like its siblings, which say "Move clause 1 earlier" and
-            // "Remove clause 1". The visible text is ambiguous on its own: a deep
-            // editor inside a clause may carry a `+ add` of its own, and
-            // `item_stack`'s does.
-            aria-label="Add clause"
-            onClick={onAdd}
+        <div className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 pb-3">
+          <Rail dashed>
+            <Icon name="plus" size="sm" />
+          </Rail>
+          <div className="flex items-center pt-1">
+            {kinds.length > 0 ? (
+              <MenuButton label="Add a step" icon="plus" keywords items={addItems(count)} />
+            ) : (
+              <button
+                type="button"
+                onClick={() => add(count)}
+                className={`${FOCUS} text-accent hover:bg-accent/10 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium`}
+              >
+                <Icon name="plus" size="sm" />
+                Add a step
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {tail && (
+        <div className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3">
+          <Rail last>
+            <Icon name="play" size="sm" />
+          </Rail>
+          <StepCard
+            label={tail.label}
+            name={`Last step, ${tail.label}`}
+            summary={tail.summary}
+            field={tail.field}
+            emphasis={false}
+            actions={<span className="text-text-muted text-1xs px-2">Last step</span>}
           >
-            + add
-          </button>
+            <div className="flex flex-col gap-1 pb-2">
+              {tail.help && <p className={`${HELP} px-3`}>{tail.help}</p>}
+              {tail.body}
+            </div>
+          </StepCard>
         </div>
       )}
     </div>
   )
 }
-/** Muted, and visibly inert at the ends of the chain where the move is not available. */
-const ROW_REMOVE_DISABLED =
-  'text-text-faint hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30'
+
+/**
+ * The number beside a step, on the line that joins it to the next. The line is a
+ * hairline, the width every other rule here is drawn at.
+ */
+function Rail({
+  children,
+  dashed = false,
+  last = false,
+}: {
+  children: ReactNode
+  dashed?: boolean
+  last?: boolean
+}) {
+  const tone = last
+    ? 'bg-accent/15 text-accent border-accent/45'
+    : dashed
+      ? 'bg-canvas text-text-muted border-border-hover border-dashed'
+      : 'bg-elevated text-text-secondary border-border-hover group-hover/step:text-text-primary group-hover/step:border-text-faint'
+  return (
+    <div aria-hidden="true" className="flex flex-col items-center">
+      <span
+        className={`border-hairline text-1xs duration-fast mt-2 flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-full font-mono font-semibold tabular-nums transition-colors motion-reduce:transition-none ${tone}`}
+      >
+        {children}
+      </span>
+      {!last && !dashed && (
+        <span className="border-l-hairline border-border-hover mt-1 -mb-5 flex-1" />
+      )}
+    </div>
+  )
+}
+
+/**
+ * A step's card: its keyword, what it writes, its controls, and its form.
+ *
+ * Hovering the header lights the step's keyword in the output, and hovering that
+ * keyword outlines this card, through the same store the form's rows use.
+ */
+function StepCard({
+  label,
+  name,
+  summary,
+  field,
+  emphasis,
+  handle,
+  actions,
+  children,
+}: {
+  label: string
+  /** The card's accessible name, which says "step" as the visible numbering does. */
+  name: string
+  summary: string
+  field: Path
+  emphasis: boolean
+  handle?: ReactNode
+  actions: ReactNode
+  children: ReactNode
+}) {
+  const lit = useLit(field)
+  const hover = useOutputHover((s) => s.hover)
+  const border = emphasis ? 'border-accent' : lit ? 'border-accent/60' : 'border-border-subtle'
+  return (
+    <section
+      aria-label={name}
+      className={`group/card border-hairline bg-elevated rounded-panel duration-fast hover:border-text-faint min-w-0 transition-colors motion-reduce:transition-none ${border}`}
+    >
+      <div
+        className="flex min-h-11 items-center gap-2 py-1.5 pr-1.5 pl-1"
+        onPointerEnter={() => hover(field)}
+        onPointerLeave={() => hover(null)}
+      >
+        {handle}
+        <span className="text-accent bg-accent/15 shrink-0 rounded-md px-2 py-0.5 font-mono text-xs font-semibold">
+          {label}
+        </span>
+        <code className="text-text-secondary min-w-0 flex-1 truncate font-mono text-xs">
+          {summary}
+        </code>
+        <span className="ml-auto flex shrink-0 items-center gap-0.5">{actions}</span>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+/**
+ * A step's move and remove buttons: quiet until the card is hovered or holds focus, so
+ * a long chain reads as its keywords rather than as rows of controls. Always shown
+ * where there is no hover (a touch screen), since there they could not be found.
+ */
+function StepAction({
+  label,
+  icon,
+  onClick,
+  disabled = false,
+  danger = false,
+}: {
+  label: string
+  icon: 'chevronUp' | 'chevronDown' | 'close'
+  onClick: () => void
+  disabled?: boolean
+  danger?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`${FOCUS} text-text-faint hover:bg-hover duration-fast flex h-7 w-7 items-center justify-center rounded opacity-0 transition-opacity group-focus-within/card:opacity-100 group-hover/card:opacity-100 disabled:cursor-not-allowed disabled:group-hover/card:opacity-30 motion-reduce:transition-none pointer-coarse:opacity-100 ${danger ? 'hover:text-danger' : 'hover:text-text-primary'}`}
+    >
+      <Icon name={icon} size="sm" />
+    </button>
+  )
+}

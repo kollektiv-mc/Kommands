@@ -1,4 +1,5 @@
 import type { CommandDefinition, UiMetadata } from '../../../schema/types'
+import { executeUi } from './execute'
 import { giveUi } from './give'
 import { tellrawUi } from './tellraw'
 
@@ -11,6 +12,7 @@ import { tellrawUi } from './tellraw'
  * cannot hold any.
  */
 const UI: Readonly<Record<string, UiMetadata>> = {
+  'vanilla:execute': executeUi,
   'vanilla:give': giveUi,
   'vanilla:tellraw': tellrawUi,
 }

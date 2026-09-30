@@ -56,7 +56,11 @@ interface CommandState {
   redo: () => void
   setArg: (path: Path, value: unknown) => void
   setFlag: (path: Path, on: boolean) => void
-  setChoice: (path: Path, index: number) => void
+  /**
+   * Pick a Choice's branch. `tag` names a gesture that also sets something else, as
+   * `reorderRepeat`'s does, so the two land as one undo step.
+   */
+  setChoice: (path: Path, index: number, tag?: string) => void
   /**
    * Add one instance to a Repeat, unless it is already at `max`.
    *
@@ -65,7 +69,21 @@ interface CommandState {
    * declared, documented in `command-schema.md`, and read by nothing, so a Repeat
    * declared `max: 3` accepted a fourth (part of #30).
    */
-  addInstance: (path: Path, node: { min?: number; max?: number }) => void
+  addInstance: (
+    path: Path,
+    node: { min?: number; max?: number },
+    place?: {
+      /** Where in the list the new instance goes. At the end when omitted. */
+      at?: number
+      /**
+       * The branch to choose on the new instance's own Choice, for a Repeat of
+       * Choices (`/execute`'s clauses). Picking "as" from the add menu is one act, so
+       * it is one undo step: an add then a choose would leave an undo that lands on an
+       * empty clause nobody asked for.
+       */
+      branch?: number
+    },
+  ) => void
   /**
    * Put a Repeat's instances into `ids`.
    *
@@ -87,7 +105,7 @@ interface CommandState {
    * `/particle` reads a position. Keeping them does not produce a wrong command; it
    * hands a serializer a value of a shape its own type never makes.
    */
-  setRef: (path: Path, definitionId: string) => void
+  setRef: (path: Path, definitionId: string, tag?: string) => void
   /**
    * Replace the whole tree with a saved one, and resume its id counter.
    *
@@ -143,12 +161,12 @@ export const useCommandStore = create<CommandState>((set) => ({
       history: record(s.history, s.value),
       value: { ...s.value, flags: { ...s.value.flags, [path]: on } },
     })),
-  setChoice: (path, index) =>
+  setChoice: (path, index, tag) =>
     set((s) => ({
-      history: record(s.history, s.value),
+      history: record(s.history, s.value, tag ?? null),
       value: { ...s.value, choices: { ...s.value.choices, [path]: index } },
     })),
-  addInstance: (path, node) =>
+  addInstance: (path, node, place = {}) =>
     set((s) => {
       const current = repeatInstances(s.value.repeats, path, node)
       // Warns nowhere and blocks here, which is the right way round: `max` is a fact
@@ -159,13 +177,17 @@ export const useCommandStore = create<CommandState>((set) => ({
       // that still pushed a snapshot would leave an undo step that changes nothing,
       // and a user pressing undo would watch it do nothing once per refusal.
       if (node.max !== undefined && current.length >= node.max) return s
+      const id = `i${s.nextInstanceId}`
+      const at = Math.min(Math.max(place.at ?? current.length, 0), current.length)
+      const ids = [...current.slice(0, at), id, ...current.slice(at)]
+      const choices =
+        place.branch === undefined
+          ? s.value.choices
+          : { ...s.value.choices, [instance(path, id)]: place.branch }
       return {
         history: record(s.history, s.value),
         nextInstanceId: s.nextInstanceId + 1,
-        value: {
-          ...s.value,
-          repeats: { ...s.value.repeats, [path]: [...current, `i${s.nextInstanceId}`] },
-        },
+        value: { ...s.value, choices, repeats: { ...s.value.repeats, [path]: ids } },
       }
     }),
   reorderRepeat: (path, ids, tag) =>
@@ -188,7 +210,7 @@ export const useCommandStore = create<CommandState>((set) => ({
         value: { ...cleared, repeats: { ...cleared.repeats, [path]: [...ids] } },
       }
     }),
-  setRef: (path, definitionId) =>
+  setRef: (path, definitionId, tag) =>
     set((s) => {
       // Re-picking the same command keeps everything filled in. Only a genuine change
       // clears, so brushing the picker does not cost the user their work - and, as in
@@ -196,7 +218,7 @@ export const useCommandStore = create<CommandState>((set) => ({
       if (s.value.refs[path] === definitionId) return s
       const cleared = clearAt(s.value, path)
       return {
-        history: record(s.history, s.value),
+        history: record(s.history, s.value, tag ?? null),
         value: { ...cleared, refs: { ...cleared.refs, [path]: definitionId } },
       }
     }),

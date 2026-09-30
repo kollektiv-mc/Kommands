@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import ClauseChain from './ClauseChain'
+import ClauseChain, { type StepKind } from './ClauseChain'
 
 /**
  * The chain editor on its own, driven directly rather than through the renderer.
@@ -13,6 +13,14 @@ import ClauseChain from './ClauseChain'
  */
 const ids = ['i0', 'i1', 'i2']
 
+const KINDS: StepKind[] = [
+  { branch: 0, label: 'as', help: 'Run as each target.', group: 'Change who or where' },
+  { branch: 1, label: 'at', help: 'Move to each target.', group: 'Change who or where' },
+  { branch: 2, label: 'if', help: 'Continue when it passes.', group: 'Test a condition' },
+]
+
+const naming = (id: string) => ({ label: `kind ${id}`, summary: `@${id}`, field: `/1/#${id}` })
+
 function renderChain(overrides: Partial<Parameters<typeof ClauseChain>[0]> = {}) {
   const onReorder = vi.fn()
   const onAdd = vi.fn()
@@ -20,7 +28,8 @@ function renderChain(overrides: Partial<Parameters<typeof ClauseChain>[0]> = {})
     <ClauseChain
       ids={ids}
       min={0}
-      naming={(id) => ({ label: `clause ${id}` })}
+      kinds={KINDS}
+      naming={naming}
       renderClause={(id) => <span>body {id}</span>}
       onReorder={onReorder}
       onAdd={onAdd}
@@ -30,44 +39,52 @@ function renderChain(overrides: Partial<Parameters<typeof ClauseChain>[0]> = {})
   return { onReorder, onAdd }
 }
 
-test('draws a node per instance, in order, with its clause inside', () => {
+test('draws a numbered step per instance, its keyword once and what it writes beside it', () => {
   renderChain()
 
-  // The label comes from `naming`, so the chain never resolves a branch itself — that
-  // is the renderer's job and the reason this component knows nothing about the schema.
-  expect(screen.getByText('clause i0')).toBeDefined()
-  expect(screen.getByText('body i2')).toBeDefined()
-
-  const positions = screen.getAllByRole('listitem')
-  expect(positions).toHaveLength(3)
+  // The label comes from `naming`, so the chain never resolves a branch itself.
+  const step = screen.getByRole('region', { name: 'Step 1, kind i0' })
+  expect(within(step).getByText('kind i0')).toBeDefined()
+  expect(within(step).getByText('@i0')).toBeDefined()
+  expect(within(step).getByText('body i0')).toBeDefined()
+  expect(screen.getAllByRole('listitem')).toHaveLength(3)
 })
 
 test('renders authored help when the definition carries it, and nothing when it does not', () => {
-  renderChain({ naming: (id) => ({ label: id, help: id === 'i1' ? 'what it does' : undefined }) })
+  renderChain({
+    naming: (id) => ({ ...naming(id), help: id === 'i1' ? 'what it does' : undefined }),
+  })
 
   expect(screen.getByText('what it does')).toBeDefined()
   expect(screen.queryByText('undefined')).toBeNull()
 })
 
-test('the keyboard controls hand back a permutation, not an index and a verb', async () => {
+test('the move buttons hand back a permutation, not an index and a verb', async () => {
   const user = userEvent.setup()
   const { onReorder } = renderChain()
 
-  await user.click(screen.getByLabelText('Move clause 2 earlier'))
+  await user.click(screen.getByRole('button', { name: 'Move step 2 earlier' }))
   expect(onReorder).toHaveBeenCalledWith(['i1', 'i0', 'i2'])
 
-  // A different pair, so the two assertions cannot both pass on one wrong answer:
-  // moving clause 2 earlier and clause 1 later produce the same list, which would make
-  // a second assertion about them prove nothing.
-  await user.click(screen.getByLabelText('Move clause 3 earlier'))
+  // A different pair, so the two assertions cannot both pass on one wrong answer.
+  await user.click(screen.getByRole('button', { name: 'Move step 3 earlier' }))
   expect(onReorder).toHaveBeenLastCalledWith(['i0', 'i2', 'i1'])
+})
+
+test('the arrow keys on a handle move its step, so reordering never needs a pointer', async () => {
+  const user = userEvent.setup()
+  const { onReorder } = renderChain()
+
+  screen.getByRole('button', { name: 'Reorder step 1' }).focus()
+  await user.keyboard('{ArrowDown}')
+  expect(onReorder).toHaveBeenCalledWith(['i1', 'i0', 'i2'])
 })
 
 test('removal is a permutation with one id left out', async () => {
   const user = userEvent.setup()
   const { onReorder } = renderChain()
 
-  await user.click(screen.getByLabelText('Remove clause 2'))
+  await user.click(screen.getByRole('button', { name: 'Remove step 2' }))
   // Not "remove index 1": to a path-keyed tree removing and reordering are one
   // operation, and the store clears only the ids that are missing from the new list.
   expect(onReorder).toHaveBeenCalledWith(['i0', 'i2'])
@@ -76,9 +93,10 @@ test('removal is a permutation with one id left out', async () => {
 test('the moves at the ends of the chain are offered but inert', () => {
   renderChain()
 
-  expect(screen.getByLabelText<HTMLButtonElement>('Move clause 1 earlier').disabled).toBe(true)
-  expect(screen.getByLabelText<HTMLButtonElement>('Move clause 3 later').disabled).toBe(true)
-  expect(screen.getByLabelText<HTMLButtonElement>('Move clause 2 earlier').disabled).toBe(false)
+  const button = (name: string) => screen.getByRole<HTMLButtonElement>('button', { name })
+  expect(button('Move step 1 earlier').disabled).toBe(true)
+  expect(button('Move step 3 later').disabled).toBe(true)
+  expect(button('Move step 2 earlier').disabled).toBe(false)
 })
 
 test('removal is not offered at min, and adding is not offered at max', () => {
@@ -87,7 +105,8 @@ test('removal is not offered at min, and adding is not offered at max', () => {
       ids={ids}
       min={3}
       max={3}
-      naming={(id) => ({ label: id })}
+      kinds={KINDS}
+      naming={naming}
       renderClause={() => null}
       onReorder={vi.fn()}
       onAdd={vi.fn()}
@@ -96,38 +115,78 @@ test('removal is not offered at min, and adding is not offered at max', () => {
 
   // Both limits are facts about the command's grammar rather than about a value
   // someone typed, so the control that would break one is absent rather than disabled.
-  expect(screen.queryByLabelText('Remove clause 1')).toBeNull()
-  expect(screen.queryByLabelText('Add clause')).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Remove step 1' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Add a step' })).toBeNull()
+  expect(screen.queryByRole('button', { name: /^Insert a step/ })).toBeNull()
 
   rerender(
     <ClauseChain
       ids={ids}
       min={0}
-      naming={(id) => ({ label: id })}
+      kinds={KINDS}
+      naming={naming}
       renderClause={() => null}
       onReorder={vi.fn()}
       onAdd={vi.fn()}
     />,
   )
-  expect(screen.getByLabelText('Remove clause 1')).toBeDefined()
-  expect(screen.getByLabelText('Add clause')).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Remove step 1' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Add a step' })).toBeDefined()
 })
 
-test('every clause carries a drag handle, and it is a real control', () => {
+test('every step carries a drag handle, and it is a real control', () => {
   renderChain()
 
-  // A button rather than a div with a pointer handler. The pointer gesture itself is
-  // not asserted here: jsdom answers getBoundingClientRect with zeroes, so a simulated
-  // drag would be measured against a layout that does not exist. The arithmetic it
-  // drives is pinned in lib/reorder.test.ts instead.
-  const handle = screen.getByLabelText('Reorder clause 1')
-  expect(handle.tagName).toBe('BUTTON')
+  // The pointer gesture itself is not asserted here: jsdom answers
+  // getBoundingClientRect with zeroes, so a simulated drag would be measured against a
+  // layout that does not exist. The arithmetic it drives is in lib/reorder.test.ts.
+  expect(screen.getByRole('button', { name: 'Reorder step 1' }).tagName).toBe('BUTTON')
 })
 
-test('adding asks the caller, which is what enforces max', async () => {
+test('the add menu offers the kinds by group, and adds the one picked at the end', async () => {
   const user = userEvent.setup()
   const { onAdd } = renderChain()
 
-  await user.click(screen.getByLabelText('Add clause'))
-  expect(onAdd).toHaveBeenCalledOnce()
+  await user.click(screen.getByRole('button', { name: 'Add a step' }))
+  expect(screen.getByText('Change who or where')).toBeDefined()
+  expect(screen.getByText('Test a condition')).toBeDefined()
+  const item = screen.getByRole('button', { name: 'if' })
+  expect(document.getElementById(item.getAttribute('aria-describedby')!)?.textContent).toBe(
+    'Continue when it passes.',
+  )
+  await user.click(item)
+  // At the end, and already of that kind: one act, which the store makes one undo step.
+  expect(onAdd).toHaveBeenCalledWith(3, 2)
+})
+
+test('a step can be inserted between two others, not only at the end', async () => {
+  const user = userEvent.setup()
+  const { onAdd } = renderChain()
+
+  await user.click(screen.getByRole('button', { name: 'Insert a step after step 1' }))
+  await user.click(screen.getByRole('button', { name: 'at' }))
+  expect(onAdd).toHaveBeenCalledWith(1, 1)
+})
+
+test('a step folds away to its header, and says so', async () => {
+  const user = userEvent.setup()
+  renderChain()
+
+  const fold = screen.getByRole('button', { name: 'Collapse step 2' })
+  expect(fold.getAttribute('aria-expanded')).toBe('true')
+  await user.click(fold)
+  expect(screen.getByRole('button', { name: 'Expand step 2' }).getAttribute('aria-expanded')).toBe(
+    'false',
+  )
+})
+
+test('the step that ends the chain is drawn last, and cannot be moved or removed', () => {
+  renderChain({
+    tail: { label: 'run', summary: 'say hi', field: '/2', body: <span>run body</span> },
+  })
+
+  const last = screen.getByRole('region', { name: 'Last step, run' })
+  expect(within(last).getByText('say hi')).toBeDefined()
+  expect(within(last).getByText('run body')).toBeDefined()
+  expect(within(last).queryByRole('button', { name: /Remove/ })).toBeNull()
 })

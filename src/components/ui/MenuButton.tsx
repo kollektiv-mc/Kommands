@@ -11,6 +11,8 @@ export interface MenuItem {
   description?: string
   onSelect: () => void
   disabled?: boolean
+  /** A heading the item sits under. Consecutive items with the same one share it. */
+  group?: string
 }
 
 /**
@@ -28,6 +30,7 @@ export function MenuButton({
   icon,
   iconOnly = false,
   align = 'start',
+  keywords = false,
   className = '',
 }: {
   /** The button's text, and so its accessible name. */
@@ -39,6 +42,11 @@ export function MenuButton({
   iconOnly?: boolean
   /** Which edge the list lines up with. `end` for a button at the right of a bar. */
   align?: 'start' | 'end'
+  /**
+   * Items are keywords with a sentence each ("as", then what it does): the keyword in
+   * a column of its own, the sentence wrapping beside it, in a wider list.
+   */
+  keywords?: boolean
   className?: string
 }) {
   const listId = useId()
@@ -95,8 +103,21 @@ export function MenuButton({
       </button>
       {open && (
         <Popover container={wrapper} onDismiss={close} align={align}>
-          <div ref={list} id={listId} className="flex min-w-48 flex-col gap-px">
-            {items.map((item) => (
+          <div
+            ref={list}
+            id={listId}
+            className={`flex flex-col gap-px ${keywords ? 'max-h-[60vh] w-96 max-w-[80vw] overflow-y-auto' : 'min-w-48'}`}
+          >
+            {items.map((item, i) => [
+              item.group !== undefined && item.group !== items[i - 1]?.group && (
+                <div
+                  key={`${item.key}-group`}
+                  aria-hidden="true"
+                  className="text-text-muted text-1xs px-2 pt-2 pb-1 font-medium first:pt-1"
+                >
+                  {item.group}
+                </div>
+              ),
               <button
                 key={item.key}
                 type="button"
@@ -115,20 +136,24 @@ export function MenuButton({
               >
                 <span
                   id={`${listId}-${item.key}-label`}
-                  className="text-text-primary whitespace-nowrap"
+                  className={
+                    keywords
+                      ? 'text-accent w-20 shrink-0 font-mono font-medium'
+                      : 'text-text-primary whitespace-nowrap'
+                  }
                 >
                   {item.label}
                 </span>
                 {item.description && (
                   <span
                     id={`${listId}-${item.key}`}
-                    className="text-text-muted text-1xs ml-auto whitespace-nowrap"
+                    className={`text-text-muted text-1xs ${keywords ? 'leading-snug' : 'ml-auto whitespace-nowrap'}`}
                   >
                     {item.description}
                   </span>
                 )}
-              </button>
-            ))}
+              </button>,
+            ])}
           </div>
         </Popover>
       )}

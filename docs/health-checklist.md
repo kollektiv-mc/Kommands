@@ -581,6 +581,25 @@ it should be stable between runs.
   reason. This closes on the first published release, which is the change that
   makes the link resolve, not the one that added the workflow.
 
+**P3 — A Choice inside a step is labelled "Action" whatever it picks**
+
+- `choiceLabel` names a keyword-led Choice "Action" when nothing is authored, and
+  `UiMetadata` has no key for a Choice, only for arguments and clauses. Inside an
+  `/execute` step that reads badly: `store` shows two rows both called "Action" (result
+  or success, then block, bossbar, entity, score or storage), and `if` calls its test
+  kind "Action". The fix is a selector-keyed `ui.choices` beside `ui.arguments`,
+  addressed the way `addressing.ts` addresses arguments, with the same invariant that
+  every key names a node.
+
+**P3 — The status line calls `/execute` with no `run` ready**
+
+- `outputStatus` reads only the pieces the serializer wrote, so a command with no gap
+  in it is "Ready to paste in chat". `/execute` needs a `run` or a last step that is a
+  test (minecraft.wiki, /execute), and a chain of `as @a` alone is a command the game
+  rejects. Saying so needs a rule about the chain, so it belongs in the definition's
+  `constraints` rather than in the status line, which must not learn which command it
+  is showing.
+
 **P3 — The splash's display size is off-scale and unenforced**
 
 - `tokens.source.json` stops at `--text-xl` (20px), which is correct for a dense tool

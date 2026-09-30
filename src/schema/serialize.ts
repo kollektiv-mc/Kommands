@@ -133,6 +133,21 @@ export function serializeWithReport(
   return { text: segments.map((s) => s.text).join(' '), segments, forced }
 }
 
+/**
+ * The pieces one node of a command writes, on its own: what a step of `/execute`'s
+ * chain shows as its one-line summary. The same walk as the whole command, started
+ * lower, so the summary cannot disagree with the output above it.
+ */
+export function serializeSubtree(
+  node: Node,
+  path: Path,
+  value: CommandValue,
+  ctx: SerializeContext,
+  options: SerializeOptions = {},
+): readonly Segment[] {
+  return serializeNode(node, path, value, ctx, options, options.maxDepth ?? DEFAULT_MAX_DEPTH)
+}
+
 interface WalkOptions extends SerializeOptions {
   forced?: Map<Path, ForcedSlot>
   /** The Choice whose branch is being walked, which a keyword in it belongs to. */

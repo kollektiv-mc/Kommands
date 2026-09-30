@@ -266,3 +266,42 @@ describe('undo and redo', () => {
     expect(store().value.args['/0']).toBeUndefined()
   })
 })
+
+describe('adding a step of a kind, where it goes', () => {
+  test('lands at the index asked for, already of the kind picked, as one undo step', () => {
+    const [first, second] = [...addThree()]
+    const before = store().history.past.length
+
+    store().addInstance(REPEAT, node, { at: 1, branch: 2 })
+
+    const ids = store().value.repeats[REPEAT]!
+    expect(ids).toHaveLength(4)
+    expect(ids[0]).toBe(first)
+    expect(ids[2]).toBe(second)
+    expect(store().value.choices[instance(REPEAT, ids[1]!)]).toBe(2)
+    // Adding and choosing are one act from the menu, so one undo takes both back.
+    expect(store().history.past.length).toBe(before + 1)
+    store().undo()
+    expect(store().value.repeats[REPEAT]).toHaveLength(3)
+  })
+
+  test('an index past either end is clamped rather than leaving a hole', () => {
+    addThree()
+    store().addInstance(REPEAT, node, { at: 99 })
+    store().addInstance(REPEAT, node, { at: -5 })
+    const ids = store().value.repeats[REPEAT]!
+    expect(ids).toHaveLength(5)
+    expect(ids.every((id) => typeof id === 'string')).toBe(true)
+  })
+})
+
+describe('writes that share a gesture tag', () => {
+  test('a choice and a ref picked together are one undo step', () => {
+    store().setChoice('/2', 0, 'pick:1')
+    store().setRef('/2/|0/1', 'vanilla:say', 'pick:1')
+    expect(store().history.past).toHaveLength(1)
+    store().undo()
+    expect(store().value.choices['/2']).toBeUndefined()
+    expect(store().value.refs['/2/|0/1']).toBeUndefined()
+  })
+})

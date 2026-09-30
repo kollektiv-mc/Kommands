@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest'
 import type { Node, UiMetadata } from './types'
-import { argumentPresentation, branchLabel, choiceControl, choiceLabel } from './presentation'
+import {
+  argumentPresentation,
+  branchLabel,
+  chainTail,
+  choiceControl,
+  choiceLabel,
+} from './presentation'
 
 const lit = (token: string): Node => ({ kind: 'literal', token })
 const arg = (name: string, optional = false): Node => ({
@@ -70,5 +76,27 @@ describe('choiceControl', () => {
     expect(choiceControl(['none', 'infinite', 'seconds'])).toBe('segmented')
     expect(choiceControl(['a', 'b', 'c', 'd', 'e', 'f'])).toBe('listbox')
     expect(choiceControl(['clear', 'a_rather_long_label'])).toBe('listbox')
+  })
+})
+
+describe('chainTail', () => {
+  const repeat: Node = { kind: 'repeat', node: lit('as') }
+  const run = (optional: boolean, branches = 1): Node => ({
+    kind: 'choice',
+    optional,
+    nodes: Array.from({ length: branches }, (): Node => ({
+      kind: 'sequence',
+      nodes: [lit('run')],
+    })),
+  })
+
+  test("finds a Repeat followed by an optional one-branch Choice: /execute's shape", () => {
+    expect(chainTail([lit('execute'), repeat, run(true)])).toBe(1)
+  })
+
+  test('a required Choice, or one of several branches, is not an ending', () => {
+    expect(chainTail([repeat, run(false)])).toBe(-1)
+    expect(chainTail([repeat, run(true, 2)])).toBe(-1)
+    expect(chainTail([repeat])).toBe(-1)
   })
 })
