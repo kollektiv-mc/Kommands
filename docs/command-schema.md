@@ -249,29 +249,39 @@ never on version numbers.
 Types divide into two groups. The distinction determines the derivation failure
 policy — see [`architecture.md`](architecture.md).
 
-**Shallow** — generic editors driven by Brigadier `properties`:
+**Shallow** — generic editors driven by Brigadier `properties`. Every value here is
+stored as the text it emits, or as a number or boolean where the editor is one;
+`persistence.md` § Value shapes has the exceptions.
 
-| Key                 | From parser                           | Editor                                         |
-| ------------------- | ------------------------------------- | ---------------------------------------------- |
-| `integer`           | `brigadier:integer`                   | Number input honouring `min`/`max`             |
-| `float` / `double`  | `brigadier:float`, `brigadier:double` | Number input                                   |
-| `bool`              | `brigadier:bool`                      | Toggle                                         |
-| `string`            | `brigadier:string`                    | Text input                                     |
-| `block_pos`         | `minecraft:block_pos`                 | Three coordinate fields with `~` / `^` support |
-| `vec3` / `vec2`     | `minecraft:vec3`, `minecraft:vec2`    | Coordinate fields                              |
-| `resource_location` | `minecraft:resource_location`         | Registry-backed combo box                      |
-| `entity_selector`   | `minecraft:entity`                    | Selector builder, constrained by `properties`  |
+| Key                                 | From parser                                     | Editor                                                                       |
+| ----------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------- |
+| `integer`                           | `brigadier:integer`                             | Stepper honouring `min`/`max`                                                |
+| `float` / `double`                  | `brigadier:float`, `brigadier:double`           | Stepper                                                                      |
+| `bool`                              | `brigadier:bool`                                | Switch; an optional one can be left unset                                    |
+| `string`, `message`                 | `brigadier:string`, `minecraft:message`         | Text input                                                                   |
+| `block_pos` / `vec3`                | `minecraft:block_pos`, `minecraft:vec3`         | A field per axis with `~` / `^`, and a "Here" button                         |
+| `column_pos` / `vec2`               | `minecraft:column_pos`, `minecraft:vec2`        | Two fields with `~`, and "Here"                                              |
+| `rotation` / `angle`                | `minecraft:rotation`, `minecraft:angle`         | Yaw (and pitch) with `~`, and "Current"                                      |
+| `swizzle`                           | `minecraft:swizzle`                             | x / y / z toggles                                                            |
+| `resource_location`                 | `minecraft:resource_location` and nine more     | Combo box when the skeleton names a registry, text otherwise; warns          |
+| `gamemode`, `entity_anchor`, …      | the closed sets in `src/data/authored/enums.ts` | Segmented for a few short words, listbox otherwise, with Default if optional |
+| `time`, `int_range`                 | `minecraft:time`, `minecraft:int_range`         | Text input that explains the syntax when it is not met                       |
+| `score_holder`, `objective`, `team` | the same names                                  | Text input                                                                   |
+| `entity_selector`                   | `minecraft:entity`, `minecraft:game_profile`    | Selector builder, constrained by `properties`                                |
+
+Still text, as sets to author rather than fields that will do: `item_slot`,
+`item_slots`, `scoreboard_slot` and `objective_criteria`.
 
 **Deep** — hand-authored; this is where the product value is:
 
-| Key              | From parser                  | Editor                              |
-| ---------------- | ---------------------------- | ----------------------------------- |
-| `item_stack`     | `minecraft:item_stack`       | Item picker + data-component editor |
-| `text_component` | `minecraft:component`        | Recursive text-component builder    |
-| `nbt_compound`   | `minecraft:nbt_compound_tag` | Structured NBT editor               |
-| `block_state`    | `minecraft:block_state`      | Block picker + state properties     |
-| `we_pattern`     | — (WorldEdit)                | Pattern builder                     |
-| `we_expression`  | — (WorldEdit)                | Expression editor                   |
+| Key              | From parser                  | Editor                                 |
+| ---------------- | ---------------------------- | -------------------------------------- |
+| `item_stack`     | `minecraft:item_stack`       | Item picker + data-component editor    |
+| `text_component` | `minecraft:component`        | Recursive text-component builder       |
+| `we_pattern`     | — (WorldEdit)                | Pattern builder                        |
+| `we_expression`  | — (WorldEdit)                | Expression editor                      |
+| `nbt_compound`   | `minecraft:nbt_compound_tag` | Not built yet: the `raw_text` fallback |
+| `block_state`    | `minecraft:block_state`      | Not built yet: the `raw_text` fallback |
 
 **Fallback** — `raw_text`, a plain text field. Bound automatically when derivation
 meets an unmapped deep parser, so an unsupported command degrades instead of

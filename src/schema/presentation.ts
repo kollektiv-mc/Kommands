@@ -83,3 +83,12 @@ export const NO_BRANCH_LABEL = 'none'
 export function choiceControl(labels: readonly string[]): 'segmented' | 'listbox' {
   return labels.length <= 5 && labels.every((label) => label.length <= 12) ? 'segmented' : 'listbox'
 }
+
+/**
+ * Which control a closed set of values gets (`EnumEditor`). Decided once per type, at
+ * registration, because the row labels the two differently: a listbox is one control
+ * its label points at, a segmented control is a group of radios its label names.
+ * Counted with the Default segment, so an optional argument never tips a set over
+ * into the other control.
+ */
+export const enumControl = (values: readonly string[]) => choiceControl(['Default', ...values])

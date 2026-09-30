@@ -31,6 +31,7 @@ export function Listbox<V extends string>({
   className = '',
   'aria-label': ariaLabel,
   'aria-labelledby': labelledBy,
+  'aria-describedby': describedBy,
 }: {
   id?: string
   value: V | ''
@@ -41,6 +42,7 @@ export function Listbox<V extends string>({
   className?: string
   'aria-label'?: string
   'aria-labelledby'?: string
+  'aria-describedby'?: string
 }) {
   const listId = useId()
   const wrapper = useRef<HTMLDivElement>(null)
@@ -126,6 +128,7 @@ export function Listbox<V extends string>({
         aria-activedescendant={open && active >= 0 ? optionId(listId, active) : undefined}
         aria-label={ariaLabel}
         aria-labelledby={labelledBy}
+        aria-describedby={describedBy}
         onClick={(event) => {
           // Cancelled for the same reason as an option's click: see OptionList.
           event.preventDefault()

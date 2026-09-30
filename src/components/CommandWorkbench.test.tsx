@@ -585,3 +585,39 @@ test('a forced field with no known default is flagged rather than guessed', () =
   )
   expect(screen.getByText('Needed because a later value is set.')).toBeDefined()
 })
+
+test('a position is a field per axis, and "Here" fills them with ~', async () => {
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={withDefaults(commands['vanilla:setworldspawn']!)}
+      version={v1_21_1}
+      registries={registries}
+    />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+
+  const pos = screen.getByRole('group', { name: /pos/ })
+  await user.click(within(pos).getByRole('button', { name: 'Here' }))
+  expect(output()).toBe('/setworldspawn ~ ~ ~')
+
+  // One part cleared is not a position. The output says what is missing rather than
+  // writing two numbers that the game would read as x and y of something else.
+  await user.clear(within(pos).getByRole('textbox', { name: 'z' }))
+  expect(output()).toBe('/setworldspawn')
+  expect(within(pos).getByRole('textbox', { name: 'x' })).toHaveProperty('value', '~')
+  expect(screen.getByText('Needs z too')).toBeDefined()
+})
+
+test('a closed set of words is picked, not typed', async () => {
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={commands['vanilla:gamemode']!}
+      version={v1_21_1}
+      registries={registries}
+    />,
+  )
+  await user.click(screen.getByRole('radio', { name: 'creative' }))
+  expect(container.querySelector('code')?.textContent).toBe('/gamemode creative')
+})

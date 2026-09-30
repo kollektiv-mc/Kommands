@@ -441,6 +441,18 @@ empty argument that a later one forces is written as its game default or its `<n
 placeholder rather than dropped (`command-schema.md` § `ArgumentNode`). A tile shows the
 corrected text once the command is saved again.
 
+Positions and rotations (`block_pos`, `vec3`, `column_pos`, `vec2`, `rotation`,
+`angle`) store one string, the parts joined by single spaces with an empty part kept
+in its place: `'1  '` is x set and y and z not. They were plain text fields before
+they had a field per axis, and a string typed there, `~ ~1 ~`, loads as its parts.
+A position with a part missing emits nothing, so the command shows the `<name>`
+placeholder rather than two numbers the game would read as something else.
+`swizzle` stores its axes in x, y, z order (`'xz'`), and the closed sets (`gamemode`
+and the rest) store the word, or `''` when an optional one is left to its default.
+Each of these is the text it emits, so every tree saved before them still loads and
+serializes to the same command, unless it held a position with a part missing, which
+now shows its placeholder.
+
 ---
 
 ## Testing obligations
