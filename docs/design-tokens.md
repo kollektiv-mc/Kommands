@@ -143,6 +143,8 @@ the browser has it. Everywhere else the field takes a typed name.
 | Option row        | `rounded-md`, `bg-hover` when highlighted, accent text and a check when chosen                                                 |
 | Stepper           | Number field between `−` and `+` buttons, both out of the tab order                                                            |
 | Argument row      | Name and help in a `10rem` column, control beside it; stacked below a `32rem` form; `bg-hover` on hover                        |
+| Primary action    | One per surface: `bg-accent` with `text-canvas`, `h-8`. Everything beside it is a hairline button                              |
+| Command output    | Pieces by kind: keywords `text-secondary`, values `text-primary`, defaults muted italic, gaps boxed in a dashed hairline       |
 | Focus             | Text fields: an `--accent` border. Everything else: a 1px `--accent` outline offset 2px, never a `ring`, which is a box-shadow |
 
 **No control here is a native `<select>` or `<datalist>`.** Both are drawn by the

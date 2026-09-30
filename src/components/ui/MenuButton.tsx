@@ -1,6 +1,7 @@
 import { useCallback, useId, useRef, useState, type KeyboardEvent } from 'react'
 import type { IconName } from '../../lib/icons'
 import { Icon } from './Icon'
+import { FOCUS } from '../editors/fieldStyles'
 import { stepIndex } from '../../lib/listbox'
 import { Popover } from './Popover'
 
@@ -25,6 +26,8 @@ export function MenuButton({
   label,
   items,
   icon,
+  iconOnly = false,
+  align = 'start',
   className = '',
 }: {
   /** The button's text, and so its accessible name. */
@@ -32,6 +35,10 @@ export function MenuButton({
   items: readonly MenuItem[]
   /** Drawn before the label, e.g. `plus` for a menu that adds things. */
   icon?: IconName
+  /** Draw only the icon; `label` is then the button's name and its tooltip. */
+  iconOnly?: boolean
+  /** Which edge the list lines up with. `end` for a button at the right of a bar. */
+  align?: 'start' | 'end'
   className?: string
 }) {
   const listId = useId()
@@ -71,23 +78,33 @@ export function MenuButton({
         type="button"
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
+        aria-label={iconOnly ? label : undefined}
+        title={iconOnly ? label : undefined}
         onClick={(event) => {
           event.preventDefault()
           setOpen((o) => !o)
         }}
-        className="text-accent hover:bg-accent/10 duration-fast inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors motion-reduce:transition-none"
+        className={
+          iconOnly
+            ? `${FOCUS} text-text-muted hover:text-text-primary hover:bg-hover duration-fast flex h-8 w-8 items-center justify-center rounded-md transition-colors motion-reduce:transition-none`
+            : `${FOCUS} text-accent hover:bg-accent/10 duration-fast inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors motion-reduce:transition-none`
+        }
       >
-        {icon && <Icon name={icon} size="sm" />}
-        {label}
+        {icon && <Icon name={icon} size={iconOnly ? 'md' : 'sm'} />}
+        {!iconOnly && label}
       </button>
       {open && (
-        <Popover container={wrapper} onDismiss={close}>
+        <Popover container={wrapper} onDismiss={close} align={align}>
           <div ref={list} id={listId} className="flex min-w-48 flex-col gap-px">
             {items.map((item) => (
               <button
                 key={item.key}
                 type="button"
                 disabled={item.disabled}
+                // The description is said after the name rather than run into it, so
+                // a disabled item reads "Link to Konnekt", then why it is off.
+                aria-labelledby={item.description ? `${listId}-${item.key}-label` : undefined}
+                aria-describedby={item.description ? `${listId}-${item.key}` : undefined}
                 onClick={(event) => {
                   event.preventDefault()
                   setOpen(false)
@@ -96,9 +113,19 @@ export function MenuButton({
                 }}
                 className="hover:bg-hover focus-visible:bg-hover duration-fast flex w-full items-baseline gap-3 rounded-md px-2 py-1.5 text-left text-xs transition-colors outline-none disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none"
               >
-                <span className="text-text-primary">{item.label}</span>
+                <span
+                  id={`${listId}-${item.key}-label`}
+                  className="text-text-primary whitespace-nowrap"
+                >
+                  {item.label}
+                </span>
                 {item.description && (
-                  <span className="text-text-muted text-1xs ml-auto">{item.description}</span>
+                  <span
+                    id={`${listId}-${item.key}`}
+                    className="text-text-muted text-1xs ml-auto whitespace-nowrap"
+                  >
+                    {item.description}
+                  </span>
                 )}
               </button>
             ))}

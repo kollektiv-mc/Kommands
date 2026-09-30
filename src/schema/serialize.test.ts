@@ -531,6 +531,64 @@ describe('a later argument keeps its slot when an earlier optional one is empty'
   })
 })
 
+describe('segments: the command as pieces, each knowing its row', () => {
+  const commands = (commandsPayload as unknown as { commands: Record<string, CommandDefinition> })
+    .commands
+
+  test('every command in the catalogue splits into clean pieces that join to its text', () => {
+    // The panel draws these and the clipboard gets `text`, so a piece that were empty or
+    // carried its own space would draw a gap the copied command does not have.
+    for (const definition of Object.values(commands)) {
+      const report = serializeWithReport(definition, value(), ctx)
+      expect(report.segments.map((seg) => seg.text).join(' ')).toBe(report.text)
+      for (const seg of report.segments) {
+        expect(seg.text).not.toBe('')
+        expect(seg.text.trim()).toBe(seg.text)
+      }
+    }
+  })
+
+  test('each piece of /execute names the row that produced it', () => {
+    const report = serializeWithReport(
+      commands['vanilla:execute']!,
+      value({
+        repeats: { '/1': ['z'] },
+        choices: { '/1/#z': 2, '/2': 0 },
+        args: { '/1/#z/|2/1': '@a', '/2/|0/1/1': 'minecraft:flame' },
+        refs: { '/2/|0/1': 'vanilla:particle' },
+      }),
+      ctx,
+      { resolve: (id) => commands[id] },
+    )
+    expect(report.segments.map(({ text, field, kind }) => ({ text, field, kind }))).toEqual([
+      // The command's own name: no row sets it.
+      { text: '/execute', field: undefined, kind: 'keyword' },
+      // A keyword belongs to the Choice whose branch it leads.
+      { text: 'as', field: '/1/#z', kind: 'keyword' },
+      { text: '@a', field: '/1/#z/|2/1', kind: 'value' },
+      { text: 'run', field: '/2', kind: 'keyword' },
+      // An embedded command's name belongs to the row that picked it.
+      { text: 'particle', field: '/2/|0/1', kind: 'keyword' },
+      { text: 'minecraft:flame', field: '/2/|0/1/1', kind: 'value' },
+    ])
+  })
+
+  test('a gap and a written default say which they are', () => {
+    const def = withArgumentDefault(commands['vanilla:particle']!, 'pos', '~ ~ ~')
+    const report = serializeWithReport(
+      def,
+      value({ args: { '/1': 'minecraft:flame', '/4': 0, '/5': 10 } }),
+      ctx,
+    )
+    expect(report.segments.filter((seg) => seg.kind !== 'value' && seg.kind !== 'keyword')).toEqual(
+      [
+        { text: '~ ~ ~', path: '/2', field: '/2', kind: 'default' },
+        { text: '<delta>', path: '/3', field: '/3', kind: 'placeholder' },
+      ],
+    )
+  })
+})
+
 describe('the dialect decides the slashes, everywhere and not just in the output', () => {
   test('a vanilla alias is bare in storage and slashed on screen', () => {
     // mcmeta stores them bare, so the prefix is applied on the way out.

@@ -355,14 +355,15 @@ belongs here.
 - [ ] Registry files load on demand rather than in the entry chunk — 1.21.1 is
       660 KB of registries and 260 KB of block states.
       Verify: `pnpm build`, then confirm neither lands in the entry chunk.
-- [ ] The command output panel recomputes only when a value it depends on changes,
-      not on every keystroke anywhere in the tree. `serializeCommand` and
-      `evaluateConstraints` still run on every render of `CommandWorkbench`. The
-      **preview** half is done and is the harder one — `previewInputsKey` is built from the
-      declared `inputs` alone, so editing an argument a module never asked for leaves its
-      props referentially identical and no 32,768-point evaluation happens. Serialization
-      has no declared dependency set to key on, which is why the same trick does not
-      transfer; see `Open backlog`.
+- [x] The command output panel recomputes only when a value it depends on changes,
+      not on every keystroke anywhere in the tree. The **preview** is keyed on
+      `previewInputsKey`, built from the declared `inputs` alone, so editing an argument
+      a module never asked for leaves its props referentially identical and no
+      32,768-point evaluation happens. Serialization depends on the whole tree by
+      definition, so `CommandWorkbench` memoises `serializeWithReport` and
+      `evaluateConstraints` on the value tree's identity, which the store replaces on
+      an edit and on nothing else: a hover or an opened popover does not walk the
+      command again.
 - [x] Preview recomputation is debounced by the module, not by the canvas, and uses
       instanced geometry. A 64³ region is 262,144 candidate positions. `ShapePreview`
       debounces its _inputs_ rather than its output — debouncing the output would still
@@ -425,11 +426,12 @@ it should be stable between runs.
   the tree has, so a new finding still fails the build while the existing warnings
   are worked off. It was 93 with 24 warnings when the gate was adopted; the suite
   controls (#107) closed the three datalist findings in `SelectorEditor`,
-  `RegistryPicker` and `TextComponentEditor`. What is left, by rule: eleven
+  `RegistryPicker` and `TextComponentEditor`, and the pinned output panel closed the
+  two `setState` calls inside effects (`SaveCommandBar`, `CommandWorkbench`). What is
+  left, by rule: eleven
   `jsx-a11y` findings (`SavedCommandTile`, `CommandOverlay`, `SettingsDialog`,
   `FontSettings`), four `then` properties
-  the expression parser and CSG compiler put on objects (`unicorn/no-thenable`), two
-  `setState` calls inside effects (`SaveCommandBar`, `CommandWorkbench`), a component
+  the expression parser and CSG compiler put on objects (`unicorn/no-thenable`), a component
   created during render (`PreviewStage`), a duplicate block in
   `useSavedCommandsStore`, a double cast in `schema/argument-types/index.ts`, a hidden
   fallback in `schema/paths.ts`, and four empty function bodies (`lib/flip.ts`,
@@ -534,17 +536,6 @@ it should be stable between runs.
   snapshot. Nothing shipped is wrong — `gen:diff` only reports — but the guarantee has
   a hole, and the guard belongs in `fetchSummary`, which owns the cache.
   [#31](https://github.com/kollektiv-mc/Kommands/issues/31).
-
-**P2 — The output panel recomputes on every keystroke anywhere in the tree**
-
-- `CommandWorkbench` calls `serializeCommand` and `evaluateConstraints` on every render,
-  so typing in one argument re-serializes the whole command and re-evaluates every
-  constraint. Cheap today — the acceptance set's trees are small — and the reason it is
-  written down is that the preview half of the same § 4 item is now closed, which makes
-  the gap look ticked when it is not. The preview could be keyed on `previewInputsKey`
-  because a `PreviewBinding` _declares_ what it depends on; serialization depends on the
-  whole tree by definition, so the fix is memoising on the value tree's identity rather
-  than on a declared subset, and the store already replaces the tables it changes.
 
 **P2 — The preview cannot draw the three origin modes**
 

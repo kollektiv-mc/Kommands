@@ -21,12 +21,15 @@ import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } fr
 export function Popover({
   container,
   onDismiss,
+  align = 'start',
   className = '',
   children,
 }: {
   /** The `relative` wrapper around the trigger and this panel. A press outside it dismisses. */
   container: RefObject<HTMLElement | null>
   onDismiss: () => void
+  /** Which edge of the trigger it lines up with. `end` for a control at the right edge. */
+  align?: 'start' | 'end'
   className?: string
   children: ReactNode
 }) {
@@ -58,7 +61,7 @@ export function Popover({
       ref={panel}
       data-side="bottom"
       className={
-        'popover-enter border-hairline border-border-hover bg-overlay absolute left-0 z-20 min-w-full rounded-lg p-1 ' +
+        `popover-enter border-hairline border-border-hover bg-overlay absolute ${align === 'end' ? 'right-0' : 'left-0'} z-20 min-w-full rounded-lg p-1 ` +
         'data-[side=bottom]:top-full data-[side=bottom]:mt-1 data-[side=top]:bottom-full data-[side=top]:mb-1 ' +
         className
       }

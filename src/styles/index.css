@@ -349,6 +349,12 @@ body {
   gap: calc(var(--spacing) * 1.5);
 }
 
+/* A row whose piece of the output is under the pointer (OutputPanel.tsx). The same
+   wash as hovering the row itself, so the two read as one gesture. */
+.arg-row-lit {
+  background-color: var(--hover-surface);
+}
+
 @container (min-width: 32rem) {
   .arg-row {
     grid-template-columns: calc(var(--spacing) * 40) minmax(0, 1fr);
@@ -385,6 +391,70 @@ body {
   }
 
   .content-in {
+    animation: none;
+  }
+}
+
+/* ── The command as segments ─────────────────────────────────────────────────
+   src/components/OutputPanel.tsx draws the command as the pieces the serializer
+   produced (src/schema/serialize.ts, Segment): keywords quieter than values, a
+   written default in italics, a gap still to fill boxed with a dashed hairline.
+   Hovering a piece, or its row in the form, lights both. A piece whose text just
+   changed flashes once; `.segments-live` is set after the first paint, so opening a
+   command does not flash every piece at once. */
+.segment {
+  border-radius: var(--radius-sm);
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.segment-keyword {
+  color: var(--text-secondary);
+}
+
+.segment-value {
+  color: var(--text-primary);
+}
+
+.segment-default {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.segment-placeholder {
+  color: var(--text-muted);
+  outline: var(--border-hairline) dashed var(--border-hover);
+  outline-offset: -1px;
+  padding-inline: calc(var(--spacing) * 0.5);
+}
+
+.segment-lit {
+  color: var(--text-primary);
+  background-color: rgb(var(--accent-rgb) / 0.2);
+}
+
+@keyframes segment-changed {
+  from {
+    background-color: rgb(var(--accent-rgb) / 0.35);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+.segments-live .segment-value,
+.segments-live .segment-default {
+  animation: segment-changed calc(var(--duration-panel) * 2) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segment {
+    transition: none;
+  }
+
+  .segments-live .segment-value,
+  .segments-live .segment-default {
     animation: none;
   }
 }

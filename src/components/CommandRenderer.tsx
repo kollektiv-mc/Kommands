@@ -1,4 +1,4 @@
-import { lazy, Suspense, useId } from 'react'
+import { lazy, Suspense, useId, type ReactNode } from 'react'
 import type { SerializeContext } from '../data/versions/types'
 import { argumentOptions, lookupArgumentType } from '../schema/argument-types'
 import {
@@ -32,6 +32,7 @@ import {
   NO_BRANCH_LABEL,
 } from '../schema/presentation'
 import { Listbox } from './ui/Listbox'
+import { useLit, useOutputHover } from '../stores/useOutputHover'
 import type { ListOption } from '../lib/listbox'
 
 /**
@@ -175,6 +176,27 @@ interface NodeViewProps {
 const ROW =
   'arg-row rounded-lg px-3 py-2 transition-colors duration-fast ease-standard hover:bg-hover motion-reduce:transition-none'
 
+/**
+ * A row, tied to the pieces of the output it produced.
+ *
+ * `field` is the path the serializer records on those pieces (`Segment.field`), so the
+ * pointer on either lights the other. Each side subscribes to its own boolean, so a
+ * move re-renders the row and the pieces whose answer changed, not the form.
+ */
+function Row({ field, children }: { field: Path; children: ReactNode }) {
+  const lit = useLit(field)
+  const hover = useOutputHover((s) => s.hover)
+  return (
+    <div
+      className={`${ROW} ${lit ? 'arg-row-lit' : ''}`}
+      onPointerEnter={() => hover(field)}
+      onPointerLeave={() => hover(null)}
+    >
+      {children}
+    </div>
+  )
+}
+
 /** Where a Choice's nested branch sits: under it, on a hairline that says whose it is. */
 const INDENT = 'border-l-hairline border-border-hover ml-3 pl-1'
 
@@ -264,7 +286,7 @@ function ChoiceView(props: NodeViewProps & { node: Extract<Node, { kind: 'choice
 
   return (
     <>
-      <div className={ROW}>
+      <Row field={path}>
         <div className="pt-1.5">
           <span id={labelId} className={ARG_LABEL}>
             {choiceLabel(node, inClause === true)}
@@ -288,7 +310,7 @@ function ChoiceView(props: NodeViewProps & { node: Extract<Node, { kind: 'choice
             />
           )}
         </div>
-      </div>
+      </Row>
       <AnimatedHeight contentKey={String(selected)} className={nested && chosen ? INDENT : ''}>
         {chosen && (
           <NodeView
@@ -363,13 +385,13 @@ function FlagsView({
 }: NodeViewProps & { node: Extract<Node, { kind: 'flagset' }> }) {
   const labelId = useId()
   return (
-    <div className={ROW}>
+    <Row field={path}>
       <div className="pt-1.5">
         <span id={labelId} className={ARG_LABEL}>
           Flags
         </span>
       </div>
-      <div role="group" aria-labelledby={labelId} className="flex flex-wrap gap-x-5 gap-y-2 pt-1.5">
+      <fieldset aria-labelledby={labelId} className="flex min-w-0 flex-wrap gap-x-5 gap-y-2 pt-1.5">
         {node.flags.map((flag) => (
           <label key={flag.name} className="text-text-secondary flex items-center gap-2 text-xs">
             <Switch
@@ -379,8 +401,8 @@ function FlagsView({
             {flag.label}
           </label>
         ))}
-      </div>
-    </div>
+      </fieldset>
+    </Row>
   )
 }
 
@@ -405,7 +427,7 @@ function RefView(props: NodeViewProps & { node: Extract<Node, { kind: 'ref' }> }
   return (
     <>
       {isAny && (
-        <div className={ROW}>
+        <Row field={path}>
           <div className="pt-1.5">
             <span id={labelId} className={ARG_LABEL}>
               Command
@@ -421,7 +443,7 @@ function RefView(props: NodeViewProps & { node: Extract<Node, { kind: 'ref' }> }
               className="min-w-48"
             />
           </div>
-        </div>
+        </Row>
       )}
       <AnimatedHeight contentKey={chosenId} className={target ? INDENT : ''}>
         {target && scope.depth > 0 && (
@@ -559,7 +581,7 @@ function ArgumentView({
   )
 
   return (
-    <div className={ROW}>
+    <Row field={path}>
       <div className="flex min-w-0 flex-col gap-0.5 pt-1.5">
         {group ? (
           <span id={labelId} className={`${ARG_LABEL} flex items-center gap-1.5`}>
@@ -615,7 +637,7 @@ function ArgumentView({
           </div>
         )}
       </div>
-    </div>
+    </Row>
   )
 }
 
