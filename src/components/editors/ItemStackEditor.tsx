@@ -14,7 +14,7 @@ import { EnchantmentLevelsEditor } from './EnchantmentLevelsEditor'
 import { RegistryPicker } from './RegistryPicker'
 import { MenuButton } from '../ui/MenuButton'
 import { TextComponentFields } from './TextComponentEditor'
-import { LABEL } from './fieldStyles'
+import { SUB_LABEL } from './fieldStyles'
 import { ROW, ROW_ADD, ROW_GROUP, ROW_REMOVE } from './rowStyles'
 
 /**
@@ -56,7 +56,7 @@ export function ItemStackEditor({ value, onChange, ctx }: EditorProps<ItemStackV
         return (
           <div key={id} className={ROW_GROUP}>
             <div className="flex items-center gap-2">
-              <span className={LABEL}>{spec.label}</span>
+              <span className={SUB_LABEL}>{spec.label}</span>
               <button
                 type="button"
                 className={ROW_REMOVE}

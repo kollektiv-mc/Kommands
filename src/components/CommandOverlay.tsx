@@ -118,7 +118,12 @@ export function CommandOverlay({
         className="border-hairline border-border-subtle bg-canvas rounded-panel absolute inset-2 flex flex-col overflow-hidden bg-[linear-gradient(var(--bg-surface),var(--bg-surface))] sm:inset-3"
       >
         <div className="border-b-hairline border-border-subtle flex shrink-0 items-center gap-2 px-3 py-2">
-          <span className="font-title text-text-secondary text-1xs">{label ?? 'Editor'}</span>
+          {/*
+            The panel's own name, not the command's. The command is named once, as the
+            page's heading, and saying it here as well was the first of two titles that
+            said the same thing. The dialog is still announced by the command's name.
+          */}
+          <span className="font-title text-text-secondary text-xs">Commands</span>
           <span className="flex-1" />
           <button
             type="button"

@@ -2,8 +2,8 @@ import { within } from '@testing-library/react'
 import type { UserEvent } from '@testing-library/user-event'
 
 /**
- * Choose `label` from a Listbox, Combobox or MenuButton, the way a person would: open
- * it, then click the option.
+ * Choose `label` from a Listbox, Combobox, MenuButton or Segmented control, the way a
+ * person would: open it and click the option, or click the segment.
  *
  * The replacement for `user.selectOptions`, which only understands a native `<select>`
  * or a listbox whose options are already in the document. Picks by the visible label
@@ -14,6 +14,11 @@ import type { UserEvent } from '@testing-library/user-event'
  * description, so the match is exact.
  */
 export async function pick(user: UserEvent, trigger: HTMLElement, label: string): Promise<void> {
+  // A segmented control is a radio group: every option is already on screen.
+  if (trigger.getAttribute('role') === 'radiogroup') {
+    await user.click(within(trigger).getByRole('radio', { name: label }))
+    return
+  }
   await user.click(trigger)
   const listId = trigger.getAttribute('aria-controls')
   const list = listId === null ? null : document.getElementById(listId)

@@ -135,6 +135,47 @@ test("the shell's launch colour is the skin's, not a hex someone typed twice", (
   expect(match!.slice(1, 4).map(Number)).toEqual(expected)
 })
 
+test('primary text takes the accent hue, and stays far past AAA on both grounds', () => {
+  for (const theme of ['dark', 'light'] as const) {
+    const skin = productSkin(theme)
+    // Softer than pure white on dark, which is the point, but nowhere near a limit.
+    expect(contrast(skin.base, skin.text.primary)).toBeGreaterThan(12)
+    expect(contrast(skin.base, skin.text.primary)).toBeLessThan(
+      contrast(skin.base, theme === 'dark' ? '#ffffff' : '#000000'),
+    )
+  }
+  expect(hueOf(productSkin('dark').text.primary)).toBeCloseTo(hueOf(PRODUCT_ACCENT), -1)
+})
+
+test('secondary and muted text stay readable where they actually sit, on a panel', () => {
+  // Labels and help render on bg-elevated panels over the canvas, so the ramp is
+  // measured composited onto that, not onto a flat colour it never meets.
+  for (const theme of ['dark', 'light'] as const) {
+    const skin = productSkin(theme)
+    const panel = flatten(skin.elevated, skin.base)
+    expect(contrast(panel, flatten(skin.text.secondary, panel))).toBeGreaterThan(4.5)
+    expect(contrast(panel, flatten(skin.text.muted, panel))).toBeGreaterThan(3)
+  }
+})
+
+test('applying a theme writes the text ramp beside the canvas', () => {
+  const root = document.createElement('div')
+  applyTheme('dark', root)
+  const skin = productSkin('dark')
+  expect(root.style.getPropertyValue('--text-primary')).toBe(skin.text.primary)
+  expect(root.style.getPropertyValue('--text-faint')).toBe(skin.text.faint)
+})
+
+/** An `rgba(r, g, b, a)` laid over a `#rrggbb` ground, as the `#rrggbb` it paints. */
+function flatten(rgba: string, ground: string): string {
+  const [r, g, b, a] = (/rgba\((\d+), (\d+), (\d+), ([\d.]+)\)/.exec(rgba) ?? [])
+    .slice(1)
+    .map(Number) as [number, number, number, number]
+  const under = [1, 3, 5].map((i) => parseInt(ground.slice(i, i + 2), 16))
+  const mixed = [r, g, b].map((c, i) => Math.round(c * a + under[i]! * (1 - a)))
+  return `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`
+}
+
 /** WCAG relative-luminance contrast between two `#rrggbb` colours. */
 function contrast(a: string, b: string): number {
   const luminance = (hex: string) => {

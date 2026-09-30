@@ -14,17 +14,12 @@ import type { Catalogue } from './CommandRenderer'
  * out of a tile is the whole overlay panel, not this pane inside it, so the FLIP moved
  * to `CommandOverlay` and this went back to being layout and nothing else.
  *
- * The gutter between the two is the third element here, and it is empty on purpose.
- * The list and the builder are different *kinds* of thing — one is a table of contents
- * for the whole app, the other is the one command being built — and with a hairline
- * between them and nothing else they read as two columns of one document. A sixth of
- * the width of canvas is what makes the builder read as the page and the list as
- * navigation beside it.
- *
- * A flex sibling rather than padding on the pane, because it has to stay outside the
- * scroll container: padding-left on a scrolling pane scrolls its content away from the
- * gutter horizontally and moves under the nav, which is exactly the seam this is here
- * to open.
+ * There used to be an empty gutter a sixth of the width between the two, meant to set
+ * the list apart from the builder. In practice it pushed the form a sixth of the way
+ * across the panel and left it looking misplaced, and the hairline between the two
+ * already says they are different things. The builder now starts beside the list and
+ * stops at a width a row of label and field reads well at, rather than stretching two
+ * fields apart across a wide window.
  */
 export function EditorLayout({
   catalogue,
@@ -38,8 +33,9 @@ export function EditorLayout({
   return (
     <div className="flex h-full min-h-0">
       <CommandNav catalogue={catalogue} activeId={activeId} />
-      <div aria-hidden="true" className="w-1/6 shrink-0" />
-      <div className="min-h-0 min-w-0 flex-1 overflow-auto py-3 pr-3">{children}</div>
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+        <div className="max-w-3xl px-6 pt-5 pb-12">{children}</div>
+      </div>
     </div>
   )
 }

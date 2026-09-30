@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { expect, test, describe, vi } from 'vitest'
 import { CommandRenderer } from './CommandRenderer'
 import commandsPayload from '../data/generated/1.21.1/commands.json'
@@ -45,7 +45,9 @@ const renderDef = (
 describe('the renderer walks a definition and nothing else', () => {
   test('renders /give from data alone', () => {
     renderDef(GIVE)
-    expect(screen.getByText('give')).toBeDefined()
+    // The keyword is the output's, not the form's: printed between fields it read as a
+    // stray label and pushed the fields after it along.
+    expect(screen.queryByText('give')).toBeNull()
     for (const name of ['targets', 'item', 'count']) {
       expect(screen.getByText(name, { exact: false })).toBeDefined()
     }
@@ -61,21 +63,19 @@ describe('the renderer walks a definition and nothing else', () => {
     // The acceptance case. If this needed a branch on definition.id anywhere in
     // CommandRenderer, the schema would be the thing that is wrong.
     renderDef(EXECUTE)
-    expect(screen.getByText('execute')).toBeDefined()
     // findBy, because the clause chain is a lazy chunk and this is its first render.
     expect(await screen.findByLabelText('Add clause')).toBeDefined()
     // The run clause is optional and unselected, so the form offers it rather than
-    // asserting it: no `run` keyword and no command picker until it is chosen.
-    expect(screen.getByText('(none)')).toBeDefined()
-    expect(screen.queryByLabelText('command')).toBeNull()
+    // asserting it: "none" is the chosen segment, and there is no command picker yet.
+    const tail = screen.getByRole('radiogroup', { name: 'Continue with' })
+    expect(within(tail).getByRole<HTMLInputElement>('radio', { name: 'none' }).checked).toBe(true)
+    expect(screen.queryByLabelText('Command')).toBeNull()
   })
 
   test('choosing the run clause reveals the command picker', () => {
     renderDef(EXECUTE, { ...EMPTY_VALUE, choices: { '/2': 0 } })
-    // Twice over: the option that names the clause, and the keyword now that it
-    // applies. getAllByText, because both are legitimately the word `run`.
-    expect(screen.getAllByText('run').length).toBeGreaterThan(1)
-    expect(screen.getByLabelText('command')).toBeDefined()
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: 'run' }).checked).toBe(true)
+    expect(screen.getByLabelText('Command')).toBeDefined()
   })
 
   test('an embedded command renders inline, by the same walk', () => {
@@ -86,7 +86,7 @@ describe('the renderer walks a definition and nothing else', () => {
       choices: { '/2': 0 },
       refs: { '/2/|0/1': 'vanilla:give' },
     })
-    expect(screen.getByText('give')).toBeDefined()
+    expect(screen.getByLabelText('Command').textContent).toContain('/give')
     for (const name of ['targets', 'item', 'count']) {
       expect(screen.getAllByText(name, { exact: false }).length).toBeGreaterThan(0)
     }
@@ -97,7 +97,7 @@ describe('the renderer walks a definition and nothing else', () => {
     // another dialect, drawn by the same walk. Nothing in this file knows WorldEdit
     // exists — it is the flagset node kind and the argument-type registry doing it.
     renderDef(GENERATE)
-    expect(screen.getByText('//generate')).toBeDefined()
+    expect(screen.queryByText('//generate')).toBeNull()
     for (const label of ['Hollow', 'Raw coordinate origin']) {
       expect(screen.getByText(label)).toBeDefined()
     }

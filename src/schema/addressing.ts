@@ -117,6 +117,21 @@ export function resolveTarget(root: Node, selector: string): StaticLocation[] {
 }
 
 /**
+ * Whether `selector` names an argument called `name` under the keywords `literals`.
+ *
+ * The one-node form of `resolveTarget`, for a reader that already stands on the node,
+ * such as the renderer looking up the authored label of the argument it is drawing.
+ */
+export function selectorNames(
+  selector: string,
+  name: string,
+  literals: readonly string[],
+): boolean {
+  const parsed = parseSelector(selector)
+  return parsed.name === name && endsWith(literals, parsed.chain)
+}
+
+/**
  * The argument nodes a selector names, as the objects themselves.
  *
  * For attaching authored data to a derived tree, where what is wanted is the node to

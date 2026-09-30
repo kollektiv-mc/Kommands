@@ -117,3 +117,20 @@ test('pinning a generator does not disturb which command is open', async () => {
   expect(screen.getByRole('link', { name: '/teleport' }).getAttribute('aria-current')).toBe('page')
   expect(screen.getByRole('link', { name: '/give' }).getAttribute('aria-current')).toBeNull()
 })
+
+test('/ jumps to the filter, except while something that takes text has focus', async () => {
+  const user = userEvent.setup()
+  await renderWithRouter(<CommandNav catalogue={CATALOGUE} />)
+  const search = screen.getByRole('searchbox')
+
+  await user.keyboard('/')
+  expect(document.activeElement).toBe(search)
+
+  const other = document.createElement('input')
+  document.body.append(other)
+  other.focus()
+  await user.keyboard('/')
+  expect(document.activeElement).toBe(other)
+  expect(other.value).toBe('/')
+  other.remove()
+})

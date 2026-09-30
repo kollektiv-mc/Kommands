@@ -7,7 +7,7 @@ import {
 } from '../../data/authored/item-components'
 import { RegistryPicker } from './RegistryPicker'
 import { Listbox } from '../ui/Listbox'
-import { FIELD, LABEL } from './fieldStyles'
+import { FIELD, SUB_LABEL } from './fieldStyles'
 import { ROW, ROW_ADD, ROW_REMOVE } from './rowStyles'
 
 /**
@@ -56,7 +56,7 @@ export function AttributeModifiersEditor({ value, onChange, ctx }: AttributeModi
             onChange={(next) => update(index, { type: next })}
           />
           <label className="flex flex-col gap-1">
-            <span className={LABEL}>amount</span>
+            <span className={SUB_LABEL}>amount</span>
             <input
               type="number"
               className={FIELD}
@@ -79,7 +79,7 @@ export function AttributeModifiersEditor({ value, onChange, ctx }: AttributeModi
             onChange={(next) => update(index, { slot: next })}
           />
           <label className="flex flex-col gap-1">
-            <span className={LABEL}>id</span>
+            <span className={SUB_LABEL}>id</span>
             <input
               type="text"
               className={FIELD}

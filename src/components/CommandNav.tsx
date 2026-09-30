@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { CommandDefinition } from '../schema/types'
 import { catalogueList } from '../data/catalogue'
 import { usePinnedGeneratorsStore } from '../stores/usePinnedGeneratorsStore'
 import type { Catalogue } from './CommandRenderer'
-import { FIELD, LABEL } from './editors/fieldStyles'
+import { FIELD, FOCUS, LABEL } from './editors/fieldStyles'
 import { IconButton } from './ui/IconButton'
 import { Icon } from './ui/Icon'
 
@@ -64,6 +64,22 @@ export function CommandNav({
   activeId?: string
 }) {
   const [filter, setFilter] = useState('')
+  const search = useRef<HTMLInputElement>(null)
+
+  // `/` jumps to the filter, the way it does on most sites with a search box. Not while
+  // anything that takes text has focus, where `/` is a character someone is typing (a
+  // command path, a selector), and not when something else already handled the key.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== '/' || event.defaultPrevented || event.metaKey || event.ctrlKey) return
+      const target = event.target as HTMLElement | null
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
+      event.preventDefault()
+      search.current?.focus()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
   const all = useMemo(() => catalogueList(catalogue), [catalogue])
 
   const pinned = usePinnedGeneratorsStore((s) => s.pinned)
@@ -92,46 +108,69 @@ export function CommandNav({
   return (
     <nav
       aria-label="Commands"
-      className="border-r-hairline border-border-subtle flex min-h-0 w-56 shrink-0 flex-col"
+      className="border-r-hairline border-border-subtle flex min-h-0 w-58 shrink-0 flex-col"
     >
-      <div className="border-b-hairline border-border-subtle flex flex-col gap-1 p-2">
+      <div className="flex flex-col gap-1.5 p-3">
         <label className={LABEL} htmlFor="command-filter">
           {`${all.length} commands`}
         </label>
-        <input
-          id="command-filter"
-          type="search"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="filter"
-          className={FIELD}
-        />
+        <div className="relative">
+          <input
+            ref={search}
+            id="command-filter"
+            type="search"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Find a command"
+            aria-keyshortcuts="/"
+            className={`${FIELD} w-full pr-8 font-sans`}
+          />
+          <kbd
+            aria-hidden="true"
+            className="border-hairline border-border-hover text-text-faint text-1xs pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-sm px-1 font-mono"
+          >
+            /
+          </kbd>
+        </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {groups.length === 0 && (
-          <p className="text-text-muted text-2xs p-2">{`nothing matches ${filter}`}</p>
+          <p className="text-text-muted px-2 py-3 text-xs">{`nothing matches ${filter}`}</p>
         )}
         {groups.map((group) => (
           <section key={group.dialect}>
-            <h2 className="border-b-hairline border-border-subtle bg-surface text-text-muted text-3xs sticky top-0 px-2 py-1 font-mono tracking-widest uppercase">
+            {/*
+              Opaque, because it stays put while rows scroll under it: the same
+              canvas-plus-surface composition the overlay panel is painted with, so the
+              header is the panel's colour rather than a stripe of its own.
+            */}
+            <h2 className="bg-canvas text-text-muted text-1xs sticky top-0 z-1 flex justify-between bg-[linear-gradient(var(--bg-surface),var(--bg-surface))] px-2 pt-3 pb-1.5 font-semibold tracking-wider uppercase">
               {group.label}
+              <span aria-hidden="true" className="font-normal tracking-normal tabular-nums">
+                {group.commands.length}
+              </span>
             </h2>
-            <ul>
+            <ul className="flex flex-col gap-px">
               {group.commands.map((command) => {
                 const isPinned = pinnedIds.has(command.id)
                 return (
                   <li
                     key={command.id}
-                    className="border-b-hairline border-border-subtle hover:bg-hover group flex items-center pr-1"
+                    className={
+                      'group duration-fast ease-standard flex items-center rounded-md pr-1 transition-colors motion-reduce:transition-none ' +
+                      (command.id === activeId ? 'bg-accent/13' : 'hover:bg-hover')
+                    }
                   >
                     <Link
                       to="/c/$commandId"
                       params={{ commandId: command.id }}
                       aria-current={command.id === activeId ? 'page' : undefined}
                       className={
-                        'text-1xs min-w-0 flex-1 truncate px-2 py-1 font-mono ' +
-                        (command.id === activeId ? 'text-accent' : 'text-text-secondary')
+                        `${FOCUS} min-w-0 flex-1 truncate rounded-md px-2 py-1.5 font-mono text-xs ` +
+                        (command.id === activeId
+                          ? 'text-accent'
+                          : 'text-text-secondary group-hover:text-text-primary')
                       }
                     >
                       {command.label}

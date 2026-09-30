@@ -331,3 +331,60 @@ body {
     transition: none;
   }
 }
+
+/* ── Argument rows ───────────────────────────────────────────────────────────
+   One argument per row in the command form (src/components/CommandRenderer.tsx):
+   the name and its help in a fixed column, the control beside it. The column is fixed
+   so a row never reflows because a neighbour grew, which is what the old wrapping
+   layout did every time a choice added fields. Stacked when the form itself is narrow,
+   measured against the form rather than the window, because the editor sits inside a
+   panel whose width the window does not decide. */
+.arg-form {
+  container-type: inline-size;
+}
+
+.arg-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--spacing) * 1.5);
+}
+
+@container (min-width: 32rem) {
+  .arg-row {
+    grid-template-columns: calc(var(--spacing) * 40) minmax(0, 1fr);
+    gap: calc(var(--spacing) * 4);
+  }
+}
+
+/* ── Height that follows its content ─────────────────────────────────────────
+   src/components/ui/AnimatedHeight.tsx: when a choice swaps the fields under it,
+   the space glides to its new height rather than jumping, and the new fields fade
+   in. max-height rather than grid rows, for the reason ui/Collapsible gives: the grid
+   form leaves a sliver in the desktop build's WebKit view. The component sets the
+   heights; this is only how they move. */
+.height-glide {
+  transition: max-height var(--duration-panel) var(--ease-standard);
+}
+
+@keyframes content-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.content-in {
+  animation: content-in var(--duration-panel) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .height-glide {
+    transition: none;
+  }
+
+  .content-in {
+    animation: none;
+  }
+}
