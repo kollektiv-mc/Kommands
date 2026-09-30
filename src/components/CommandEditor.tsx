@@ -88,7 +88,7 @@ export function CommandEditor() {
   }, [saved?.id, markOpened]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!definition) {
-    return <p className="text-warning text-2xs">{`${commandId} is not a command in 1.21.1.`}</p>
+    return <p className="text-warning text-xs">{`${commandId} is not a command in 1.21.1.`}</p>
   }
 
   // `max-w-5xl`, raised from `2xl`. The cap is a readable-measure limit and still is
@@ -99,7 +99,7 @@ export function CommandEditor() {
   // right, so at 672px the command had a third of a column to live in and the three
   // top-level `/give` fields sat shoulder to shoulder.
   return (
-    <div className="flex max-w-5xl flex-col gap-3">
+    <div className="flex flex-col gap-4">
       {saved && !resumes && (
         <section className="border-hairline border-border-hover bg-surface rounded-panel flex flex-col gap-1 p-3">
           <span className={WARNING}>{REFUSAL[structure]}</span>
@@ -111,17 +111,23 @@ export function CommandEditor() {
           <code className="text-text-secondary text-1xs font-mono break-all">{saved.preview}</code>
         </section>
       )}
-      <section className="border-hairline border-border-subtle bg-surface rounded-panel flex flex-col gap-1 p-3">
-        <h1 className="font-title text-sm">{definition.label}</h1>
+      {/*
+        A heading rather than a card. The command's name is the page's title, and a box
+        around it made it one more panel competing with the output below.
+      */}
+      <header className="flex flex-col gap-1 px-3">
+        <h1 className="text-text-primary font-mono text-lg font-semibold tracking-tight">
+          {definition.label}
+        </h1>
         {definition.ui?.summary && (
-          <p className="text-text-secondary text-1xs leading-relaxed">{definition.ui.summary}</p>
+          <p className="text-text-secondary text-xs leading-relaxed">{definition.ui.summary}</p>
         )}
         {definition.aliases && definition.aliases.length > 0 && (
-          <p className="text-text-muted text-2xs font-mono">
+          <p className="text-text-muted text-1xs font-mono">
             {`also ${aliasNames(definition).join(', ')}`}
           </p>
         )}
-      </section>
+      </header>
       <CommandWorkbench
         definition={definition}
         version={v1_21_1}

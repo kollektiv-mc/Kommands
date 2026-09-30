@@ -131,17 +131,19 @@ the browser has it. Everywhere else the field takes a typed name.
 
 ## Component patterns
 
-| Pattern           | Shape                                                                                                                 |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Panel / tile      | `rounded-panel` + `border-hairline` over `bg-surface`                                                                 |
-| Segmented control | Pill container, sliding accent indicator at `--radius-lg` minus 1px                                                   |
-| Toggle            | `20×36px` pill, `16px` knob, accent when on, `--border-hover` when off                                                |
-| Row divider       | `border-bottom: var(--border-hairline) solid var(--border-subtle)`                                                    |
-| Scrollbar         | `4px`, `--border-subtle` thumb, transparent track                                                                     |
-| Value text        | Monospace, `text-xs`, `text-text-secondary`                                                                           |
-| Floating panel    | `bg-overlay` + `border-hairline border-border-hover`, `rounded-lg`, no shadow; fades in on `--duration-fast`, no exit |
-| Option row        | `rounded-md`, `bg-hover` when highlighted, accent text and a check when chosen                                        |
-| Stepper           | Number field between `−` and `+` buttons, both out of the tab order                                                   |
+| Pattern           | Shape                                                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Panel / tile      | `rounded-panel` + `border-hairline` over `bg-surface`                                                                          |
+| Segmented control | Pill container, sliding accent indicator at `--radius-lg` minus 1px                                                            |
+| Toggle            | `20×36px` pill, `16px` knob, accent when on, `--border-hover` when off                                                         |
+| Row divider       | `border-bottom: var(--border-hairline) solid var(--border-subtle)`                                                             |
+| Scrollbar         | `4px`, `--border-subtle` thumb, transparent track                                                                              |
+| Value text        | Monospace, `text-xs`, `text-text-secondary`                                                                                    |
+| Floating panel    | `bg-overlay` + `border-hairline border-border-hover`, `rounded-lg`, no shadow; fades in on `--duration-fast`, no exit          |
+| Option row        | `rounded-md`, `bg-hover` when highlighted, accent text and a check when chosen                                                 |
+| Stepper           | Number field between `−` and `+` buttons, both out of the tab order                                                            |
+| Argument row      | Name and help in a `10rem` column, control beside it; stacked below a `32rem` form; `bg-hover` on hover                        |
+| Focus             | Text fields: an `--accent` border. Everything else: a 1px `--accent` outline offset 2px, never a `ring`, which is a box-shadow |
 
 **No control here is a native `<select>` or `<datalist>`.** Both are drawn by the
 platform, which no stylesheet reaches: in the desktop build's WebKitGTK view they open
@@ -195,10 +197,11 @@ and puts it exactly here — it is what Konnekt's `BUILTIN_SKINS` are, and it st
 the product rather than in the umbrella repo, because it is a product-local look and
 not a shared design decision.
 
-| Written at runtime                           | Why it cannot be a token                                                                          |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `--accent-rgb`                               | Both products read one source. An ember written there turns Konnekt orange too.                   |
-| `--bg-base`, `--bg-elevated`, `--bg-overlay` | Same reason, one step out: the canvas is what makes the two products distinguishable at a glance. |
+| Written at runtime                           | Why it cannot be a token                                                                                                         |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--accent-rgb`                               | Both products read one source. An ember written there turns Konnekt orange too.                                                  |
+| `--bg-base`, `--bg-elevated`, `--bg-overlay` | Same reason, one step out: the canvas is what makes the two products distinguishable at a glance.                                |
+| `--text-primary` and its three lighter steps | Tinted toward the accent's hue. Pure white on the ember canvas was roughly 18:1 and glared; the tint keeps it near 16:1 on dark. |
 
 ### The canvas is derived from the accent
 
@@ -212,6 +215,14 @@ the lightness is a one-character change that could quietly cross a line.
 The lift off the shared `#05060a` is the point rather than a side effect: at 3%
 lightness every hue is black, so a tint alone would have changed nothing anyone could
 see.
+
+The text ramp follows the same rule. The primary is the accent's hue at a low
+saturation, and the three lighter steps are that primary at the shared source's own
+alphas, so the steps keep the spacing kollektiv gave them. `theme.test.ts` asserts the
+primary above 12:1 on both grounds, and secondary above 4.5:1 composited onto a panel,
+which is where help text actually sits. Muted is near 3:1 there in the shared ramp as
+well as this one, which is why the form uses secondary for anything meant to be read
+and keeps muted for marks like the "optional" badge.
 
 `--bg-overlay` is **computed, never chosen** — `0.82 × elevated + 0.18 × base`, which
 is the definition this document's own source gives it. Picking a fourth colour by eye

@@ -15,7 +15,7 @@ import { TEXT_COLORS } from '../../data/authored/text-colors'
 import { RegistryPicker } from './RegistryPicker'
 import { Combobox } from '../ui/Combobox'
 import { Listbox } from '../ui/Listbox'
-import { FIELD, LABEL } from './fieldStyles'
+import { FIELD, SUB_LABEL } from './fieldStyles'
 import { ROW, ROW_ADD, ROW_GROUP, ROW_REMOVE } from './rowStyles'
 
 /**
@@ -79,7 +79,7 @@ export function TextComponentFields({
               // output, and an untouched checkbox should leave the component alone.
               onChange={(e) => onChange({ ...value, [flag]: e.target.checked ? true : undefined })}
             />
-            <span className={LABEL}>{flag}</span>
+            <span className={SUB_LABEL}>{flag}</span>
           </label>
         ))}
       </div>
@@ -91,7 +91,7 @@ export function TextComponentFields({
           {children.map((child, index) => (
             <div key={index} className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
-                <span className={LABEL}>{`child ${index + 1}`}</span>
+                <span className={SUB_LABEL}>{`child ${index + 1}`}</span>
                 <button
                   type="button"
                   className={ROW_REMOVE}
@@ -258,7 +258,7 @@ function TranslateArguments({
       {args.map((argument, index) => (
         <div key={index} className={ROW_GROUP}>
           <div className="flex items-center gap-2">
-            <span className={LABEL}>{`argument ${index + 1}`}</span>
+            <span className={SUB_LABEL}>{`argument ${index + 1}`}</span>
             <button
               type="button"
               className={ROW_REMOVE}
@@ -310,6 +310,7 @@ function ColorField({
     <Combobox
       value={value.color ?? ''}
       options={COLOR_OPTIONS}
+      className="w-40"
       aria-label={`${ariaPrefix} colour`}
       onChange={(next) => onChange({ ...value, color: next || undefined })}
     />
@@ -379,7 +380,7 @@ function EventFields({ value, onChange, ariaPrefix, ctx }: PartProps) {
     <div className={ROW_GROUP}>
       {click && (
         <div className={ROW}>
-          <span className={LABEL}>click</span>
+          <span className={SUB_LABEL}>click</span>
           <Listbox
             value={click.action}
             aria-label={`${ariaPrefix} click action`}
@@ -409,7 +410,7 @@ function EventFields({ value, onChange, ariaPrefix, ctx }: PartProps) {
       {hover && (
         <div className="flex flex-col gap-2">
           <div className={ROW}>
-            <span className={LABEL}>hover</span>
+            <span className={SUB_LABEL}>hover</span>
             <Listbox
               value={hover.action}
               aria-label={`${ariaPrefix} hover action`}

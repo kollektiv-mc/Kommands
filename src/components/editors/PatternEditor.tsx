@@ -6,7 +6,7 @@ import {
   type PatternValue,
 } from '../../schema/argument-types/we-pattern'
 import { RegistryPicker } from './RegistryPicker'
-import { FIELD, LABEL } from './fieldStyles'
+import { FIELD, SUB_LABEL } from './fieldStyles'
 import { ROW, ROW_ADD, ROW_REMOVE } from './rowStyles'
 
 /**
@@ -44,7 +44,7 @@ export function PatternEditor({ value, onChange, ctx }: PatternEditorProps) {
         <div key={index} className={ROW}>
           {weighted && (
             <label className="flex flex-col gap-1">
-              <span className={LABEL}>chance</span>
+              <span className={SUB_LABEL}>chance</span>
               <input
                 type="number"
                 className={FIELD}
@@ -84,7 +84,7 @@ export function PatternEditor({ value, onChange, ctx }: PatternEditorProps) {
           + block
         </button>
         {weighted && (
-          <span className="text-text-faint text-3xs">
+          <span className="text-text-muted text-1xs">
             chances are relative, so they need not total 100
           </span>
         )}

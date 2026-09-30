@@ -251,7 +251,14 @@ export interface PreviewBinding {
 
 export interface UiMetadata {
   summary?: string
-  /** Per-argument presentation. Derivation cannot produce these. */
+  /**
+   * Per-argument presentation. Derivation cannot produce these.
+   *
+   * Keyed by a selector, as a constraint target is (`src/schema/addressing.ts`): a
+   * bare name where it names one argument, the keywords above it where it does not
+   * (`result/block/byte/scale`). A bare name was once the only form, and it could not
+   * tell apart the 36 arguments `/execute` calls `scale`.
+   */
   arguments?: Record<string, { label?: string; help?: string; group?: string }>
   /**
    * Per-clause presentation, keyed by the branch's leading literal.

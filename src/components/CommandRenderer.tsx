@@ -20,7 +20,17 @@ import {
   type Node,
   type UiMetadata,
 } from '../schema/types'
-import { LABEL, WARNING } from './editors/fieldStyles'
+import { ARG_LABEL, HELP, WARNING } from './editors/fieldStyles'
+import { AnimatedHeight } from './ui/AnimatedHeight'
+import { Segmented } from './ui/Segmented'
+import { Switch } from './ui/Switch'
+import {
+  argumentPresentation,
+  branchLabel,
+  choiceControl,
+  choiceLabel,
+  NO_BRANCH_LABEL,
+} from '../schema/presentation'
 import { Listbox } from './ui/Listbox'
 import type { ListOption } from '../lib/listbox'
 
@@ -128,7 +138,7 @@ export function CommandRenderer({
   forced = NOTHING_FORCED,
 }: CommandRendererProps) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="arg-form flex flex-col">
       <NodeView
         node={definition.root}
         path={ROOT}
@@ -136,6 +146,8 @@ export function CommandRenderer({
         ctx={ctx}
         actions={actions}
         scope={{ ui: definition.ui, catalogue, depth: maxDepth, forced }}
+        literals={[]}
+        nested={false}
       />
     </div>
   )
@@ -148,145 +160,50 @@ interface NodeViewProps {
   ctx: SerializeContext
   actions: Actions
   scope: Scope
+  /**
+   * The keywords above this node, outermost first: what a selector in `ui.arguments`
+   * is matched against. `paths.ts`'s `walk` builds the same chain the same way.
+   */
+  literals: readonly string[]
+  /** Inside a branch of some Choice, so its own branches are indented under it. */
+  nested: boolean
+  /** The node is a clause of a Repeat, drawn inside the chain editor's card. */
+  inClause?: boolean
 }
 
-function NodeView({ node, path, value, ctx, actions, scope }: NodeViewProps) {
+/** One row of the form: the name column and the control column. */
+const ROW =
+  'arg-row rounded-lg px-3 py-2 transition-colors duration-fast ease-standard hover:bg-hover motion-reduce:transition-none'
+
+/** Where a Choice's nested branch sits: under it, on a hairline that says whose it is. */
+const INDENT = 'border-l-hairline border-border-hover ml-3 pl-1'
+
+function NodeView(props: NodeViewProps) {
+  const { node, path, scope } = props
   switch (node.kind) {
+    // A keyword is not something to fill in. It is in the output, in the branch picker
+    // that chose it, and in nothing else: printed between fields, it read as a stray
+    // label and pushed the fields after it along.
     case 'literal':
-      // pt-4 clears the label above a sibling editor, so a keyword lines up with the
-      // fields it introduces rather than with their labels.
-      return <span className="text-text-muted text-1xs pt-4 font-mono">{node.token}</span>
+      return null
 
     case 'argument':
-      return (
-        <ArgumentView
-          node={node}
-          path={path}
-          value={value}
-          ctx={ctx}
-          actions={actions}
-          ui={scope.ui}
-          forced={scope.forced.get(path)}
-        />
-      )
+      return <ArgumentView {...props} node={node} ui={scope.ui} forced={scope.forced.get(path)} />
 
     case 'sequence':
-      return (
-        // Top-aligned, not bottom-aligned: a sequence mixes one-line editors with
-        // deep ones that are many lines tall, and aligning on the bottom edge leaves
-        // the short ones floating halfway down the row with nothing to line up with.
-        <div className="flex flex-wrap items-start gap-2">
-          {node.nodes.map((n, i) => (
-            <NodeView
-              key={i}
-              node={n}
-              path={child(path, i)}
-              value={value}
-              ctx={ctx}
-              actions={actions}
-              scope={scope}
-            />
-          ))}
-        </div>
-      )
+      return <SequenceView {...props} node={node} />
 
-    case 'choice': {
-      const selected = choiceSelection(value.choices, path, node)
-      const chosen = selected === NO_BRANCH ? undefined : node.nodes[selected]
-      return (
-        <div className="flex items-end gap-2">
-          <Listbox
-            aria-label="Clause"
-            value={String(selected)}
-            options={branchOptions(node)}
-            onChange={(next) => actions.setChoice(path, Number(next))}
-          />
-          {chosen && (
-            <NodeView
-              node={chosen}
-              path={branch(path, selected)}
-              value={value}
-              ctx={ctx}
-              actions={actions}
-              scope={scope}
-            />
-          )}
-        </div>
-      )
-    }
+    case 'choice':
+      return <ChoiceView {...props} node={node} />
 
-    case 'repeat': {
-      // The rows this replaced were a documented placeholder: they proved the data
-      // layer end to end and caught two bugs no unit test saw, and they were never the
-      // design (#34). What survived the rewrite is everything that was not JSX - the id
-      // list handed to `reorderRepeat`, the identity model under it, and the value tree
-      // it permutes. The chain editor is a different *drawing* of the same three.
-      const ids = repeatInstances(value.repeats, path, node)
-
-      return (
-        <Suspense
-          fallback={<span className="text-text-faint text-2xs">Loading the clause editor…</span>}
-        >
-          <ClauseChain
-            ids={ids}
-            min={node.min ?? 0}
-            max={node.max}
-            naming={(id) => clauseNaming(node.node, instance(path, id), value, scope.ui)}
-            // The clause's own editors, rendered by this walk and handed over. The chain
-            // draws the node around them and knows nothing about what is inside.
-            renderClause={(id) => (
-              <NodeView
-                node={node.node}
-                path={instance(path, id)}
-                value={value}
-                ctx={ctx}
-                actions={actions}
-                scope={scope}
-              />
-            )}
-            // Moving and removing are one action, because to a path-keyed tree they are
-            // one operation: a new ordering, with removal the case where an id is left
-            // out. Saying so once is what keeps a removed clause's values from coming
-            // back in the next one added.
-            //
-            // The chain's gesture tag is qualified with this Repeat's path before it
-            // reaches the store. The chain mints it from a counter of its own, so two
-            // chains on one page would otherwise both call their first drag `drag:1`
-            // and the second would coalesce into the first one's undo step.
-            onReorder={(next, gesture) =>
-              actions.reorderRepeat(
-                path,
-                next,
-                gesture === undefined ? undefined : `${path}:${gesture}`,
-              )
-            }
-            onAdd={() => actions.addInstance(path, node)}
-          />
-        </Suspense>
-      )
-    }
+    case 'repeat':
+      return <RepeatView {...props} node={node} />
 
     case 'flagset':
-      return (
-        <div className="flex flex-wrap gap-2">
-          {node.flags.map((flag) => (
-            <label key={flag.name} className="flex items-center gap-1">
-              <input
-                type="checkbox"
-                className="accent-accent"
-                checked={value.flags[`${path}/${flag.name}`] ?? false}
-                onChange={(e) => actions.setFlag(`${path}/${flag.name}`, e.target.checked)}
-              />
-              <span className={LABEL}>{flag.label}</span>
-            </label>
-          ))}
-        </div>
-      )
+      return <FlagsView {...props} node={node} />
 
     case 'ref':
-      return (
-        <RefView node={node} path={path} value={value} ctx={ctx} actions={actions} scope={scope} />
-      )
+      return <RefView {...props} node={node} />
   }
 
   // Unreachable while Node is exhausted above. It is here so that adding a node kind
@@ -300,20 +217,182 @@ function assertNever(node: never): never {
 }
 
 /**
+ * A sequence, as rows one under another.
+ *
+ * It used to be one wrapping line with the keywords printed between the fields, so a
+ * choice that added a field re-wrapped everything after it and controls moved under
+ * the pointer. A column never reflows sideways: a new field pushes the rows below it
+ * down, and AnimatedHeight makes that a glide rather than a jump.
+ */
+function SequenceView(props: NodeViewProps & { node: Extract<Node, { kind: 'sequence' }> }) {
+  const { node, path } = props
+  const above = literalChains(node.nodes, props.literals)
+  return (
+    <div className="flex flex-col gap-0.5">
+      {node.nodes.map((n, i) => (
+        <NodeView key={i} {...props} node={n} path={child(path, i)} literals={above[i]!} />
+      ))}
+    </div>
+  )
+}
+
+/** The keywords above each child of a sequence: the chain so far, plus every keyword before it. */
+function literalChains(nodes: readonly Node[], start: readonly string[]): (readonly string[])[] {
+  const chains: (readonly string[])[] = []
+  let chain = start
+  for (const n of nodes) {
+    chains.push(chain)
+    if (n.kind === 'literal') chain = [...chain, n.token]
+  }
+  return chains
+}
+
+/**
+ * A Choice: a row that picks the branch, and the chosen branch's rows under it.
+ *
+ * A few short branches sit side by side as a segmented control, more go in a list (see
+ * `choiceControl`). Switching branch swaps the rows below, and the space they take
+ * glides to its new height instead of jumping, with the new rows fading in.
+ */
+function ChoiceView(props: NodeViewProps & { node: Extract<Node, { kind: 'choice' }> }) {
+  const { node, path, value, actions, scope, literals, nested, inClause } = props
+  const labelId = useId()
+  const selected = choiceSelection(value.choices, path, node)
+  const chosen = selected === NO_BRANCH ? undefined : node.nodes[selected]
+  const options = branchOptions(node, scope.ui, literals)
+  const pick = (next: string) => actions.setChoice(path, Number(next))
+
+  return (
+    <>
+      <div className={ROW}>
+        <div className="pt-1.5">
+          <span id={labelId} className={ARG_LABEL}>
+            {choiceLabel(node, inClause === true)}
+          </span>
+        </div>
+        <div className="flex min-w-0 items-start">
+          {choiceControl(options.map((o) => o.label)) === 'segmented' ? (
+            <Segmented
+              aria-labelledby={labelId}
+              value={String(selected)}
+              options={options}
+              onChange={pick}
+            />
+          ) : (
+            <Listbox
+              aria-labelledby={labelId}
+              value={String(selected)}
+              options={options}
+              onChange={pick}
+              className="min-w-48"
+            />
+          )}
+        </div>
+      </div>
+      <AnimatedHeight contentKey={String(selected)} className={nested && chosen ? INDENT : ''}>
+        {chosen && (
+          <NodeView
+            {...props}
+            node={chosen}
+            path={branch(path, selected)}
+            nested
+            inClause={false}
+          />
+        )}
+      </AnimatedHeight>
+    </>
+  )
+}
+
+function RepeatView(props: NodeViewProps & { node: Extract<Node, { kind: 'repeat' }> }) {
+  const { node, path, value, actions, scope } = props
+  // The rows this replaced were a documented placeholder: they proved the data
+  // layer end to end and caught two bugs no unit test saw, and they were never the
+  // design (#34). What survived the rewrite is everything that was not JSX - the id
+  // list handed to `reorderRepeat`, the identity model under it, and the value tree
+  // it permutes. The chain editor is a different *drawing* of the same three.
+  const ids = repeatInstances(value.repeats, path, node)
+
+  return (
+    <div className="px-3 py-2">
+      <Suspense fallback={<span className={HELP}>Loading the clause editor…</span>}>
+        <ClauseChain
+          ids={ids}
+          min={node.min ?? 0}
+          max={node.max}
+          naming={(id) => clauseNaming(node.node, instance(path, id), value, scope.ui)}
+          // The clause's own editors, rendered by this walk and handed over. The chain
+          // draws the node around them and knows nothing about what is inside.
+          renderClause={(id) => (
+            <NodeView
+              {...props}
+              node={node.node}
+              path={instance(path, id)}
+              nested={false}
+              inClause
+            />
+          )}
+          // Moving and removing are one action, because to a path-keyed tree they are
+          // one operation: a new ordering, with removal the case where an id is left
+          // out. Saying so once is what keeps a removed clause's values from coming
+          // back in the next one added.
+          //
+          // The chain's gesture tag is qualified with this Repeat's path before it
+          // reaches the store. The chain mints it from a counter of its own, so two
+          // chains on one page would otherwise both call their first drag `drag:1`
+          // and the second would coalesce into the first one's undo step.
+          onReorder={(next, gesture) =>
+            actions.reorderRepeat(
+              path,
+              next,
+              gesture === undefined ? undefined : `${path}:${gesture}`,
+            )
+          }
+          onAdd={() => actions.addInstance(path, node)}
+        />
+      </Suspense>
+    </div>
+  )
+}
+
+function FlagsView({
+  node,
+  path,
+  value,
+  actions,
+}: NodeViewProps & { node: Extract<Node, { kind: 'flagset' }> }) {
+  const labelId = useId()
+  return (
+    <div className={ROW}>
+      <div className="pt-1.5">
+        <span id={labelId} className={ARG_LABEL}>
+          Flags
+        </span>
+      </div>
+      <div role="group" aria-labelledby={labelId} className="flex flex-wrap gap-x-5 gap-y-2 pt-1.5">
+        {node.flags.map((flag) => (
+          <label key={flag.name} className="text-text-secondary flex items-center gap-2 text-xs">
+            <Switch
+              checked={value.flags[`${path}/${flag.name}`] ?? false}
+              onChange={(on) => actions.setFlag(`${path}/${flag.name}`, on)}
+            />
+            {flag.label}
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
  * A command embedded in another — `/execute … run <command>`.
  *
  * The picker and the embedded form are one node, not two: choosing a command is the
  * only way the inner tree comes into existence, and the inner tree is rendered by the
  * same walk as the outer one. Nothing here knows which command was chosen.
  */
-function RefView({
-  node,
-  path,
-  value,
-  ctx,
-  actions,
-  scope,
-}: NodeViewProps & { node: Extract<Node, { kind: 'ref' }> }) {
+function RefView(props: NodeViewProps & { node: Extract<Node, { kind: 'ref' }> }) {
+  const { node, path, value, actions, scope } = props
   const labelId = useId()
   const isAny = node.definitionId === REF_ANY
   const chosenId = isAny ? (value.refs[path] ?? '') : node.definitionId
@@ -324,39 +403,37 @@ function RefView({
   const inner: Scope = { ...scope, ui: target?.ui, depth: scope.depth - 1 }
 
   return (
-    <div className="border-l-hairline border-border-subtle flex flex-col gap-2 pl-2">
+    <>
       {isAny && (
-        // Labelled by id rather than by wrapping: a click inside a wrapping label that
-        // lands on something other than its control clicks the control too.
-        <div className="flex flex-col gap-1">
-          <span id={labelId} className={LABEL}>
-            command
-          </span>
-          <Listbox
-            aria-labelledby={labelId}
-            value={chosenId}
-            placeholder="choose a command"
-            options={Object.values(scope.catalogue).map((d) => ({ value: d.id, label: d.label }))}
-            onChange={(next) => actions.setRef(path, next)}
-          />
+        <div className={ROW}>
+          <div className="pt-1.5">
+            <span id={labelId} className={ARG_LABEL}>
+              Command
+            </span>
+          </div>
+          <div className="flex min-w-0 items-start">
+            <Listbox
+              aria-labelledby={labelId}
+              value={chosenId}
+              placeholder="choose a command"
+              options={Object.values(scope.catalogue).map((d) => ({ value: d.id, label: d.label }))}
+              onChange={(next) => actions.setRef(path, next)}
+              className="min-w-48"
+            />
+          </div>
         </div>
       )}
-      {target && scope.depth > 0 && (
-        <NodeView
-          node={target.root}
-          path={path}
-          value={value}
-          ctx={ctx}
-          actions={actions}
-          scope={inner}
-        />
-      )}
-      {target && scope.depth <= 0 && (
-        <span className={WARNING}>
-          This command embeds itself. The form stops here so the tab does not.
-        </span>
-      )}
-    </div>
+      <AnimatedHeight contentKey={chosenId} className={target ? INDENT : ''}>
+        {target && scope.depth > 0 && (
+          <NodeView {...props} node={target.root} scope={inner} literals={[]} nested />
+        )}
+        {target && scope.depth <= 0 && (
+          <span className={`${WARNING} px-3`}>
+            This command embeds itself. The form stops here so the tab does not.
+          </span>
+        )}
+      </AnimatedHeight>
+    </>
   )
 }
 
@@ -389,43 +466,60 @@ function clauseNaming(
   // error: the clause exists and has not been told what to be yet.
   if (chosen === undefined) return { label: 'not set' }
 
-  const derived = branchLabel(chosen, selected)
+  const derived = branchLabel(chosen, selected, ui)
   const authored = ui?.clauses?.[derived]
   return { label: authored?.label ?? derived, help: authored?.help }
 }
 
 /**
- * A Choice's branches as list options, values being the branch index.
+ * A Choice's branches as options, each value being the branch index.
  *
  * An optional clause can be left out entirely, so "none" is a real selection rather
  * than the absence of one. It leads because it is where a fresh command starts.
  */
-function branchOptions(node: Extract<Node, { kind: 'choice' }>): ListOption[] {
-  const branches = node.nodes.map((n, i) => ({ value: String(i), label: branchLabel(n, i) }))
-  return node.optional ? [{ value: String(NO_BRANCH), label: '(none)' }, ...branches] : branches
+function branchOptions(
+  node: Extract<Node, { kind: 'choice' }>,
+  ui: UiMetadata | undefined,
+  literals: readonly string[],
+): ListOption[] {
+  const branches = node.nodes.map((n, i) => ({
+    value: String(i),
+    label: branchLabel(n, i, ui, literals),
+  }))
+  return node.optional
+    ? [{ value: String(NO_BRANCH), label: NO_BRANCH_LABEL }, ...branches]
+    : branches
 }
 
-function branchLabel(node: Node, index: number): string {
-  if (node.kind === 'literal') return node.token
-  if (node.kind === 'sequence') {
-    const first = node.nodes[0]
-    if (first?.kind === 'literal') return first.token
-  }
-  return `option ${index + 1}`
-}
-
-interface ArgumentViewProps {
+interface ArgumentViewProps extends NodeViewProps {
   node: Extract<Node, { kind: 'argument' }>
-  path: Path
-  value: CommandValue
-  ctx: SerializeContext
-  actions: Actions
   ui?: UiMetadata
   /** Set when the output wrote this argument although it is empty. */
   forced?: ForcedSlot
 }
 
-function ArgumentView({ node, path, value, ctx, actions, ui, forced }: ArgumentViewProps) {
+/**
+ * One argument: its name and help in the first column, its editor in the second.
+ *
+ * The label points at its control by id rather than wrapping it. A wrapping label
+ * labels only its first labelable descendant (a stepper's step-down button), and a
+ * click anywhere inside it clicks that control too. An editor of several fields is a
+ * fieldset the label names instead, and each of its fields names itself.
+ *
+ * Help and warnings reach the control as its description, so a field is announced as
+ * "Recipients", then "Who receives the item.", rather than as one run-on name that
+ * grows a warning as the user types.
+ */
+function ArgumentView({
+  node,
+  path,
+  value,
+  ctx,
+  actions,
+  ui,
+  forced,
+  literals,
+}: ArgumentViewProps) {
   const type = lookupArgumentType(node.type)
   // The same options the serializer builds, so the field and the command agree about
   // what an untouched argument holds — including that an optional one holds nothing.
@@ -435,23 +529,27 @@ function ArgumentView({ node, path, value, ctx, actions, ui, forced }: ArgumentV
   const Editor = type.editor
   // The Brigadier name is the fallback, not the absence of a label. A derived
   // definition with no authored metadata still renders something addressable.
-  const presentation = ui?.arguments?.[node.name]
+  const presentation = argumentPresentation(ui, node, literals)
 
   const controlId = useId()
   const labelId = useId()
+  const helpId = useId()
   const notesId = useId()
-  const hasNotes = Boolean(presentation?.help) || forced !== undefined || diagnostics.length > 0
+  const hasNotes = forced !== undefined || diagnostics.length > 0
+  const describedBy =
+    [presentation?.help ? helpId : '', hasNotes ? notesId : ''].filter(Boolean).join(' ') ||
+    undefined
   const group = type.labelling === 'group'
   const labelText = (
     <>
       {presentation?.label ?? node.name}
-      {node.optional && <span className="text-text-faint"> optional</span>}
+      {node.optional && <span className={OPTIONAL}>optional</span>}
     </>
   )
   const editor = (
     <Editor
       id={group ? undefined : controlId}
-      describedBy={group || !hasNotes ? undefined : notesId}
+      describedBy={group ? undefined : describedBy}
       value={current}
       onChange={(next) => actions.setArg(path, next)}
       options={options}
@@ -460,61 +558,67 @@ function ArgumentView({ node, path, value, ctx, actions, ui, forced }: ArgumentV
     />
   )
 
-  // The label points at its control by id rather than wrapping it. A wrapping label
-  // labels only its first labelable descendant (a stepper's step-down button), and a
-  // click anywhere inside it clicks that control too. An editor of several fields is a
-  // fieldset the label names instead, and each of its fields names itself.
-  //
-  // Help and warnings sit outside the label either way and reach the control as its
-  // description, so a field is announced as "Recipients", then "Who receives the
-  // item.", rather than as one run-on name that grows a warning as the user types.
   return (
-    <div className="flex flex-col gap-1">
-      {group ? (
-        <span id={labelId} className={LABEL}>
-          {labelText}
-        </span>
-      ) : (
-        <label id={labelId} htmlFor={controlId} className={LABEL}>
-          {labelText}
-        </label>
-      )}
-      {group ? (
-        <fieldset
-          aria-labelledby={labelId}
-          aria-describedby={hasNotes ? notesId : undefined}
-          className="min-w-0"
-        >
-          {editor}
-        </fieldset>
-      ) : (
-        editor
-      )}
-      {hasNotes && (
-        <div id={notesId} className="flex flex-col gap-1">
-          {presentation?.help && (
-            <span className="text-text-faint text-3xs">{presentation.help}</span>
-          )}
-          {/*
-            Said beside the field rather than left for the output to explain, because the
-            output only shows the result: a `0` nobody typed, or a `<seconds>` in a command
-            that looked finished. The field is where the person can do something about it.
-          */}
-          {forced?.how === 'default' && (
-            <span className="text-text-faint text-3xs">
-              {`Written as ${forced.text} because a later value is set.`}
-            </span>
-          )}
-          {forced?.how === 'placeholder' && (
-            <span className={WARNING}>Needed because a later value is set.</span>
-          )}
-          {diagnostics.map((d, i) => (
-            <span key={i} className={WARNING}>
-              {d.message}
-            </span>
-          ))}
-        </div>
-      )}
+    <div className={ROW}>
+      <div className="flex min-w-0 flex-col gap-0.5 pt-1.5">
+        {group ? (
+          <span id={labelId} className={`${ARG_LABEL} flex items-center gap-1.5`}>
+            {labelText}
+          </span>
+        ) : (
+          <label
+            id={labelId}
+            htmlFor={controlId}
+            className={`${ARG_LABEL} flex items-center gap-1.5`}
+          >
+            {labelText}
+          </label>
+        )}
+        {presentation?.help && (
+          <span id={helpId} className={HELP}>
+            {presentation.help}
+          </span>
+        )}
+      </div>
+      <div className="flex min-w-0 flex-col items-start gap-1.5">
+        {group ? (
+          <fieldset
+            aria-labelledby={labelId}
+            aria-describedby={describedBy}
+            className="w-full min-w-0"
+          >
+            {editor}
+          </fieldset>
+        ) : (
+          editor
+        )}
+        {hasNotes && (
+          <div id={notesId} className="flex flex-col gap-0.5">
+            {/*
+              Said beside the field rather than left for the output to explain, because
+              the output only shows the result: a `0` nobody typed, or a `<seconds>` in
+              a command that looked finished. The field is where the person can act.
+            */}
+            {forced?.how === 'default' && (
+              <span
+                className={HELP}
+              >{`Written as ${forced.text} because a later value is set.`}</span>
+            )}
+            {forced?.how === 'placeholder' && (
+              <span className={WARNING}>Needed because a later value is set.</span>
+            )}
+            {diagnostics.map((d, i) => (
+              <span key={i} className={WARNING}>
+                {d.message}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
+
+/** The "optional" mark after an argument's name. A mark, so the muted step is enough. */
+const OPTIONAL =
+  'border-hairline border-border-hover text-text-muted rounded-pill px-1.5 text-1xs font-normal'

@@ -199,10 +199,7 @@ function toHex([r, g, b]: [number, number, number]): string {
  * here keeps the two agreeing exactly as the shared source intends. Picking a fourth
  * colour by eye is how that relationship gets quietly lost.
  */
-export function productSkin(
-  theme: Theme,
-  accent: string = PRODUCT_ACCENT,
-): { base: string; elevated: string; overlay: string } {
+export function productSkin(theme: Theme, accent: string = PRODUCT_ACCENT): ProductSkin {
   const hue = hueOf(accent)
   const preset = SKIN[theme]
   const base = hsl(hue, preset.base[0], preset.base[1])
@@ -210,11 +207,50 @@ export function productSkin(
   const overlay = base.map((channel, i) =>
     Math.round(elevated[i]! * ELEVATED_ALPHA + channel * (1 - ELEVATED_ALPHA)),
   ) as [number, number, number]
+  const text = hsl(hue, TEXT[theme].tint[0], TEXT[theme].tint[1])
+  const over = (alpha: number) => `rgba(${text.join(', ')}, ${alpha})`
   return {
     base: toHex(base),
     elevated: `rgba(${elevated.join(', ')}, ${ELEVATED_ALPHA})`,
     overlay: toHex(overlay),
+    text: {
+      primary: toHex(text),
+      secondary: over(TEXT[theme].secondary),
+      muted: over(TEXT[theme].muted),
+      faint: over(TEXT[theme].faint),
+    },
   }
+}
+
+/** The runtime overrides a theme writes, all derived from one accent. */
+export interface ProductSkin {
+  base: string
+  elevated: string
+  overlay: string
+  /**
+   * The text ramp, tinted toward the accent's hue.
+   *
+   * Pure white on the ember canvas is roughly 18:1, far past what a 12px UI needs, and
+   * a large part of why the editor read as harsh: every label glared at full strength.
+   * The tinted primary stays well above AAA and stops fighting the ground it sits on.
+   * Derived rather than chosen, like the canvas, so another accent retints it too.
+   */
+  text: { primary: string; secondary: string; muted: string; faint: string }
+}
+
+/**
+ * The text ramp per theme: the primary's saturation and lightness, and how strongly
+ * each lighter step is laid over the ground.
+ *
+ * The alphas are the shared source's own. Only the colour under them moves, so the
+ * steps keep the spacing kollektiv gave them.
+ */
+const TEXT: Record<
+  Theme,
+  { tint: [number, number]; secondary: number; muted: number; faint: number }
+> = {
+  dark: { tint: [0.35, 0.94], secondary: 0.6, muted: 0.4, faint: 0.25 },
+  light: { tint: [0.25, 0.05], secondary: 0.65, muted: 0.45, faint: 0.3 },
 }
 
 /**
@@ -270,4 +306,8 @@ export function applyTheme(
   root.style.setProperty('--bg-base', skin.base)
   root.style.setProperty('--bg-elevated', skin.elevated)
   root.style.setProperty('--bg-overlay', skin.overlay)
+  root.style.setProperty('--text-primary', skin.text.primary)
+  root.style.setProperty('--text-secondary', skin.text.secondary)
+  root.style.setProperty('--text-muted', skin.text.muted)
+  root.style.setProperty('--text-faint', skin.text.faint)
 }

@@ -8,9 +8,13 @@
  */
 export const ROW = 'flex flex-wrap items-end gap-2'
 
-export const ROW_ADD = 'text-accent text-2xs'
+export const ROW_ADD =
+  'text-accent hover:bg-accent/10 self-start rounded-md px-1.5 py-0.5 text-xs font-medium ' +
+  'transition-colors duration-fast motion-reduce:transition-none'
 
-export const ROW_REMOVE = 'text-text-muted text-2xs'
+export const ROW_REMOVE =
+  'text-text-muted hover:text-danger rounded-md px-1.5 py-0.5 text-xs ' +
+  'transition-colors duration-fast motion-reduce:transition-none'
 
 /** A removable block of fields, set off from the ones around it by a hairline. */
 export const ROW_GROUP = 'border-l-hairline border-border-subtle flex flex-col gap-2 pl-2'

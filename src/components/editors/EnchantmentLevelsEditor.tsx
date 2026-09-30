@@ -1,7 +1,7 @@
 import type { SerializeContext } from '../../data/versions/types'
 import type { EnchantmentsValue } from '../../data/authored/item-components'
 import { RegistryPicker } from './RegistryPicker'
-import { LABEL } from './fieldStyles'
+import { SUB_LABEL } from './fieldStyles'
 import { Segmented } from '../ui/Segmented'
 import { Stepper } from '../ui/Stepper'
 import { ROW_ADD, ROW_REMOVE, ROW } from './rowStyles'
@@ -72,7 +72,7 @@ export function EnchantmentLevelsEditor({ value, onChange, ctx }: EnchantmentLev
             trait decides whether either is offered. */}
         {ctx.traits.enchantmentsShape === 'levels-wrapper' && (
           <div className="flex items-center gap-2">
-            <span className={LABEL}>tooltip</span>
+            <span className={SUB_LABEL}>tooltip</span>
             <Segmented
               aria-label="Show in tooltip"
               value={value.showInTooltip === undefined ? '' : String(value.showInTooltip)}

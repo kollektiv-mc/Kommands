@@ -190,10 +190,10 @@ test('driving /execute through the app, where the Ref was never wired', async ()
   // The run clause is optional, so it appears only once chosen — and choosing it
   // without choosing a command leaves a visible gap rather than a finished-looking
   // command that does nothing.
-  await pick(user, screen.getAllByLabelText('Clause').at(-1)!, 'run')
+  await pick(user, screen.getByRole('radiogroup', { name: 'Continue with' }), 'run')
   expect(output()).toBe('/execute as @p run <command>')
 
-  await pick(user, screen.getByLabelText('command'), '/particle')
+  await pick(user, screen.getByLabelText('Command'), '/particle')
   // /particle's optional tail contributes nothing, and its optional `viewers` seeds
   // nothing: the two tokens that made the canonical fixture unproducible.
   expect(output()).toBe('/execute as @p run particle <name>')
@@ -348,12 +348,12 @@ test('re-pointing an embedded command clears what the last one held', async () =
   )
   const output = () => container.querySelector('code')?.textContent
 
-  await pick(user, screen.getAllByLabelText('Clause').at(-1)!, 'run')
-  await pick(user, screen.getByLabelText('command'), '/give')
+  await pick(user, screen.getByRole('radiogroup', { name: 'Continue with' }), 'run')
+  await pick(user, screen.getByLabelText('Command'), '/give')
   await user.type(screen.getByLabelText('Item'), 'stone')
   expect(output()).toBe('/execute run give @p minecraft:stone')
 
-  await pick(user, screen.getByLabelText('command'), '/particle')
+  await pick(user, screen.getByLabelText('Command'), '/particle')
   expect(output()).toBe('/execute run particle <name>')
 })
 
