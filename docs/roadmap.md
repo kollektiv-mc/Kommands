@@ -63,6 +63,24 @@ is a declared value shape per argument type; see [`persistence.md`](persistence.
   version, world and online player list it already knows. Shares the persistence
   encoding rather than paralleling it. [#43](https://github.com/kollektiv-mc/Kommands/issues/43)
 
+### Alongside: the command page, rebuilt
+
+Not a step in the order above, and nothing in it waits on this or blocks it. The page
+every session happens on reads as cramped and shifting: one wrapping row per command,
+platform dropdowns that open as white GTK lists in the desktop WebView, 9 to 11px text,
+no hover or focus states, and an `/execute` chain that names each keyword three times.
+A reviewed mockup set the target, and it lands as a stack of pull requests, one concern
+each ([#107](https://github.com/kollektiv-mc/Kommands/issues/107)):
+
+1. The editor route loads on demand, so the entry chunk has room for the rest.
+2. A later argument keeps its slot when an earlier optional one is empty, which settles
+   what `ArgumentNode.default` means ([#30](https://github.com/kollektiv-mc/Kommands/issues/30)).
+3. Suite controls replace the native `<select>` and `<datalist>`.
+4. One argument per row, labels wired by id.
+5. A pinned output that shows the command as readable, hover-linked segments.
+6. Editors for the coordinate, registry and enum types that fall back to a text field.
+7. `/execute` as a numbered chain of steps ending in `run`.
+
 Exit criterion: a command saved in the standalone build appears in Konnekt, and an
 edit here reaches it — while the web build generates every command it does today and
 says plainly which of these it cannot do.

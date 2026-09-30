@@ -1,6 +1,5 @@
-import { createRoute } from '@tanstack/react-router'
+import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
 import { editorRoute } from './commands'
-import { CommandEditor } from '../components/CommandEditor'
 import { loadRegistries } from '../data/loadGenerated'
 import { loadCatalogue } from '../data/catalogue'
 import { v1_21_1 } from '../data/versions/1.21.1'
@@ -46,5 +45,19 @@ export const commandRoute = createRoute({
     // required loading it — so this costs a reference, not a fetch.
     return { definition: catalogue[params.commandId], catalogue, registries }
   },
-  component: CommandEditor,
+  /**
+   * The editor, fetched on first use rather than carried by every page load.
+   *
+   * Everything below it (the workbench, the renderer, every argument editor, the
+   * serializer and the WorldEdit evaluator) is only ever reached from here, so one
+   * boundary moves all of it out of the entry chunk. The dashboard is what a session
+   * opens on, and it has never needed any of it.
+   *
+   * The overlay and the navbar stay eager in `EditorShell`, so the panel still grows
+   * out of the tile that opened it. TanStack Router starts this import alongside the
+   * loader above and renders the match only when both have settled, so the component
+   * is in hand for the first paint exactly as it was when it was imported statically:
+   * the loader's registries fetch is already the longer wait.
+   */
+  component: lazyRouteComponent(() => import('../components/CommandEditor'), 'CommandEditor'),
 })

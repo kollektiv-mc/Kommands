@@ -33,7 +33,37 @@ const ENTRY_BUDGET_KB = 120
 // what the library actually ships.
 const THREE_FINGERPRINTS = ['WebGLRenderer', 'BufferGeometry', 'InstancedMesh']
 
+// The same claim for the command editor. Everything the editor route renders (the
+// workbench, the renderer, every argument editor, the WorldEdit evaluator) is reached
+// only through `lazyRouteComponent` in src/routes/command.tsx, and that boundary is
+// what freed the entry chunk for the dashboard. One eager import of any of it pulls
+// the whole tree back in without failing anything but this.
+//
+// Matched on strings the editor itself renders, which survive minification, rather
+// than on component names, which do not.
+const EDITOR_FINGERPRINTS = [
+  'This command embeds itself', // CommandRenderer
+  'It may loop forever', // the WorldEdit expression compiler
+]
+
 const distAssets = join('dist', 'assets')
+
+// The entry is whatever index.html loads, not whatever file happens to be called
+// index-*. A dynamically imported module named index.ts gets an index-* chunk of its
+// own (src/data/authored/ui/index.ts does), and matching on the name would measure
+// whichever of them sorts first.
+let entryFile: string
+try {
+  const html = await readFile(join('dist', 'index.html'), 'utf8')
+  const src = /<script[^>]*type="module"[^>]*src="[^"]*\/assets\/([^"]+\.js)"/.exec(html)?.[1]
+  if (src === undefined) throw new Error('no module script')
+  entryFile = src
+} catch {
+  console.error(
+    'check-bundle: cannot find the entry script in dist/index.html. Run `pnpm build` first.',
+  )
+  process.exit(1)
+}
 
 let files: string[]
 try {
@@ -56,19 +86,18 @@ const rows = await Promise.all(
 rows.sort((a, b) => b.gzipKB - a.gzipKB)
 
 console.log('Bundle sizes (gzip):')
-const entryPattern = /^index-.*\.js$/
 for (const { file, gzipKB } of rows) {
   // Everything that is not the entry chunk is, by construction, reached through a
   // dynamic import — Vite emits a separate chunk for nothing else. Listing them by an
   // allowlist of names meant adding a name every time something new was split out, and
   // a preview chunk carries the module's filename rather than a name chosen here.
-  const lazy = entryPattern.test(file) ? '' : '  (lazy)'
+  const lazy = file === entryFile ? '' : '  (lazy)'
   console.log(`  ${gzipKB.toFixed(1).padStart(8)} KB  ${file}${lazy}`)
 }
 
-const entry = rows.find((r) => entryPattern.test(r.file))
+const entry = rows.find((r) => r.file === entryFile)
 if (!entry) {
-  console.error('check-bundle: no index-*.js entry chunk in dist/assets')
+  console.error(`check-bundle: dist/index.html loads ${entryFile}, which is not in dist/assets`)
   process.exit(1)
 }
 
@@ -81,6 +110,17 @@ if (leaked.length > 0) {
   process.exit(1)
 }
 console.log('\u2713 Three.js is not in the entry chunk.')
+
+const eager = EDITOR_FINGERPRINTS.filter((text) => entry.source.includes(text))
+if (eager.length > 0) {
+  console.error(
+    `\n\u2716 The command editor is in the entry chunk (found "${eager.join('", "')}").`,
+  )
+  console.error('  Something outside the editor route imports it statically. It is meant to')
+  console.error('  be reached only through lazyRouteComponent in src/routes/command.tsx.')
+  process.exit(1)
+}
+console.log('\u2713 The command editor is not in the entry chunk.')
 
 console.log(
   `\nEntry chunk (${entry.file}): ${entry.gzipKB.toFixed(1)} KB gzip ` +

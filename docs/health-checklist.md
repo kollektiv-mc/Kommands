@@ -403,7 +403,10 @@ belongs here.
       This is the headless half of capping the evaluated volume.
 - [x] There is an agreed production bundle budget, checked in CI. 120 KB gzip on the
       entry chunk, via `pnpm check-bundle`, run by `.github/workflows/ci.yml` on every
-      push. Currently 116.6 KB. Konnekt's equivalent is 165 KB. It was 550 KB
+      push. Currently 100.1 KB, since the editor route loads on demand (#107): it was
+      118.0 KB with every editor eager. The same script fails if the editor's own text
+      reaches the entry chunk, which makes the route boundary a structural claim rather
+      than a size one. Konnekt's equivalent is 165 KB. It was 550 KB
       before its scheduler/config/mods code split, and that gap used to be the
       point: this app's data was lazy and Konnekt's dependencies were not. Both
       lazy-load now, so what is left is a much narrower difference.
@@ -456,26 +459,6 @@ it should be stable between runs.
   doing exactly that for the editor. The work is generalising that overlay to take any
   panel rather than only the editor, not writing a new one. Until then the control is
   honest rather than green.
-
-**P3 — Entry-chunk headroom is down to 5 KB**
-
-- The title bar, settings dialog, icon set, pinned-generator store and its tile cost
-  2.8 KB gzip; the dashboard tile's icon controls and the content-change comparison
-  behind `revision` added 0.5 KB, and the collapse (`ui/Collapsible`, `lib/motion`, the
-  chevron) plus the web build's floating frame another 0.7 KB. The clause chain editor
-  (#34) added 0.5 KB more, leaving **117.2 KB against the 120 KB ceiling and 2.8 KB of
-  headroom.** That is still a pass, and it is the reason the icons are six inline paths
-  rather than a dependency. The next UI feature of this size needs either a lazy
-  boundary or a considered budget raise — and the budget is a number someone can raise,
-  which is why `check-bundle.ts` also asserts three.js is structurally absent rather
-  than merely small enough.
-
-  The chain editor is what this entry asked for and is worth reading as the worked
-  example: it is a whole node UI and it cost 0.5 KB here, because the editor itself is
-  a lazy chunk (1.2 KB) and only the undo history and its two controls are eager. The
-  0.5 KB is the part that genuinely belongs to every command, since undo steps a typed
-  argument as readily as a reorder. A Repeat appears in a minority of definitions, so
-  the rest is paid for by whoever opens one.
 
 **P2 — The version-comparison guard cannot see a named constant**
 
@@ -544,24 +527,6 @@ it should be stable between runs.
   meantime. This outlives
   [#11](https://github.com/kollektiv-mc/Kommands/issues/11), which the evaluator
   otherwise closes.
-
-**P2 — The expression evaluator ships in the entry chunk, for every command**
-
-- Wiring `we_expression`'s validator to the real evaluator moved the entry chunk from
-  98.4 KB to 103.7 KB gzip. That is inside the 120 KB budget, and it is the price of the
-  field telling the truth as you type — but the cost is paid by someone who only ever
-  opens `/give`. The cause is structural rather than local: the argument-type registry in
-  `argument-types/index.ts` is one eagerly-constructed object, so every type's validator,
-  editor and serializer is statically reachable from every route. Making one lazy means an
-  async validator, which changes the contract for every type in the registry.
-  **The moment this entry was waiting for has arrived and was deliberately not taken.**
-  The preview does want the evaluator lazily, and `src/previews/worldedit/shape/voxels.ts`
-  imports it — but that import is already inside a lazy chunk, so the preview neither
-  worsens nor fixes this. Splitting the whole `we_expression` type, editor included, is
-  still the cleaner cut than special-casing its validator; it was left out of #12 because
-  changing the argument-type contract for all ten types is its own change, not a rider on
-  a preview. Entry chunk is 105.3 KB with 14.7 KB spare, so this is a tidiness debt rather
-  than a pressing one.
 
 **P2 — `gen:diff` can pin to a branch**
 
