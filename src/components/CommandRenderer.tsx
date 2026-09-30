@@ -1,4 +1,4 @@
-import { lazy, Suspense, useId, type ReactNode } from 'react'
+import { lazy, Suspense, useId, useRef, type ReactNode } from 'react'
 import type { SerializeContext } from '../data/versions/types'
 import { argumentOptions, lookupArgumentType } from '../schema/argument-types'
 import {
@@ -12,7 +12,7 @@ import {
   type InstanceId,
   type Path,
 } from '../schema/paths'
-import type { CommandValue, ForcedSlot } from '../schema/serialize'
+import { serializeSubtree, type CommandValue, type ForcedSlot } from '../schema/serialize'
 import {
   REF_ANY,
   type CommandDefinition,
@@ -27,11 +27,14 @@ import { Switch } from './ui/Switch'
 import {
   argumentPresentation,
   branchLabel,
+  chainTail,
   choiceControl,
   choiceLabel,
   NO_BRANCH_LABEL,
 } from '../schema/presentation'
 import { Listbox } from './ui/Listbox'
+// Type-only, so it is erased and the chain's chunk stays lazy.
+import type { StepNaming } from './editors/ClauseChain'
 import { useLit, useOutputHover } from '../stores/useOutputHover'
 import type { ListOption } from '../lib/listbox'
 
@@ -62,10 +65,14 @@ const ClauseChain = lazy(() => import('./editors/ClauseChain'))
 interface Actions {
   setArg: (path: Path, value: unknown) => void
   setFlag: (path: Path, on: boolean) => void
-  setChoice: (path: Path, index: number) => void
-  addInstance: (path: Path, node: { min?: number; max?: number }) => void
+  setChoice: (path: Path, index: number, tag?: string) => void
+  addInstance: (
+    path: Path,
+    node: { min?: number; max?: number },
+    place?: { at?: number; branch?: number },
+  ) => void
   reorderRepeat: (path: Path, ids: readonly InstanceId[], tag?: string) => void
-  setRef: (path: Path, definitionId: string) => void
+  setRef: (path: Path, definitionId: string, tag?: string) => void
 }
 
 /** Every command a `@any` Ref may embed, by id. */
@@ -170,7 +177,14 @@ interface NodeViewProps {
   nested: boolean
   /** The node is a clause of a Repeat, drawn inside the chain editor's card. */
   inClause?: boolean
+  /**
+   * For a Repeat: the Choice after it that ends its chain (`chainTail`), which the chain
+   * draws as its last step. Handed to that one node only, never passed further down.
+   */
+  tail?: { node: ChoiceNode; path: Path }
 }
+
+type ChoiceNode = Extract<Node, { kind: 'choice' }>
 
 /** One row of the form: the name column and the control column. */
 const ROW =
@@ -249,11 +263,27 @@ function assertNever(node: never): never {
 function SequenceView(props: NodeViewProps & { node: Extract<Node, { kind: 'sequence' }> }) {
   const { node, path } = props
   const above = literalChains(node.nodes, props.literals)
+  const chain = chainTail(node.nodes)
+  const ending = node.nodes[chain + 1]
   return (
     <div className="flex flex-col gap-0.5">
-      {node.nodes.map((n, i) => (
-        <NodeView key={i} {...props} node={n} path={child(path, i)} literals={above[i]!} />
-      ))}
+      {node.nodes.map((n, i) =>
+        // The chain's last step is drawn by the chain, inside it, not as a row after.
+        chain >= 0 && i === chain + 1 ? null : (
+          <NodeView
+            key={i}
+            {...props}
+            node={n}
+            path={child(path, i)}
+            literals={above[i]!}
+            tail={
+              i === chain && ending?.kind === 'choice'
+                ? { node: ending, path: child(path, i + 1) }
+                : undefined
+            }
+          />
+        ),
+      )}
     </div>
   )
 }
@@ -283,6 +313,21 @@ function ChoiceView(props: NodeViewProps & { node: Extract<Node, { kind: 'choice
   const chosen = selected === NO_BRANCH ? undefined : node.nodes[selected]
   const options = branchOptions(node, scope.ui, literals)
   const pick = (next: string) => actions.setChoice(path, Number(next))
+
+  // A step of a chain already says what it is, in its header, and was chosen from the
+  // add menu. So the picker is not drawn again inside it; only a step with nothing
+  // chosen yet (a tree saved before the menu chose one) still shows it.
+  if (inClause && chosen) {
+    return (
+      <NodeView
+        {...props}
+        node={chosen}
+        path={branch(path, selected)}
+        nested={false}
+        inClause={false}
+      />
+    )
+  }
 
   return (
     <>
@@ -327,24 +372,26 @@ function ChoiceView(props: NodeViewProps & { node: Extract<Node, { kind: 'choice
 }
 
 function RepeatView(props: NodeViewProps & { node: Extract<Node, { kind: 'repeat' }> }) {
-  const { node, path, value, actions, scope } = props
-  // The rows this replaced were a documented placeholder: they proved the data
-  // layer end to end and caught two bugs no unit test saw, and they were never the
-  // design (#34). What survived the rewrite is everything that was not JSX - the id
-  // list handed to `reorderRepeat`, the identity model under it, and the value tree
-  // it permutes. The chain editor is a different *drawing* of the same three.
+  const { node, path, value, ctx, actions, scope, tail } = props
+  // The rows this replaced were a documented placeholder (#34). What survived is
+  // everything that was not JSX - the id list handed to `reorderRepeat`, the identity
+  // model under it, and the value tree it permutes. The chain is a different *drawing*
+  // of the same three.
   const ids = repeatInstances(value.repeats, path, node)
+  const resolve = (id: string) => scope.catalogue[id]
+  const kinds = stepKinds(node.node, scope.ui)
 
   return (
     <div className="px-3 py-2">
-      <Suspense fallback={<span className={HELP}>Loading the clause editor…</span>}>
+      <Suspense fallback={<span className={HELP}>Loading the step editor…</span>}>
         <ClauseChain
           ids={ids}
           min={node.min ?? 0}
           max={node.max}
-          naming={(id) => clauseNaming(node.node, instance(path, id), value, scope.ui)}
+          kinds={kinds}
+          naming={(id) => clauseNaming(node.node, instance(path, id), value, ctx, scope)}
           // The clause's own editors, rendered by this walk and handed over. The chain
-          // draws the node around them and knows nothing about what is inside.
+          // draws the step around them and knows nothing about what is inside.
           renderClause={(id) => (
             <NodeView
               {...props}
@@ -352,17 +399,13 @@ function RepeatView(props: NodeViewProps & { node: Extract<Node, { kind: 'repeat
               path={instance(path, id)}
               nested={false}
               inClause
+              tail={undefined}
             />
           )}
           // Moving and removing are one action, because to a path-keyed tree they are
           // one operation: a new ordering, with removal the case where an id is left
-          // out. Saying so once is what keeps a removed clause's values from coming
-          // back in the next one added.
-          //
-          // The chain's gesture tag is qualified with this Repeat's path before it
-          // reaches the store. The chain mints it from a counter of its own, so two
-          // chains on one page would otherwise both call their first drag `drag:1`
-          // and the second would coalesce into the first one's undo step.
+          // out. The chain's gesture tag is qualified with this Repeat's path, since
+          // two chains on one page each count their drags from one.
           onReorder={(next, gesture) =>
             actions.reorderRepeat(
               path,
@@ -370,11 +413,81 @@ function RepeatView(props: NodeViewProps & { node: Extract<Node, { kind: 'repeat
               gesture === undefined ? undefined : `${path}:${gesture}`,
             )
           }
-          onAdd={() => actions.addInstance(path, node)}
+          onAdd={(at, chosen) => actions.addInstance(path, node, { at, branch: chosen })}
+          tail={tail && chainEnding(tail.node, tail.path, props, resolve)}
         />
       </Suspense>
     </div>
   )
+}
+
+/**
+ * The kinds of step a Repeat of Choices offers, in the order its `ui.clauses` lists
+ * them, so a group's steps sit together under one heading. The skeleton's own order
+ * is alphabetical (mcmeta sorts it), which interleaves the groups. Anything not
+ * authored follows, in the skeleton's order.
+ */
+function stepKinds(node: Node, ui: UiMetadata | undefined) {
+  if (node.kind !== 'choice') return []
+  const authored = Object.keys(ui?.clauses ?? {})
+  const rank = (label: string) => {
+    const at = authored.indexOf(label)
+    return at < 0 ? authored.length : at
+  }
+  return node.nodes
+    .map((n, i) => {
+      const label = branchLabel(n, i, ui)
+      const entry = ui?.clauses?.[label]
+      return {
+        branch: i,
+        label: entry?.label ?? label,
+        help: entry?.help,
+        group: entry?.group,
+        key: label,
+      }
+    })
+    .sort((a, b) => rank(a.key) - rank(b.key))
+    .map(({ key: _key, ...kind }) => kind)
+}
+
+/**
+ * The step that ends a chain: an optional Choice of one branch, `run <command>`.
+ *
+ * Its keyword is the header, as every step's is. When the branch is a keyword and a
+ * command (`run` and a Ref), picking the command is what turns the step on, and
+ * "none" turns it off, so the step is one picker rather than an on/off choice above a
+ * command picker. Any other one-branch ending keeps its Choice row.
+ */
+function chainEnding(
+  node: ChoiceNode,
+  path: Path,
+  props: NodeViewProps,
+  resolve: (id: string) => CommandDefinition | undefined,
+) {
+  const { value, ctx, scope } = props
+  const only = node.nodes[0]!
+  const on = choiceSelection(value.choices, path, node) === 0
+  const label = branchLabel(only, 0, scope.ui)
+  const at = branch(path, 0)
+  const pieces = on ? serializeSubtree(only, at, value, ctx, { resolve }) : []
+  const parts = only.kind === 'sequence' ? only.nodes : []
+  const ref = parts.length === 2 && parts[0]?.kind === 'literal' ? parts[1] : undefined
+  const common = { ...props, literals: [...props.literals, label], nested: false, tail: undefined }
+  return {
+    label,
+    help: scope.ui?.clauses?.[label]?.help,
+    summary: pieces
+      .slice(1)
+      .map((p) => p.text)
+      .join(' '),
+    field: path,
+    body:
+      ref?.kind === 'ref' ? (
+        <RefView {...common} node={ref} path={child(at, 1)} detach={{ choice: path, on }} />
+      ) : (
+        <ChoiceView {...common} node={node} path={path} />
+      ),
+  }
 }
 
 function FlagsView({
@@ -407,17 +520,47 @@ function FlagsView({
 }
 
 /**
+ * The "none" entry in a detachable Ref's picker. Not `''`, which is the picker's own
+ * "nothing chosen yet": a step turned on with no command picked shows the placeholder,
+ * not "none". A definition id always has a colon, so this can never be one.
+ */
+const NO_COMMAND = 'none'
+
+/**
  * A command embedded in another — `/execute … run <command>`.
  *
  * The picker and the embedded form are one node, not two: choosing a command is the
  * only way the inner tree comes into existence, and the inner tree is rendered by the
  * same walk as the outer one. Nothing here knows which command was chosen.
  */
-function RefView(props: NodeViewProps & { node: Extract<Node, { kind: 'ref' }> }) {
-  const { node, path, value, actions, scope } = props
+function RefView(
+  props: NodeViewProps & {
+    node: Extract<Node, { kind: 'ref' }>
+    /**
+     * The Ref is the only thing in a one-branch Choice (`run <command>`), which picking
+     * a command turns on and "none" turns off. See `chainEnding`.
+     */
+    detach?: { choice: Path; on: boolean }
+  },
+) {
+  const { detach, ...walk } = props
+  const { node, path, value, actions, scope } = walk
   const labelId = useId()
+  const picks = useRef(0)
   const isAny = node.definitionId === REF_ANY
-  const chosenId = isAny ? (value.refs[path] ?? '') : node.definitionId
+  const off = detach !== undefined && !detach.on
+  const chosenId = off ? NO_COMMAND : isAny ? (value.refs[path] ?? '') : node.definitionId
+  const commands = Object.values(scope.catalogue).map((d) => ({ value: d.id, label: d.label }))
+  const pickCommand = (next: string) => {
+    if (detach === undefined) return actions.setRef(path, next)
+    if (next === NO_COMMAND) return actions.setChoice(detach.choice, NO_BRANCH)
+    // Turning the step on and choosing its command are one act, so one undo step: the
+    // two writes share a tag the history coalesces on, fresh for every pick.
+    picks.current += 1
+    const tag = `${path}:pick:${picks.current}`
+    actions.setChoice(detach.choice, 0, tag)
+    actions.setRef(path, next, tag)
+  }
   const target = scope.catalogue[chosenId]
 
   // The embedded command's own metadata, and one less depth to spend. Its values are
@@ -438,8 +581,10 @@ function RefView(props: NodeViewProps & { node: Extract<Node, { kind: 'ref' }> }
               aria-labelledby={labelId}
               value={chosenId}
               placeholder="choose a command"
-              options={Object.values(scope.catalogue).map((d) => ({ value: d.id, label: d.label }))}
-              onChange={(next) => actions.setRef(path, next)}
+              options={
+                detach ? [{ value: NO_COMMAND, label: NO_BRANCH_LABEL }, ...commands] : commands
+              }
+              onChange={pickCommand}
               className="min-w-48"
             />
           </div>
@@ -447,7 +592,14 @@ function RefView(props: NodeViewProps & { node: Extract<Node, { kind: 'ref' }> }
       )}
       <AnimatedHeight contentKey={chosenId} className={target ? INDENT : ''}>
         {target && scope.depth > 0 && (
-          <NodeView {...props} node={target.root} scope={inner} literals={[]} nested />
+          <NodeView
+            {...walk}
+            node={target.root}
+            scope={inner}
+            literals={[]}
+            nested
+            tail={undefined}
+          />
         )}
         {target && scope.depth <= 0 && (
           <span className={`${WARNING} px-3`}>
@@ -478,19 +630,27 @@ function clauseNaming(
   node: Node,
   path: Path,
   value: CommandValue,
-  ui?: UiMetadata,
-): { label: string; help?: string } {
-  if (node.kind !== 'choice') return { label: 'clause' }
+  ctx: SerializeContext,
+  scope: Scope,
+): StepNaming {
+  const resolve = (id: string) => scope.catalogue[id]
+  const pieces = serializeSubtree(node, path, value, ctx, { resolve })
+  // What the step writes, less its keyword, which the header shows as the chip.
+  const summary = pieces
+    .filter((p, i) => !(i === 0 && p.kind === 'keyword'))
+    .map((p) => p.text)
+    .join(' ')
+  if (node.kind !== 'choice') return { label: 'step', summary, field: path }
 
   const selected = choiceSelection(value.choices, path, node)
   const chosen = selected === NO_BRANCH ? undefined : node.nodes[selected]
   // An optional Choice starts with nothing applied, and that is a state rather than an
-  // error: the clause exists and has not been told what to be yet.
-  if (chosen === undefined) return { label: 'not set' }
+  // error: the step exists and has not been told what to be yet.
+  if (chosen === undefined) return { label: 'not set', summary, field: path }
 
-  const derived = branchLabel(chosen, selected, ui)
-  const authored = ui?.clauses?.[derived]
-  return { label: authored?.label ?? derived, help: authored?.help }
+  const derived = branchLabel(chosen, selected, scope.ui)
+  const authored = scope.ui?.clauses?.[derived]
+  return { label: authored?.label ?? derived, help: authored?.help, summary, field: path }
 }
 
 /**

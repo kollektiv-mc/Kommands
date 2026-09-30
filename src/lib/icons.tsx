@@ -19,6 +19,7 @@
 export const PATHS = {
   minus: 'M5 12h14',
   plus: 'M5 12h14 M12 5v14',
+  play: 'M6 3l14 9-14 9z',
   check: 'M20 6 9 17l-5-5',
   // Lucide's `ellipsis`: three dots drawn as zero-length strokes with round caps.
   more: 'M12 12h.01 M19 12h.01 M5 12h.01',

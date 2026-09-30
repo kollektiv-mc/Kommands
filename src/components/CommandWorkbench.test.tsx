@@ -37,6 +37,12 @@ const renderGive = () =>
 
 beforeEach(() => useCommandStore.getState().reset())
 
+/** Add a step of `kind` from the chain's add menu, which is a lazy chunk the first time. */
+async function addStep(user: ReturnType<typeof userEvent.setup>, kind: string) {
+  await user.click(await screen.findByRole('button', { name: 'Add a step' }))
+  await user.click(screen.getByRole('button', { name: kind }))
+}
+
 test('building an item in the editors produces the canonical command', async () => {
   // The whole thing end to end: derived definition -> renderer -> value tree ->
   // serializer -> output, with nothing command-specific anywhere in between. The
@@ -214,16 +220,11 @@ test('driving /execute through the app, where the Ref was never wired', async ()
 
   // findBy, not getBy: the clause chain is a lazy chunk, so the first render of a
   // Repeat in this file shows the Suspense fallback until the import resolves.
-  await user.click(await screen.findByLabelText('Add clause'))
-  await pick(user, screen.getAllByLabelText('Clause')[0]!, 'as')
+  await addStep(user, 'as')
   expect(output()).toBe('/execute as @p')
 
-  // The run clause is optional, so it appears only once chosen — and choosing it
-  // without choosing a command leaves a visible gap rather than a finished-looking
-  // command that does nothing.
-  await pick(user, screen.getByRole('radiogroup', { name: 'Continue with' }), 'run')
-  expect(output()).toBe('/execute as @p run <command>')
-
+  // The run step is optional and ends the chain. Picking its command is what turns it
+  // on, so there is no second control to forget.
   await pick(user, screen.getByLabelText('Command'), '/particle')
   // /particle's optional tail contributes nothing, and its optional `viewers` seeds
   // nothing: the two tokens that made the canonical fixture unproducible.
@@ -246,10 +247,8 @@ test('reordering clauses reorders the command, and removing one takes its values
   )
   const output = () => container.querySelector('code')?.textContent
 
-  await user.click(await screen.findByLabelText('Add clause'))
-  await pick(user, screen.getAllByLabelText('Clause')[0]!, 'as')
-  await user.click(screen.getByLabelText('Add clause'))
-  await pick(user, screen.getAllByLabelText('Clause')[1]!, 'at')
+  await addStep(user, 'as')
+  await addStep(user, 'at')
   expect(output()).toBe('/execute as @p at @p')
 
   // Make the two clauses tell each other apart before moving them.
@@ -258,10 +257,10 @@ test('reordering clauses reorders the command, and removing one takes its values
   await user.type(second, '@s')
   expect(output()).toBe('/execute as @p at @s')
 
-  await user.click(screen.getByLabelText('Move clause 2 earlier'))
+  await user.click(screen.getByRole('button', { name: 'Move step 2 earlier' }))
   expect(output()).toBe('/execute at @s as @p')
 
-  await user.click(screen.getByLabelText('Remove clause 1'))
+  await user.click(screen.getByRole('button', { name: 'Remove step 1' }))
   expect(output()).toBe('/execute as @p')
 })
 
@@ -379,8 +378,7 @@ test('re-pointing an embedded command clears what the last one held', async () =
   )
   const output = () => container.querySelector('code')?.textContent
 
-  await pick(user, screen.getByRole('radiogroup', { name: 'Continue with' }), 'run')
-  await pick(user, screen.getByLabelText('Command'), '/give')
+  await pick(user, await screen.findByLabelText('Command'), '/give')
   await user.type(screen.getByLabelText('Item'), 'stone')
   expect(output()).toBe('/execute run give @p minecraft:stone')
 
@@ -467,8 +465,8 @@ test('a reordered clause takes its component state with it, not just its values'
   const user = userEvent.setup()
   renderRepeated()
 
-  await user.click(screen.getByLabelText('Add clause'))
-  await user.click(screen.getByLabelText('Add clause'))
+  await user.click(screen.getByRole('button', { name: 'Add a step' }))
+  await user.click(screen.getByRole('button', { name: 'Add a step' }))
 
   const items = () => screen.getAllByLabelText('Item')
   const menus = () => screen.getAllByRole('button', { name: 'Add component' })
@@ -483,7 +481,7 @@ test('a reordered clause takes its component state with it, not just its values'
   expect(expanded()).toEqual(['false', 'true'])
 
   // From the keyboard, so no press lands outside the open menu and closes it first.
-  screen.getByLabelText('Move clause 2 earlier').focus()
+  screen.getByRole('button', { name: 'Move step 2 earlier' }).focus()
   await user.keyboard('{Enter}')
 
   // Both halves move together, which is the whole of the fix.
@@ -503,14 +501,14 @@ test('the DOM node moves with the clause, which is what carries focus and select
   const user = userEvent.setup()
   renderRepeated()
 
-  await user.click(screen.getByLabelText('Add clause'))
-  await user.click(screen.getByLabelText('Add clause'))
+  await user.click(screen.getByRole('button', { name: 'Add a step' }))
+  await user.click(screen.getByRole('button', { name: 'Add a step' }))
 
   const items = () => screen.getAllByLabelText<HTMLInputElement>('Item')
   await user.type(items()[1]!, 'stone')
   const second = items()[1]!
 
-  await user.click(screen.getByLabelText('Move clause 2 earlier'))
+  await user.click(screen.getByRole('button', { name: 'Move step 2 earlier' }))
 
   expect(items()[0]).toBe(second)
   expect(items()[0]!.value).toBe('stone')
@@ -522,10 +520,10 @@ test('a removed clause does not leave its values for the next one', async () => 
   const user = userEvent.setup()
   renderRepeated()
 
-  await user.click(screen.getByLabelText('Add clause'))
+  await user.click(screen.getByRole('button', { name: 'Add a step' }))
   await user.type(screen.getAllByLabelText('Item')[0]!, 'stone')
-  await user.click(screen.getByLabelText('Remove clause 1'))
-  await user.click(screen.getByLabelText('Add clause'))
+  await user.click(screen.getByRole('button', { name: 'Remove step 1' }))
+  await user.click(screen.getByRole('button', { name: 'Add a step' }))
 
   expect(screen.getAllByLabelText<HTMLInputElement>('Item')[0]!.value).toBe('')
 })
@@ -536,12 +534,12 @@ test('a Repeat stops offering + add at its max', async () => {
   const user = userEvent.setup()
   renderRepeated()
 
-  await user.click(screen.getByLabelText('Add clause'))
-  expect(screen.queryByLabelText('Add clause')).not.toBeNull()
+  await user.click(screen.getByRole('button', { name: 'Add a step' }))
+  expect(screen.queryByRole('button', { name: 'Add a step' })).not.toBeNull()
 
-  await user.click(screen.getByLabelText('Add clause'))
+  await user.click(screen.getByRole('button', { name: 'Add a step' }))
   expect(screen.getAllByLabelText('Item')).toHaveLength(2)
-  expect(screen.queryByLabelText('Add clause')).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Add a step' })).toBeNull()
 })
 
 test('a field the output had to fill says so, and says why', () => {
@@ -620,4 +618,53 @@ test('a closed set of words is picked, not typed', async () => {
   )
   await user.click(screen.getByRole('radio', { name: 'creative' }))
   expect(container.querySelector('code')?.textContent).toBe('/gamemode creative')
+})
+
+test('a step inserted between two lands between them in the command', async () => {
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={withUi(commands['vanilla:execute']!)}
+      version={v1_21_1}
+      registries={registries}
+      catalogue={commands}
+    />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+
+  await addStep(user, 'as')
+  await addStep(user, 'at')
+  await user.click(screen.getByRole('button', { name: 'Insert a step after step 1' }))
+  await user.click(screen.getByRole('button', { name: 'positioned' }))
+  // A required choice inside a step starts on its first branch, as everywhere else.
+  expect(output()).toBe('/execute as @p positioned as @p at @p')
+  // Its header says what it is and its help what it does, from the authored ui.
+  const step = screen.getByRole('region', { name: 'Step 2, positioned' })
+  expect(within(step).getByText('Move the position without changing who runs it.')).toBeDefined()
+})
+
+test('turning the run step on and off, each one undo step', async () => {
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={withUi(commands['vanilla:execute']!)}
+      version={v1_21_1}
+      registries={registries}
+      catalogue={commands}
+    />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+
+  await pick(user, await screen.findByLabelText('Command'), '/say')
+  expect(output()).toBe('/execute run say <message>')
+
+  await pick(user, screen.getByLabelText('Command'), 'none')
+  expect(output()).toBe('/execute')
+
+  // Undo the "none", then undo the pick: the pick turned the step on and chose its
+  // command in one act, so one undo takes both back.
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+  expect(output()).toBe('/execute run say <message>')
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+  expect(output()).toBe('/execute')
 })

@@ -274,10 +274,13 @@ export interface UiMetadata {
    * regenerated, so a branch added upstream would silently repoint every entry after
    * it; the token moves with its branch.
    *
+   * `group` is the heading the clause sits under in the chain's add menu ("Change
+   * who or where"), so thirteen clauses read as three kinds of step.
+   *
    * Presentation, so it is outside the structural fingerprint by design and adding
    * entries here never invalidates a saved command. See `fingerprint.ts`.
    */
-  clauses?: Record<string, { label?: string; help?: string }>
+  clauses?: Record<string, { label?: string; help?: string; group?: string }>
 }
 
 export interface CommandDefinition {

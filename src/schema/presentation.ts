@@ -92,3 +92,23 @@ export function choiceControl(labels: readonly string[]): 'segmented' | 'listbox
  * into the other control.
  */
 export const enumControl = (values: readonly string[]) => choiceControl(['Default', ...values])
+
+/**
+ * Where a chain's last step is: the index of a Repeat whose next sibling is an
+ * optional Choice of one branch, or -1. That is `/execute`'s shape, `(clause)* [run
+ * <command>]`, and it is found by shape rather than by command id so the renderer
+ * still never branches on which command it is drawing. The Choice is then drawn as
+ * the chain's final step instead of as a row after it, where it sat outside the chain
+ * it ends.
+ */
+export function chainTail(nodes: readonly Node[]): number {
+  return nodes.findIndex((node, i) => {
+    const next = nodes[i + 1]
+    return (
+      node.kind === 'repeat' &&
+      next?.kind === 'choice' &&
+      next.optional === true &&
+      next.nodes.length === 1
+    )
+  })
+}

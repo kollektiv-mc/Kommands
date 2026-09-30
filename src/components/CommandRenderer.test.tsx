@@ -64,21 +64,21 @@ describe('the renderer walks a definition and nothing else', () => {
     // CommandRenderer, the schema would be the thing that is wrong.
     renderDef(EXECUTE)
     // findBy, because the clause chain is a lazy chunk and this is its first render.
-    expect(await screen.findByLabelText('Add clause')).toBeDefined()
-    // The run clause is optional and unselected, so the form offers it rather than
-    // asserting it: "none" is the chosen segment, and there is no command picker yet.
-    const tail = screen.getByRole('radiogroup', { name: 'Continue with' })
-    expect(within(tail).getByRole<HTMLInputElement>('radio', { name: 'none' }).checked).toBe(true)
-    expect(screen.queryByLabelText('Command')).toBeNull()
+    expect(await screen.findByRole('button', { name: 'Add a step' })).toBeDefined()
+    // The run clause is optional and unselected. It is the chain's last step, found by
+    // its shape, and its picker says "none" rather than offering an embedded form.
+    const last = screen.getByRole('region', { name: 'Last step, run' })
+    expect(within(last).getByLabelText('Command').textContent).toContain('none')
+    expect(screen.queryByRole('radiogroup', { name: 'Continue with' })).toBeNull()
   })
 
-  test('choosing the run clause reveals the command picker', () => {
+  test('turning the run step on with no command yet asks for one', async () => {
     renderDef(EXECUTE, { ...EMPTY_VALUE, choices: { '/2': 0 } })
-    expect(screen.getByRole<HTMLInputElement>('radio', { name: 'run' }).checked).toBe(true)
-    expect(screen.getByLabelText('Command')).toBeDefined()
+    const last = await screen.findByRole('region', { name: 'Last step, run' })
+    expect(within(last).getByLabelText('Command').textContent).toContain('choose a command')
   })
 
-  test('an embedded command renders inline, by the same walk', () => {
+  test('an embedded command renders inline, by the same walk', async () => {
     // The Ref's whole point: /give's own editors appear inside /execute, and nothing
     // in this file learned that /give exists.
     renderDef(EXECUTE, {
@@ -86,7 +86,8 @@ describe('the renderer walks a definition and nothing else', () => {
       choices: { '/2': 0 },
       refs: { '/2/|0/1': 'vanilla:give' },
     })
-    expect(screen.getByLabelText('Command').textContent).toContain('/give')
+    // findBy: the run step is drawn by the lazy chain, which this test may load first.
+    expect((await screen.findByLabelText('Command')).textContent).toContain('/give')
     for (const name of ['targets', 'item', 'count']) {
       expect(screen.getAllByText(name, { exact: false }).length).toBeGreaterThan(0)
     }

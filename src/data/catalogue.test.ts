@@ -74,6 +74,20 @@ describe('every definition in the catalogue is structurally sound', () => {
     expect(Object.values(catalogue).flatMap(definitionProblems)).toEqual([])
   })
 
+  test('a ui key that names nothing is caught', () => {
+    // The check proving itself: a label keyed by a name the skeleton does not have is
+    // never shown, and nothing else would notice.
+    const execute = catalogue['vanilla:execute']!
+    const broken = {
+      ...execute,
+      ui: { ...execute.ui, arguments: { tragets: { label: 'Targets' } }, clauses: { ass: {} } },
+    }
+    expect(definitionProblems(broken)).toEqual([
+      'vanilla:execute: ui.arguments names "tragets", which is not an argument here',
+      'vanilla:execute: ui.clauses names "ass", which no branch starts with',
+    ])
+  })
+
   test('a variadic argument with anything after it is caught', () => {
     // The check proving itself, on a definition deliberately built wrong. Without this
     // the test above passes just as happily when definitionProblems returns nothing.
@@ -85,6 +99,8 @@ describe('every definition in the catalogue is structurally sound', () => {
       // what this test is about.
       constraints: [],
       preview: undefined,
+      // And its labels, which name arguments this root does not have either.
+      ui: undefined,
       root: {
         kind: 'sequence',
         nodes: [
@@ -102,6 +118,8 @@ describe('every definition in the catalogue is structurally sound', () => {
       ...catalogue['worldedit:generate']!,
       constraints: [],
       preview: undefined,
+      // And its labels, which name arguments this root does not have either.
+      ui: undefined,
       root: {
         kind: 'repeat',
         node: { kind: 'argument', name: 'expression', type: 'we_expression', variadic: true },
