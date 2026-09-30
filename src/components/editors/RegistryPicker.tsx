@@ -14,6 +14,8 @@ import { Combobox } from '../ui/Combobox'
  * live in the list's footer, where they no longer push the row below down.
  */
 interface RegistryPickerProps {
+  id?: string
+  describedBy?: string
   value: string
   onChange: (next: string) => void
   /** Candidate ids, from ctx.registries.entries(...). */
@@ -23,6 +25,8 @@ interface RegistryPickerProps {
 }
 
 export function RegistryPicker({
+  id,
+  describedBy,
   value,
   onChange,
   entries,
@@ -32,6 +36,8 @@ export function RegistryPicker({
   const options = useMemo(() => entries.map((entry) => ({ value: entry, label: entry })), [entries])
   return (
     <Combobox
+      id={id}
+      aria-describedby={describedBy}
       value={value}
       options={options}
       onChange={onChange}

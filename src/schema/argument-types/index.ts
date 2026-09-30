@@ -14,6 +14,19 @@ import { ItemStackEditor } from '../../components/editors/ItemStackEditor'
 import { TextComponentEditor } from '../../components/editors/TextComponentEditor'
 import { PatternEditor } from '../../components/editors/PatternEditor'
 import { ExpressionEditor } from '../../components/editors/ExpressionEditor'
+import { coordinateEditor } from '../../components/editors/CoordinateEditor'
+import { enumEditor } from '../../components/editors/EnumEditor'
+import { ResourceEditor } from '../../components/editors/ResourceEditor'
+import { SwizzleEditor } from '../../components/editors/SwizzleEditor'
+import {
+  ENTITY_ANCHORS,
+  GAMEMODES,
+  HEIGHTMAPS,
+  SCOREBOARD_OPERATIONS,
+  TEAM_COLORS,
+  TEMPLATE_MIRRORS,
+  TEMPLATE_ROTATIONS,
+} from '../../data/authored/enums'
 import { selectorsFor } from '../../data/authored/selectors'
 import {
   emptyTextComponent,
@@ -30,6 +43,9 @@ import {
 } from './item-stack'
 import { serializePattern, validatePattern, EMPTY_PATTERN, type PatternValue } from './we-pattern'
 import { validateExpression } from './we-expression'
+import { COORDINATE_SHAPES, coordinateProblems, serializeCoordinates } from '../coordinates'
+import { enumControl } from '../presentation'
+import { validateResource } from '../resource-location'
 
 /**
  * The argument-type registry.
@@ -117,6 +133,47 @@ function textType(key: ArgumentTypeKey): ErasedArgumentType {
   })
 }
 
+/**
+ * A position or rotation: one field per axis, stored as one string (coordinates.ts).
+ * A group, because it is several fields and the row's label names them together.
+ */
+function coordinateType(key: keyof typeof COORDINATE_SHAPES): ErasedArgumentType {
+  const shape = COORDINATE_SHAPES[key]!
+  return defineArgumentType<string>({
+    key,
+    labelling: 'group',
+    editor: coordinateEditor(shape),
+    serialize: (value) => serializeCoordinates(value, shape),
+    validate: (value) => coordinateProblems(value, shape).flatMap(warn),
+    defaultValue: () => '',
+  })
+}
+
+/** A closed set of words, from src/data/authored/enums.ts. */
+function enumType(key: ArgumentTypeKey, values: readonly string[]): ErasedArgumentType {
+  const control = enumControl(values)
+  return defineArgumentType<string>({
+    key,
+    labelling: control === 'segmented' ? 'group' : 'control',
+    editor: enumEditor(values, control),
+    serialize: (value) => value,
+    validate: (value) =>
+      value === '' || values.includes(value) ? [] : warn(`Not one of ${values.join(', ')}`),
+    defaultValue: () => '',
+  })
+}
+
+/** A text field with a syntax of its own, checked by a pattern and explained if not met. */
+function patternType(key: ArgumentTypeKey, pattern: RegExp, hint: string): ErasedArgumentType {
+  return defineArgumentType<string>({
+    key,
+    editor: TextEditor,
+    serialize: (value) => value.trim(),
+    validate: (value) => (value.trim() === '' || pattern.test(value.trim()) ? [] : warn(hint)),
+    defaultValue: () => '',
+  })
+}
+
 const TYPES: ErasedArgumentType[] = [
   numberType('integer', true),
   numberType('float', false),
@@ -195,6 +252,50 @@ const TYPES: ErasedArgumentType[] = [
     validate: (value) => validateExpression(value),
     defaultValue: () => '',
   }),
+  coordinateType('block_pos'),
+  coordinateType('vec3'),
+  coordinateType('column_pos'),
+  coordinateType('vec2'),
+  coordinateType('rotation'),
+  coordinateType('angle'),
+  defineArgumentType<string>({
+    key: 'swizzle',
+    labelling: 'group',
+    editor: SwizzleEditor,
+    serialize: (value) => value,
+    validate: () => [],
+    defaultValue: () => '',
+  }),
+  // An id. The skeleton names the registry for some of them, and those complete from
+  // it and warn on an id it does not hold; the rest are a text field.
+  defineArgumentType<string>({
+    key: 'resource_location',
+    editor: ResourceEditor,
+    serialize: (value) => value.trim(),
+    validate: validateResource,
+    defaultValue: () => '',
+  }),
+  enumType('gamemode', GAMEMODES),
+  enumType('entity_anchor', ENTITY_ANCHORS),
+  enumType('heightmap', HEIGHTMAPS),
+  enumType('template_mirror', TEMPLATE_MIRRORS),
+  enumType('template_rotation', TEMPLATE_ROTATIONS),
+  enumType('operation', SCOREBOARD_OPERATIONS),
+  enumType('color', TEAM_COLORS),
+  // A number and an optional unit: days, seconds or ticks, ticks when none is given.
+  patternType('time', /^(\d+\.?\d*|\.\d+)[dst]?$/, 'A number, then d, s or t (ticks if none)'),
+  // An exact whole number, or a range with either end left open: 1..5, ..5, 1..
+  patternType(
+    'int_range',
+    /^(-?\d+|-?\d+\.\.(-?\d+)?|\.\.-?\d+)$/,
+    'A whole number or a range: 1..5, ..5, 1..',
+  ),
+  // Free-form names: a player or entity name, a team, a scoreboard objective. Text
+  // fields, registered by name so the parser table records them as handled.
+  textType('score_holder'),
+  textType('objective'),
+  textType('team'),
+  textType('message'),
   // The fallback a deep parser binds to before its editor exists. Its presence is
   // what lets derivation degrade a command to a text field instead of failing.
   textType('raw_text'),
