@@ -1,4 +1,5 @@
 import type { EditorProps } from '../../schema/types'
+import { Switch } from '../ui/Switch'
 
 /**
  * Backs `bool`.
@@ -9,17 +10,21 @@ import type { EditorProps } from '../../schema/types'
  * opposite of what the command does. Putting the box back to that value stores '' again,
  * so toggling twice leaves the command as it was instead of spelling the default out.
  */
-export function ToggleEditor({ value, onChange, options }: EditorProps<boolean | ''>) {
+export function ToggleEditor({
+  id,
+  describedBy,
+  value,
+  onChange,
+  options,
+}: EditorProps<boolean | ''>) {
   const assumed = options.default === true
   const checked = value === '' ? assumed : value
   return (
-    <input
-      type="checkbox"
-      className="accent-accent"
+    <Switch
+      id={id}
+      aria-describedby={describedBy}
       checked={checked}
-      onChange={(e) =>
-        onChange(options.optional === true && e.target.checked === assumed ? '' : e.target.checked)
-      }
+      onChange={(on) => onChange(options.optional === true && on === assumed ? '' : on)}
     />
   )
 }

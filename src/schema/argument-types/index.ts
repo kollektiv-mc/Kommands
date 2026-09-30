@@ -158,6 +158,7 @@ const TYPES: ErasedArgumentType[] = [
   // rather than a gap the fallback papers over.
   defineArgumentType<ItemStackValue>({
     key: 'item_stack',
+    labelling: 'group',
     editor: ItemStackEditor,
     serialize: serializeItemStack,
     validate: (value, _options, ctx) => validateItemStack(value, ctx),
@@ -165,6 +166,7 @@ const TYPES: ErasedArgumentType[] = [
   }),
   defineArgumentType<TextComponent>({
     key: 'text_component',
+    labelling: 'group',
     editor: TextComponentEditor,
     serialize: (value, ctx) =>
       isEmptyTextComponent(value) ? '' : serializeTextComponent(value, ctx),
@@ -177,6 +179,7 @@ const TYPES: ErasedArgumentType[] = [
   // and are reached by the same renderer.
   defineArgumentType<PatternValue>({
     key: 'we_pattern',
+    labelling: 'group',
     editor: PatternEditor,
     serialize: serializePattern,
     validate: (value, _options, ctx) => validatePattern(value, ctx),

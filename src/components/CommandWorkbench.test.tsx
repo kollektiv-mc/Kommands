@@ -10,6 +10,7 @@ import { generate } from '../data/authored/commands/worldedit/generate'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import type { CommandDefinition } from '../schema/types'
 import { useCommandStore } from '../stores/useCommandStore'
+import { pick } from '../test-controls'
 
 /**
  * The 3D stage, stubbed.
@@ -46,8 +47,7 @@ test('building an item in the editors produces the canonical command', async () 
 
   await user.type(screen.getByLabelText('Item'), 'netherite_sword')
 
-  await user.selectOptions(screen.getByLabelText('Add component'), 'enchantments')
-  await user.click(screen.getByText('+ add'))
+  await pick(user, screen.getByRole('button', { name: 'Add component' }), 'Enchantments')
   await user.click(screen.getByText('+ enchantment'))
   await user.type(screen.getByLabelText('Enchantment'), 'sharpness')
 
@@ -184,16 +184,16 @@ test('driving /execute through the app, where the Ref was never wired', async ()
   // findBy, not getBy: the clause chain is a lazy chunk, so the first render of a
   // Repeat in this file shows the Suspense fallback until the import resolves.
   await user.click(await screen.findByLabelText('Add clause'))
-  await user.selectOptions(screen.getAllByLabelText('Clause')[0]!, '2')
+  await pick(user, screen.getAllByLabelText('Clause')[0]!, 'as')
   expect(output()).toBe('/execute as @p')
 
   // The run clause is optional, so it appears only once chosen — and choosing it
   // without choosing a command leaves a visible gap rather than a finished-looking
   // command that does nothing.
-  await user.selectOptions(screen.getAllByLabelText('Clause').at(-1)!, '0')
+  await pick(user, screen.getAllByLabelText('Clause').at(-1)!, 'run')
   expect(output()).toBe('/execute as @p run <command>')
 
-  await user.selectOptions(screen.getByLabelText('command'), 'vanilla:particle')
+  await pick(user, screen.getByLabelText('command'), '/particle')
   // /particle's optional tail contributes nothing, and its optional `viewers` seeds
   // nothing: the two tokens that made the canonical fixture unproducible.
   expect(output()).toBe('/execute as @p run particle <name>')
@@ -216,9 +216,9 @@ test('reordering clauses reorders the command, and removing one takes its values
   const output = () => container.querySelector('code')?.textContent
 
   await user.click(await screen.findByLabelText('Add clause'))
-  await user.selectOptions(screen.getAllByLabelText('Clause')[0]!, '2')
+  await pick(user, screen.getAllByLabelText('Clause')[0]!, 'as')
   await user.click(screen.getByLabelText('Add clause'))
-  await user.selectOptions(screen.getAllByLabelText('Clause')[1]!, '3')
+  await pick(user, screen.getAllByLabelText('Clause')[1]!, 'at')
   expect(output()).toBe('/execute as @p at @p')
 
   // Make the two clauses tell each other apart before moving them.
@@ -348,12 +348,12 @@ test('re-pointing an embedded command clears what the last one held', async () =
   )
   const output = () => container.querySelector('code')?.textContent
 
-  await user.selectOptions(screen.getAllByLabelText('Clause').at(-1)!, '0')
-  await user.selectOptions(screen.getByLabelText('command'), 'vanilla:give')
+  await pick(user, screen.getAllByLabelText('Clause').at(-1)!, 'run')
+  await pick(user, screen.getByLabelText('command'), '/give')
   await user.type(screen.getByLabelText('Item'), 'stone')
   expect(output()).toBe('/execute run give @p minecraft:stone')
 
-  await user.selectOptions(screen.getByLabelText('command'), 'vanilla:particle')
+  await pick(user, screen.getByLabelText('command'), '/particle')
   expect(output()).toBe('/execute run particle <name>')
 })
 
@@ -430,8 +430,9 @@ test('a reordered clause takes its component state with it, not just its values'
   //   AFTER   items    : netherite_sword, stone   ✅ store-held values moved
   //   AFTER   dropdowns: "",    enchantments      ❌ internal state stayed put
   //
-  // The dropdown is `ItemStackEditor`'s "Add component" select, which holds its choice
-  // in useState — exactly the shape the issue names.
+  // The dropdown was `ItemStackEditor`'s "Add component" select, which held its choice
+  // in useState — exactly the shape the issue names. That select is now a menu, and the
+  // state asserted below is whether it is open, which the component holds the same way.
   const user = userEvent.setup()
   renderRepeated()
 
@@ -439,20 +440,24 @@ test('a reordered clause takes its component state with it, not just its values'
   await user.click(screen.getByLabelText('Add clause'))
 
   const items = () => screen.getAllByLabelText('Item')
-  const dropdowns = () => screen.getAllByLabelText<HTMLSelectElement>('Add component')
+  const menus = () => screen.getAllByRole('button', { name: 'Add component' })
+  const expanded = () => menus().map((m) => m.getAttribute('aria-expanded'))
 
   await user.type(items()[0]!, 'stone')
   await user.type(items()[1]!, 'netherite_sword')
-  await user.selectOptions(dropdowns()[1]!, 'enchantments')
+  // An open menu is state its component holds and the store never sees.
+  await user.click(menus()[1]!)
 
   expect(items().map((i) => (i as HTMLInputElement).value)).toEqual(['stone', 'netherite_sword'])
-  expect(dropdowns().map((d) => d.value)).toEqual(['', 'enchantments'])
+  expect(expanded()).toEqual(['false', 'true'])
 
-  await user.click(screen.getByLabelText('Move clause 2 earlier'))
+  // From the keyboard, so no press lands outside the open menu and closes it first.
+  screen.getByLabelText('Move clause 2 earlier').focus()
+  await user.keyboard('{Enter}')
 
   // Both halves move together, which is the whole of the fix.
   expect(items().map((i) => (i as HTMLInputElement).value)).toEqual(['netherite_sword', 'stone'])
-  expect(dropdowns().map((d) => d.value)).toEqual(['enchantments', ''])
+  expect(expanded()).toEqual(['true', 'false'])
 })
 
 test('the DOM node moves with the clause, which is what carries focus and selection', async () => {

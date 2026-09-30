@@ -10,9 +10,18 @@ import { FIELD } from './fieldStyles'
  * build. It is deliberately not distinguishable from `string` here — the difference
  * is recorded in the parser table, not in the UI.
  */
-export function TextEditor({ value, onChange, options, diagnostics }: EditorProps<string>) {
+export function TextEditor({
+  id,
+  describedBy,
+  value,
+  onChange,
+  options,
+  diagnostics,
+}: EditorProps<string>) {
   return (
     <input
+      id={id}
+      aria-describedby={describedBy}
       type="text"
       className={FIELD}
       value={value}

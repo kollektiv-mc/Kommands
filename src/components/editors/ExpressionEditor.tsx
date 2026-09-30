@@ -16,9 +16,18 @@ import { FIELD } from './fieldStyles'
  * cannot perform — rather than counting brackets, which is all this field could do
  * before that evaluator existed. It still only ever warns.
  */
-export function ExpressionEditor({ value, onChange, options, diagnostics }: EditorProps<string>) {
+export function ExpressionEditor({
+  id,
+  describedBy,
+  value,
+  onChange,
+  options,
+  diagnostics,
+}: EditorProps<string>) {
   return (
     <textarea
+      id={id}
+      aria-describedby={describedBy}
       className={`${FIELD} min-w-64 resize-y`}
       rows={options.variadic === true ? 2 : 1}
       value={value}

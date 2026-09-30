@@ -1,7 +1,8 @@
+import { useMemo } from 'react'
 import type { EditorProps } from '../../schema/types'
 import { selectorsFor } from '../../data/authored/selectors'
 import { defaultText } from '../../schema/default-text'
-import { FIELD } from './fieldStyles'
+import { Combobox } from '../ui/Combobox'
 
 /**
  * Backs `entity_selector`.
@@ -10,33 +11,34 @@ import { FIELD } from './fieldStyles'
  * come from src/data/authored/selectors.ts — they are game values, so they are data
  * rather than literals written here. A full selector builder (@e[type=…,distance=…])
  * is later work; free text is accepted meanwhile so nothing is unreachable.
+ *
+ * Each suggestion carries what it selects as its description, which a datalist could
+ * only show in its platform popup and which read into the field's accessible name when
+ * written as option text. The list now names an option by its token and describes it
+ * separately.
  */
-export function SelectorEditor({ value, onChange, options, diagnostics }: EditorProps<string>) {
-  const shorthands = selectorsFor(options)
-  const listId = `selectors-${shorthands.map((s) => s.token).join('')}`
+export function SelectorEditor({
+  id,
+  describedBy,
+  value,
+  onChange,
+  options,
+  diagnostics,
+}: EditorProps<string>) {
+  const suggestions = useMemo(
+    () =>
+      selectorsFor(options).map((s) => ({ value: s.token, label: s.token, description: s.label })),
+    [options],
+  )
   return (
-    <>
-      <input
-        type="text"
-        className={FIELD}
-        value={value}
-        placeholder={defaultText(options)}
-        list={listId}
-        aria-invalid={diagnostics.length > 0}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      <datalist id={listId}>
-        {/*
-          The description goes in `label`, not in the option's text. A datalist sits
-          inside the wrapping label the renderer puts around every editor, so option
-          text joins the input's accessible name — this field announced itself as
-          "targets Nearest player Random player All players". The attribute is what the
-          datalist dropdown shows anyway.
-        */}
-        {shorthands.map((s) => (
-          <option key={s.token} value={s.token} label={s.label} />
-        ))}
-      </datalist>
-    </>
+    <Combobox
+      id={id}
+      aria-describedby={describedBy}
+      value={value}
+      options={suggestions}
+      onChange={onChange}
+      placeholder={defaultText(options)}
+      invalid={diagnostics.length > 0}
+    />
   )
 }

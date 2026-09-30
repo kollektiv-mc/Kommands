@@ -131,14 +131,26 @@ the browser has it. Everywhere else the field takes a typed name.
 
 ## Component patterns
 
-| Pattern           | Shape                                                                  |
-| ----------------- | ---------------------------------------------------------------------- |
-| Panel / tile      | `rounded-panel` + `border-hairline` over `bg-surface`                  |
-| Segmented control | Pill container, sliding accent indicator at `--radius-lg` minus 1px    |
-| Toggle            | `20×36px` pill, `16px` knob, accent when on, `--border-hover` when off |
-| Row divider       | `border-bottom: var(--border-hairline) solid var(--border-subtle)`     |
-| Scrollbar         | `4px`, `--border-subtle` thumb, transparent track                      |
-| Value text        | Monospace, `text-xs`, `text-text-secondary`                            |
+| Pattern           | Shape                                                                                                                 |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Panel / tile      | `rounded-panel` + `border-hairline` over `bg-surface`                                                                 |
+| Segmented control | Pill container, sliding accent indicator at `--radius-lg` minus 1px                                                   |
+| Toggle            | `20×36px` pill, `16px` knob, accent when on, `--border-hover` when off                                                |
+| Row divider       | `border-bottom: var(--border-hairline) solid var(--border-subtle)`                                                    |
+| Scrollbar         | `4px`, `--border-subtle` thumb, transparent track                                                                     |
+| Value text        | Monospace, `text-xs`, `text-text-secondary`                                                                           |
+| Floating panel    | `bg-overlay` + `border-hairline border-border-hover`, `rounded-lg`, no shadow; fades in on `--duration-fast`, no exit |
+| Option row        | `rounded-md`, `bg-hover` when highlighted, accent text and a check when chosen                                        |
+| Stepper           | Number field between `−` and `+` buttons, both out of the tab order                                                   |
+
+**No control here is a native `<select>` or `<datalist>`.** Both are drawn by the
+platform, which no stylesheet reaches: in the desktop build's WebKitGTK view they open
+as a white GTK list over a dark panel, which is why Konnekt replaced its own (its #160).
+`src/components/ui/` holds the replacements (`Listbox` for a closed list, `Combobox` for
+a field completed from one, `Segmented`, `Switch`, `Stepper`, `MenuButton`), each on the
+native element underneath where one fits, so the keyboard and the accessibility tree
+come from the browser. `FontSettings` keeps its datalist on purpose: the Settings dialog
+is in the entry chunk and a font name is typed rather than picked.
 
 The scrollbar thumb rests at `--border-subtle` rather than `--border-hover`, which is
 Konnekt's correction rather than this repo's choice: at `--border-hover`'s alpha a 4px

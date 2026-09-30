@@ -6,6 +6,7 @@ import {
   type AttributeModifier,
 } from '../../data/authored/item-components'
 import { RegistryPicker } from './RegistryPicker'
+import { Listbox } from '../ui/Listbox'
 import { FIELD, LABEL } from './fieldStyles'
 import { ROW, ROW_ADD, ROW_REMOVE } from './rowStyles'
 
@@ -22,6 +23,10 @@ interface AttributeModifiersEditorProps {
   onChange: (next: AttributeModifier[]) => void
   ctx: SerializeContext
 }
+
+const asOptions = (values: readonly string[]) => values.map((v) => ({ value: v, label: v }))
+const OPERATION_OPTIONS = asOptions(ATTRIBUTE_OPERATIONS)
+const SLOT_OPTIONS = asOptions(EQUIPMENT_SLOTS)
 
 function blank(): AttributeModifier {
   return {
@@ -61,30 +66,18 @@ export function AttributeModifiersEditor({ value, onChange, ctx }: AttributeModi
               onChange={(e) => update(index, { amount: Number(e.target.value) })}
             />
           </label>
-          <select
-            className={FIELD}
+          <Listbox
             value={modifier.operation}
             aria-label="Operation"
-            onChange={(e) => update(index, { operation: e.target.value })}
-          >
-            {ATTRIBUTE_OPERATIONS.map((operation) => (
-              <option key={operation} value={operation}>
-                {operation}
-              </option>
-            ))}
-          </select>
-          <select
-            className={FIELD}
+            options={OPERATION_OPTIONS}
+            onChange={(next) => update(index, { operation: next })}
+          />
+          <Listbox
             value={modifier.slot}
             aria-label="Slot"
-            onChange={(e) => update(index, { slot: e.target.value })}
-          >
-            {EQUIPMENT_SLOTS.map((slot) => (
-              <option key={slot} value={slot}>
-                {slot}
-              </option>
-            ))}
-          </select>
+            options={SLOT_OPTIONS}
+            onChange={(next) => update(index, { slot: next })}
+          />
           <label className="flex flex-col gap-1">
             <span className={LABEL}>id</span>
             <input

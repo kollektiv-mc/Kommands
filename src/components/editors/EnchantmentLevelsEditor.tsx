@@ -1,7 +1,9 @@
 import type { SerializeContext } from '../../data/versions/types'
 import type { EnchantmentsValue } from '../../data/authored/item-components'
 import { RegistryPicker } from './RegistryPicker'
-import { FIELD, LABEL } from './fieldStyles'
+import { LABEL } from './fieldStyles'
+import { Segmented } from '../ui/Segmented'
+import { Stepper } from '../ui/Stepper'
 import { ROW_ADD, ROW_REMOVE, ROW } from './rowStyles'
 
 /**
@@ -11,6 +13,12 @@ import { ROW_ADD, ROW_REMOVE, ROW } from './rowStyles'
  * a map cannot express a half-typed id — the key would change on every keystroke and
  * take its value with it.
  */
+const TOOLTIP_OPTIONS = [
+  { value: '', label: 'default' },
+  { value: 'true', label: 'show' },
+  { value: 'false', label: 'hide' },
+] as const
+
 interface EnchantmentLevelsEditorProps {
   value: EnchantmentsValue
   onChange: (next: EnchantmentsValue) => void
@@ -35,13 +43,13 @@ export function EnchantmentLevelsEditor({ value, onChange, ctx }: EnchantmentLev
             invalid={id !== '' && !ctx.registries.has('enchantment', id)}
             onChange={(next) => setRows(rows.map((r, i) => (i === index ? [next, r[1]] : r)))}
           />
-          <input
-            type="number"
-            className={FIELD}
+          <Stepper
             value={level}
+            min={1}
+            max={255}
             aria-label="Level"
-            onChange={(e) =>
-              setRows(rows.map((r, i) => (i === index ? [r[0], Number(e.target.value)] : r)))
+            onChange={(next) =>
+              setRows(rows.map((r, i) => (i === index ? [r[0], next === '' ? 0 : next] : r)))
             }
           />
           <button
@@ -63,24 +71,17 @@ export function EnchantmentLevelsEditor({ value, onChange, ctx }: EnchantmentLev
         {/* The `levels` wrapper and this field were removed together at 1.21.5, so one
             trait decides whether either is offered. */}
         {ctx.traits.enchantmentsShape === 'levels-wrapper' && (
-          <label className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <span className={LABEL}>tooltip</span>
-            <select
-              className={FIELD}
+            <Segmented
               aria-label="Show in tooltip"
               value={value.showInTooltip === undefined ? '' : String(value.showInTooltip)}
-              onChange={(e) =>
-                onChange({
-                  ...value,
-                  showInTooltip: e.target.value === '' ? undefined : e.target.value === 'true',
-                })
+              options={TOOLTIP_OPTIONS}
+              onChange={(next) =>
+                onChange({ ...value, showInTooltip: next === '' ? undefined : next === 'true' })
               }
-            >
-              <option value="">default</option>
-              <option value="true">show</option>
-              <option value="false">hide</option>
-            </select>
-          </label>
+            />
+          </div>
         )}
       </div>
     </div>
