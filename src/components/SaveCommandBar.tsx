@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import type { CommandDefinition } from '../schema/types'
 import type { VersionDefinition } from '../data/versions/types'
@@ -6,44 +6,43 @@ import type { CommandValue } from '../schema/serialize'
 import { fingerprintOf } from '../schema/fingerprint'
 import { contentChange } from '../schema/saved'
 import { storageKind, useSavedCommandsStore } from '../stores/useSavedCommandsStore'
-import { FIELD, LABEL, WARNING } from './editors/fieldStyles'
-import { ROW_ADD } from './editors/rowStyles'
+import { FIELD, FOCUS, WARNING } from './editors/fieldStyles'
+import { MenuButton } from './ui/MenuButton'
+import { Popover } from './ui/Popover'
 
+/** The save controls' button: quieter than Copy, which is the primary action beside it. */
 const BUTTON =
-  'border-hairline border-border-subtle bg-surface text-text-primary hover:border-border-hover ' +
-  'rounded-md px-2 py-1 font-mono text-1xs disabled:cursor-not-allowed ' +
-  'disabled:text-text-faint disabled:hover:border-border-subtle'
+  `${FOCUS} border-hairline border-border-hover text-text-primary hover:bg-hover ` +
+  'inline-flex h-8 items-center rounded-md px-3 text-xs font-medium whitespace-nowrap ' +
+  'transition-colors duration-fast motion-reduce:transition-none ' +
+  'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent'
 
-/** The secondary row's controls, which are narrower than the primary one. */
-const MINOR = `${BUTTON} flex-1`
+const SUBMIT =
+  `${FOCUS} bg-accent text-canvas hover:bg-accent/85 h-8 rounded-md px-3 text-xs font-semibold ` +
+  'transition-colors duration-fast motion-reduce:transition-none ' +
+  'disabled:cursor-not-allowed disabled:opacity-40'
 
 /**
  * Keep this command, or act on the one being edited.
  *
  * The counterpart of the dashboard: without it there is nothing to put on a tile, and
- * `useSavedCommandsStore` has no caller. It writes the whole draft — including the
+ * `useSavedCommandsStore` has no caller. It writes the whole draft, including the
  * serialized text as `preview`, which is a cache the tile reads so a list view need
  * not pull the skeletons and registries that re-serializing would (see
  * `SavedCommand.preview`).
  *
- * **Two rows, beside the command rather than above it.** The workbench gives this a
- * column on the right of the output panel and the command keeps the width, because the
- * command is the product. Row one is the act that changes what is stored — save it,
- * save the changes, or rename it. Row two is everything that acts on a command already
- * stored. Splitting them that way rather than by frequency means the row that needs a
- * text field is the only row that has one, and the other three controls stay the same
- * size as each other.
+ * **Two controls in the output panel's row, beside Copy.** Copy is what nearly every
+ * session ends with, so it is the primary button and these are quieter. The first
+ * control changes what is stored: Save opens a small popover for the name, and a
+ * command already saved shows Save changes instead. Everything that acts on a command
+ * already stored (rename, pin, link) sits behind the "more" button, as the same verbs
+ * a dashboard tile carries: a saved command is one thing, and the two places you meet
+ * it should offer the same verbs.
  *
- * The three secondary controls are the same three a dashboard tile carries, and that
- * is the point rather than a coincidence: a saved command is one thing, and the two
- * places you meet it should offer the same verbs. What differs is only that here they
- * can be reached without going back to the dashboard first.
- *
- * Every state of this component shows all four controls, disabled where they cannot
- * act, with the reason in the accessible name — `distribution.md` § The split must be
- * visible, applied one level in. A command that has not been saved yet cannot be
- * linked, pinned or renamed, and saying so is better than three controls that appear
- * the moment something else succeeds.
+ * Every verb is present in every state, disabled where it cannot act, with the reason
+ * beside it: `distribution.md` § The split must be visible, applied one level in. A
+ * command that has not been saved yet cannot be linked, pinned or renamed, and saying
+ * so is better than three verbs that appear the moment something else succeeds.
  */
 export function SaveCommandBar({
   definition,
@@ -72,9 +71,15 @@ export function SaveCommandBar({
   const link = useSavedCommandsStore((s) => s.link)
 
   const saved = savedId === undefined ? undefined : commands.find((c) => c.id === savedId)
-  const [name, setName] = useState('')
-  const [renaming, setRenaming] = useState(false)
-  const [note, setNote] = useState<string | null>(null)
+  const anchor = useRef<HTMLDivElement>(null)
+  const [naming, setNaming] = useState<'save' | 'rename' | null>(null)
+  const closeNaming = useCallback(() => setNaming(null), [setNaming])
+
+  // What the last save did, and to which output. Shown only while the command is still
+  // that output, so "saved" stays on screen for as long as it is true and an edit
+  // clears it, with no effect setting state after every keystroke.
+  const [note, setNote] = useState<{ output: string; text: string } | null>(null)
+  const shownNote = note?.output === output ? note.text : ''
 
   // Fixed for the life of the build, the same way the dashboard reads it once for every
   // tile. Only the standalone build writes the file Konnekt reads, so only it can link.
@@ -84,23 +89,18 @@ export function SaveCommandBar({
     if (status === 'idle') void load()
   }, [status, load])
 
-  // The note is about one particular save, so any further edit makes it stale. Keyed
-  // on the output rather than cleared on a timer: "saved" should stay on screen for as
-  // long as it is still true, which is until the command changes.
-  useEffect(() => setNote(null), [output])
-
   if (status === 'unavailable') {
+    const reason = 'Saving is off: this browser is not letting the page store anything'
     return (
-      <p className={LABEL}>
-        Saving is off: this browser is not letting the page store anything. Everything else still
-        works.
-      </p>
+      <button type="button" className={BUTTON} disabled aria-label={reason} title={reason}>
+        Save…
+      </button>
     )
   }
 
   // Stamped here because this is the layer that holds the definition. The tree being
   // saved is the one the workbench just rendered from it, so the shape recorded is the
-  // shape it was actually built against — which is the whole claim the fingerprint
+  // shape it was actually built against, which is the whole claim the fingerprint
   // makes. `saved.ts` stays a record builder and never learns to walk a definition.
   const fingerprint = fingerprintOf(definition)
 
@@ -111,28 +111,63 @@ export function SaveCommandBar({
   const linked = saved?.linked === true
 
   // Whether pressing Save changes would do anything, asked of the same function that
-  // decides it — `contentChange` — rather than of a second guess that could disagree
+  // decides it (`contentChange`) rather than of a second guess that could disagree
   // with the store. It is what greys the control out on a command nobody has touched
-  // since it was opened, which is the honest form of "this save is a no-op": the
-  // alternative is a button that reports success for having done nothing.
+  // since it was opened, which is the honest form of "this save is a no-op".
   const change = saved ? contentChange(saved, { value, preview: output, fingerprint }) : 'emitted'
 
+  const submitName = (name: string) => {
+    if (saved) {
+      void rename(saved.id, name).then(() => {
+        setNaming(null)
+        setNote({ output, text: 'Renamed' })
+      })
+      return
+    }
+    if (empty) return
+    void create({
+      name,
+      definitionId: definition.id,
+      version: version.id,
+      value,
+      preview: output,
+      fingerprint,
+    }).then((id) => {
+      if (id === null) return
+      setNaming(null)
+      setNote({ output, text: 'Saved' })
+      // Into the URL, so a reload resumes the saved command rather than a blank one,
+      // and so every later edit updates this record instead of minting a second copy
+      // of the same command under a new id.
+      void navigate({
+        to: '/c/$commandId',
+        params: { commandId: definition.id },
+        search: { saved: id },
+        replace: true,
+      })
+    })
+  }
+
+  const firstSave = saved ? undefined : 'Save first'
+
   return (
-    <div className="flex w-56 flex-col gap-1">
-      {/*
-        Row one, and the only row that ever holds a field. Which act it performs is the
-        one thing about this component that changes shape, so it is the one thing
-        branched on — the draft assembly below it is shared, which is the half that
-        must not drift between "save" and "save again".
-      */}
-      {saved && !renaming ? (
-        <div className="flex items-center gap-1">
-          <span className={`${LABEL} min-w-0 flex-1 truncate`}>
-            {`${saved.name} · rev ${saved.revision}`}
-          </span>
+    <div className="flex items-center gap-1">
+      {/* Said politely rather than as a status role: the output panel's status line is
+          the one status on the page, and this is only a receipt. */}
+      <span aria-live="polite" className="text-accent text-1xs px-1 whitespace-nowrap">
+        {shownNote}
+      </span>
+      {error && (
+        <span className={`${WARNING} max-w-40 truncate`} title={error}>
+          {error}
+        </span>
+      )}
+      <div ref={anchor} className="relative inline-flex">
+        {saved ? (
           <button
             type="button"
             className={BUTTON}
+            title={`${saved.name}, revision ${saved.revision}`}
             disabled={empty || change === 'none'}
             aria-label={
               change === 'none'
@@ -144,131 +179,134 @@ export function SaveCommandBar({
                 // Not always "updated": a tree edit that emits the same text is worth
                 // storing and is deliberately not worth a revision, and saying
                 // otherwise beside a number that did not move reads as a bug.
-                setNote(change === 'emitted' ? 'updated' : 'saved · output unchanged'),
+                setNote({
+                  output,
+                  text: change === 'emitted' ? 'Updated' : 'Saved, output unchanged',
+                }),
               )
             }}
           >
             Save changes
           </button>
-        </div>
-      ) : (
-        <form
-          className="flex items-center gap-1"
-          onSubmit={(e) => {
-            e.preventDefault()
-            const trimmed = name.trim()
-            if (trimmed === '') return
-            if (saved) {
-              void rename(saved.id, trimmed).then(() => {
-                setRenaming(false)
-                setNote('renamed')
-              })
-              return
-            }
-            if (empty) return
-            void create({
-              name: trimmed,
-              definitionId: definition.id,
-              version: version.id,
-              value,
-              preview: output,
-              fingerprint,
-            }).then((id) => {
-              if (id === null) return
-              setNote('saved')
-              // Into the URL, so a reload resumes the saved command rather than a blank
-              // one, and so every later edit updates this record instead of minting a
-              // second copy of the same command under a new id.
-              void navigate({
-                to: '/c/$commandId',
-                params: { commandId: definition.id },
-                search: { saved: id },
-                replace: true,
-              })
-            })
-          }}
-        >
-          {/*
-            `aria-label` rather than a `<label htmlFor>` and an `id`. The visible label
-            was dropped when this became a two-row block — the button beside it says
-            which act the field is for, and a word above it would cost the row a line —
-            so the choice is between a visually hidden label and naming the input
-            directly. Direct is better here for a reason beyond brevity: an `id` has to
-            be unique in the whole document, and this component is rendered inside an
-            editor that can legitimately be mounted more than once (a test harness does
-            it; a split view would). A duplicated `id` silently points every label at
-            the first field.
-          */}
-          <input
-            aria-label={saved ? 'Rename' : 'Save as'}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={saved ? saved.name : 'name'}
-            className={`${FIELD} min-w-0 flex-1`}
-          />
+        ) : (
           <button
-            type="submit"
+            type="button"
             className={BUTTON}
-            disabled={name.trim() === '' || (!saved && empty)}
+            aria-expanded={naming === 'save'}
+            disabled={empty}
+            onClick={() => setNaming((was) => (was === 'save' ? null : 'save'))}
           >
-            {saved ? 'Rename' : 'Save'}
+            Save…
           </button>
-        </form>
-      )}
-
-      {/*
-        Row two: the three verbs a dashboard tile carries, on the command already
-        stored. `flex-1` on each so they divide the row evenly rather than sizing to
-        their own words, which is what keeps the block reading as two lines instead of
-        as a paragraph of buttons.
-      */}
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          className={MINOR}
-          disabled={!linkable || !saved}
-          aria-pressed={linked}
-          aria-label={
-            !linkable
-              ? 'link: needs the desktop build'
-              : saved
-                ? undefined
-                : 'link: save the command first'
-          }
-          onClick={() => saved && void link(saved.id, !linked)}
-        >
-          {linked ? 'linked' : 'link'}
-        </button>
-        <button
-          type="button"
-          className={MINOR}
-          disabled={!saved}
-          aria-pressed={pinned}
-          aria-label={saved ? undefined : 'pin: save the command first'}
-          onClick={() => saved && void pin(saved.id, !pinned)}
-        >
-          {pinned ? 'pinned' : 'pin'}
-        </button>
-        <button
-          type="button"
-          className={MINOR}
-          disabled={!saved}
-          aria-label={saved ? undefined : 'rename: save the command first'}
-          onClick={() => {
-            if (!saved) return
-            // Seeded with the current name rather than blank: a rename is usually an
-            // edit of what is there, and an empty field makes the user retype it to
-            // change one word.
-            setName(renaming ? '' : saved.name)
-            setRenaming((was) => !was)
-          }}
-        >
-          rename
-        </button>
+        )}
+        {naming && (
+          <Popover container={anchor} onDismiss={closeNaming} align="end" className="p-2">
+            <NameForm
+              label={naming === 'rename' ? 'Rename' : 'Save as'}
+              submit={naming === 'rename' ? 'Rename' : 'Save'}
+              initial={naming === 'rename' ? (saved?.name ?? '') : ''}
+              onSubmit={submitName}
+              onCancel={closeNaming}
+            />
+          </Popover>
+        )}
       </div>
-
-      {note && <span className={ROW_ADD}>{note}</span>}
-      {error && <span className={WARNING}>{error}</span>}
+      <MenuButton
+        label="More"
+        icon="more"
+        iconOnly
+        align="end"
+        items={[
+          {
+            key: 'rename',
+            label: 'Rename',
+            description: firstSave,
+            disabled: !saved,
+            onSelect: () => setNaming('rename'),
+          },
+          {
+            key: 'pin',
+            label: pinned ? 'Unpin from Quick' : 'Pin to Quick',
+            description: firstSave,
+            disabled: !saved,
+            onSelect: () => saved && void pin(saved.id, !pinned),
+          },
+          {
+            key: 'link',
+            label: linked ? 'Unlink from Konnekt' : 'Link to Konnekt',
+            // The build reason first, because that one is permanent and the other is
+            // not: a web session will never link however much it saves.
+            description: !linkable ? 'Desktop app only' : firstSave,
+            disabled: !linkable || !saved,
+            onSelect: () => saved && void link(saved.id, !linked),
+          },
+        ]}
+      />
     </div>
+  )
+}
+
+/**
+ * The name field in the save popover. Its own component so it mounts with the popover:
+ * the draft starts from `initial` on every opening, and focus lands in the field.
+ */
+function NameForm({
+  label,
+  submit,
+  initial,
+  onSubmit,
+  onCancel,
+}: {
+  label: string
+  submit: string
+  initial: string
+  onSubmit: (name: string) => void
+  onCancel: () => void
+}) {
+  // Seeded with the current name on a rename: a rename is usually an edit of what is
+  // there, and an empty field makes someone retype it to change one word.
+  const [name, setName] = useState(initial)
+  const field = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    field.current?.focus()
+    field.current?.select()
+  }, [])
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') return
+    // The editor overlay closes on Escape too. This one only meant "not now".
+    event.preventDefault()
+    event.stopPropagation()
+    onCancel()
+  }
+
+  return (
+    <form
+      className="flex w-64 items-center gap-1.5"
+      onSubmit={(event) => {
+        event.preventDefault()
+        const trimmed = name.trim()
+        if (trimmed !== '') onSubmit(trimmed)
+      }}
+    >
+      {/*
+        `aria-label` rather than a `<label htmlFor>` and an `id`: the button beside it
+        says which act the field is for, and an `id` has to be unique in the whole
+        document while this component can be mounted more than once (a test harness
+        does it; a split view would).
+      */}
+      <input
+        ref={field}
+        aria-label={label}
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+        onKeyDown={onKeyDown}
+        placeholder="name"
+        className={`${FIELD} min-w-0 flex-1`}
+      />
+      <button type="submit" className={SUBMIT} disabled={name.trim() === ''} onKeyDown={onKeyDown}>
+        {submit}
+      </button>
+    </form>
   )
 }

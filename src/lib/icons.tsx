@@ -20,6 +20,9 @@ export const PATHS = {
   minus: 'M5 12h14',
   plus: 'M5 12h14 M12 5v14',
   check: 'M20 6 9 17l-5-5',
+  // Lucide's `ellipsis`: three dots drawn as zero-length strokes with round caps.
+  more: 'M12 12h.01 M19 12h.01 M5 12h.01',
+  copy: 'M8 8h12v12H8z M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2',
   square: 'M3 3h18v18H3z',
   restore: 'M8 8V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-3 M3 8h12a1 1 0 0 1 1 1v12H3z',
   close: 'M18 6 6 18 M6 6l12 12',

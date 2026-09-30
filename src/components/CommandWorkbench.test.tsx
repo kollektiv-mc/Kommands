@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { CommandWorkbench } from './CommandWorkbench'
@@ -57,9 +57,9 @@ test('building an item in the editors produces the canonical command', async () 
 
   await user.type(screen.getByLabelText(/^count/), '1')
 
-  expect(
-    screen.getByText('/give @p minecraft:netherite_sword[enchantments={levels:{sharpness:5}}] 1'),
-  ).toBeDefined()
+  expect(document.querySelector('code')?.textContent).toBe(
+    '/give @p minecraft:netherite_sword[enchantments={levels:{sharpness:5}}] 1',
+  )
 })
 
 test('an unfilled optional tail is simply absent from the output', async () => {
@@ -70,7 +70,7 @@ test('an unfilled optional tail is simply absent from the output', async () => {
 
   // entity_selector defaults to the first legal shorthand rather than empty, so the
   // command is valid from the first keystroke instead of after three.
-  expect(screen.getByText('/give @p minecraft:stone')).toBeDefined()
+  expect(document.querySelector('code')?.textContent).toBe('/give @p minecraft:stone')
 })
 
 test('an item that does not exist in this version warns without blocking the output', async () => {
@@ -82,12 +82,13 @@ test('an item that does not exist in this version warns without blocking the out
   await user.type(screen.getByLabelText('Item'), 'copper_sword')
 
   expect(screen.getByText('copper_sword is not an item in this version.')).toBeDefined()
-  expect(screen.getByText('/give @p minecraft:copper_sword')).toBeDefined()
+  expect(document.querySelector('code')?.textContent).toBe('/give @p minecraft:copper_sword')
 })
 
 test('the output panel names the version it is generating for', () => {
   renderGive()
-  expect(screen.getByText(`Output · ${v1_21_1.id}`)).toBeDefined()
+  const panel = screen.getByRole('region', { name: 'Output' })
+  expect(within(panel).getByText(`Java ${v1_21_1.id}`)).toBeDefined()
 })
 
 test('authored presentation replaces the Brigadier argument names', () => {
@@ -106,10 +107,40 @@ test('the generated command can be copied', async () => {
   renderGive()
 
   await user.type(screen.getByLabelText('Item'), 'stone')
-  await user.click(screen.getByText('copy'))
+  await user.click(screen.getByRole('button', { name: 'Copy' }))
 
   expect(await navigator.clipboard.readText()).toBe('/give @p minecraft:stone')
-  expect(screen.getByText('copied')).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Copied' })).toBeDefined()
+
+  // "Copied" is about that text. Once the command changes it is no longer true, and the
+  // button goes back to offering the copy.
+  await user.type(screen.getByLabelText('Item'), '_block')
+  expect(screen.getByRole('button', { name: 'Copy' })).toBeDefined()
+})
+
+test('the status line says what is missing, then what the command is ready for', async () => {
+  const user = userEvent.setup()
+  renderGive()
+
+  expect(screen.getByRole('status').textContent).toBe('Needs item')
+  await user.type(screen.getByLabelText('Item'), 'stone')
+  expect(screen.getByRole('status').textContent).toBe('Ready to paste in chat')
+})
+
+test('hovering a piece of the output lights the row that set it, and the other way', async () => {
+  const user = userEvent.setup()
+  renderGive()
+  await user.type(screen.getByLabelText('Item'), 'stone')
+
+  const piece = screen.getByText('minecraft:stone')
+  const row = screen.getByLabelText('Item').closest('.arg-row')!
+  await user.hover(piece)
+  expect(row.classList.contains('arg-row-lit')).toBe(true)
+  await user.unhover(piece)
+  expect(row.classList.contains('arg-row-lit')).toBe(false)
+
+  await user.hover(row)
+  expect(piece.classList.contains('segment-lit')).toBe(true)
 })
 
 test('switching to another command does not carry the previous values over', async () => {
@@ -121,7 +152,7 @@ test('switching to another command does not carry the previous values over', asy
   const { rerender } = renderGive()
 
   await user.type(screen.getByLabelText('Item'), 'stone')
-  expect(screen.getByText('/give @p minecraft:stone')).toBeDefined()
+  expect(document.querySelector('code')?.textContent).toBe('/give @p minecraft:stone')
 
   const CLEAR = commands['vanilla:clear']!
   rerender(<CommandWorkbench definition={CLEAR} version={v1_21_1} registries={registries} />)
@@ -145,9 +176,9 @@ test('building a message in the editors produces the canonical /tellraw command'
   await user.type(screen.getByLabelText('Message colour'), 'red')
   await user.click(screen.getByLabelText('Message bold'))
 
-  expect(
-    screen.getByText('/tellraw @a {"text":"Server restarting","color":"red","bold":true}'),
-  ).toBeDefined()
+  expect(document.querySelector('code')?.textContent).toBe(
+    '/tellraw @a {"text":"Server restarting","color":"red","bold":true}',
+  )
 })
 
 test('a command with nothing filled in says which argument is missing', async () => {
@@ -159,7 +190,7 @@ test('a command with nothing filled in says which argument is missing', async ()
       registries={registries}
     />,
   )
-  expect(screen.getByText('/tellraw @p <message>')).toBeDefined()
+  expect(document.querySelector('code')?.textContent).toBe('/tellraw @p <message>')
 })
 
 test('driving /execute through the app, where the Ref was never wired', async () => {

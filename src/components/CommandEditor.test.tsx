@@ -114,7 +114,7 @@ test('a saved command whose shape still matches is resumed', async () => {
   await openEditor(saved)
 
   expect(useCommandStore.getState().value.args['/2']).toEqual({ id: 'stone', components: {} })
-  expect(screen.getByText('/give @p minecraft:stone')).toBeTruthy()
+  expect(document.querySelector('code')?.textContent).toBe('/give @p minecraft:stone')
 })
 
 test('a stale fingerprint refuses to resume rather than restoring part of the tree', async () => {

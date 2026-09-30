@@ -73,19 +73,47 @@ export interface ForcedSlot {
   text: string
 }
 
+/**
+ * One piece of the command text, and where in the form it came from.
+ *
+ * The output panel draws the command as these, so hovering a piece lights the row
+ * that produced it and a changed piece can be picked out, and the status line reads
+ * what is missing off them. Joined with single spaces they are the command text,
+ * exactly: `serializeCommand` is that join, so there is one walk and never a second
+ * copy of the rules that could disagree with it.
+ */
+export interface Segment {
+  text: string
+  /** The node that produced it. Unique within one command, so it can key a rendered piece. */
+  path: Path
+  /**
+   * The form row it belongs to: an argument's own path, a flag set's, a Ref's for an
+   * unpicked command, or for a keyword the Choice whose branch it leads. Absent for the
+   * command's own name, which no row sets.
+   */
+  field?: Path
+  /**
+   * `keyword` is fixed text; `value` is something the user set; `default` is an empty
+   * argument written as the game's default because a later one needs its slot; and
+   * `placeholder` is a gap still to fill.
+   */
+  kind: 'keyword' | 'value' | 'default' | 'placeholder'
+}
+
 export interface SerializeReport {
   text: string
+  segments: readonly Segment[]
   /** Every argument written because a later one needed its slot, by path. */
   forced: ReadonlyMap<Path, ForcedSlot>
 }
 
 /**
- * The command text, and which empty arguments had to be written to produce it.
+ * The command text, its segments, and which empty arguments had to be written.
  *
- * One walk for both, because the second answer is a by-product of the first: the form
- * says "written as 0 because a later value is set" beside exactly the fields the
- * output filled, and computing that separately would be a second copy of the rule
- * that could disagree with the first.
+ * One walk for all three. The form says "written as 0 because a later value is set"
+ * beside exactly the fields the output filled, and the panel draws exactly the text
+ * that is copied, because both are by-products of producing that text rather than
+ * second readings of the tree.
  */
 export function serializeWithReport(
   definition: CommandDefinition,
@@ -96,11 +124,19 @@ export function serializeWithReport(
   const forced = new Map<Path, ForcedSlot>()
   const depth = options.maxDepth ?? DEFAULT_MAX_DEPTH
   const body = serializeNode(definition.root, ROOT, value, ctx, { ...options, forced }, depth)
-  return { text: body === '' ? '' : dialectPrefix(definition.dialect) + body, forced }
+  const [first, ...rest] = body
+  // The dialect's slash belongs to the first piece, the command's name, so hovering the
+  // name lights the whole of `/give` rather than leaving a stray slash.
+  const segments = first
+    ? [{ ...first, text: dialectPrefix(definition.dialect) + first.text }, ...rest]
+    : []
+  return { text: segments.map((s) => s.text).join(' '), segments, forced }
 }
 
 interface WalkOptions extends SerializeOptions {
   forced?: Map<Path, ForcedSlot>
+  /** The Choice whose branch is being walked, which a keyword in it belongs to. */
+  owner?: Path
 }
 
 /**
@@ -138,12 +174,12 @@ function serializeNode(
   ctx: SerializeContext,
   options: WalkOptions,
   depth: number,
-): string {
-  if (depth <= 0) return ''
+): Segment[] {
+  if (depth <= 0) return []
 
   switch (node.kind) {
     case 'literal':
-      return node.token
+      return [{ text: node.token, path, field: options.owner, kind: 'keyword' }]
 
     case 'argument': {
       const type = lookupArgumentType(node.type)
@@ -153,13 +189,16 @@ function serializeNode(
       // about what the command is, which is the one thing this panel must not do.
       const raw = value.args[path] ?? type.defaultValue(argumentOptions(node))
       const text = type.serialize(raw, ctx)
+      if (text !== '') return [{ text, path, field: path, kind: 'value' }]
       // An unfilled *required* argument becomes a visible placeholder rather than an
       // empty string. Empty was the one shape that could not be shown honestly: at the
       // end of a command it vanished, so `/tellraw @p` looked like a finished command
       // that says nothing; in the middle it left two spaces, which is not a visible
       // gap either — just malformed text that reads as valid. Angle brackets are
       // Brigadier's own usage-string convention, so the gap reads as a gap.
-      return text === '' && !node.optional ? `<${node.name}>` : text
+      return node.optional
+        ? []
+        : [{ text: `<${node.name}>`, path, field: path, kind: 'placeholder' }]
     }
 
     case 'sequence': {
@@ -181,46 +220,49 @@ function serializeNode(
       )
       let last = -1
       parts.forEach((part, i) => {
-        if (part !== '') last = i
+        if (part.length > 0) last = i
       })
-      return parts
-        .map((part, i) => {
-          const n = node.nodes[i]
-          if (part !== '' || i > last || n?.kind !== 'argument') return part
-          const slot = forcedSlot(n, ctx)
-          options.forced?.set(child(path, i), slot)
-          return slot.text
-        })
-        .filter((part) => part !== '')
-        .join(' ')
+      return parts.flatMap((part, i): Segment[] => {
+        const n = node.nodes[i]
+        if (part.length > 0 || i > last || n?.kind !== 'argument') return part
+        const at = child(path, i)
+        const slot = forcedSlot(n, ctx)
+        options.forced?.set(at, slot)
+        return [{ text: slot.text, path: at, field: at, kind: slot.how }]
+      })
     }
 
     case 'choice': {
       const selected = choiceSelection(value.choices, path, node)
       // An optional clause with nothing selected contributes nothing — no keyword, no
       // separator. This is the whole reason ChoiceNode carries `optional`.
-      if (selected === NO_BRANCH) return ''
+      if (selected === NO_BRANCH) return []
       const chosen = node.nodes[selected]
-      if (!chosen) return ''
-      return serializeNode(chosen, branch(path, selected), value, ctx, options, depth)
+      if (!chosen) return []
+      return serializeNode(
+        chosen,
+        branch(path, selected),
+        value,
+        ctx,
+        { ...options, owner: path },
+        depth,
+      )
     }
 
-    case 'repeat': {
+    case 'repeat':
       // The id list is the clause order, so serialization reads it straight through. It
       // used to count and then rebuild each ordinal, which meant the output order and
       // the stored keys had to agree; now there is only one thing to be in order.
-      const parts: string[] = []
-      for (const id of repeatInstances(value.repeats, path, node)) {
-        const part = serializeNode(node.node, instance(path, id), value, ctx, options, depth)
-        if (part !== '') parts.push(part)
-      }
-      return parts.join(' ')
-    }
+      return repeatInstances(value.repeats, path, node).flatMap((id) =>
+        serializeNode(node.node, instance(path, id), value, ctx, options, depth),
+      )
 
     case 'flagset': {
       // One combined token: -hro, never -h -r -o.
       const chars = node.flags.filter((f) => value.flags[`${path}/${f.name}`]).map((f) => f.char)
-      return chars.length > 0 ? `-${chars.join('')}` : ''
+      return chars.length > 0
+        ? [{ text: `-${chars.join('')}`, path, field: path, kind: 'value' }]
+        : []
     }
 
     case 'ref': {
@@ -230,10 +272,11 @@ function serializeNode(
       // introduces it. So an unpicked one is a visible gap rather than nothing, for the
       // same reason an unfilled required argument is: `/execute as @a run` reads as a
       // finished command and is not one.
-      if (!target) return '<command>'
+      if (!target) return [{ text: '<command>', path, field: path, kind: 'placeholder' }]
       // Depth decrements only here. A Ref is the only node that can reach a
-      // definition again, so it is the only place a cycle can be spent.
-      return serializeNode(target.root, path, value, ctx, options, depth - 1)
+      // definition again, so it is the only place a cycle can be spent. The embedded
+      // command's own name belongs to the row that picked it.
+      return serializeNode(target.root, path, value, ctx, { ...options, owner: path }, depth - 1)
     }
   }
 }
