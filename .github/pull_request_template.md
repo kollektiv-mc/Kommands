@@ -40,6 +40,6 @@ The full ladder is kollektiv's docs/conventions.md, "Which type: label".
 -->
 
 - [ ] Labelled by the test above rather than by the title's verb: `type:feature`, `type:bug`, `type:docs` or `type:chore`.
-- [ ] Labelled with an `area:` too, from kollektiv's `design/labels.json`. CI's `pr-labelled` job checks the two separately and fails on either.
+- [ ] Labelled with an `area:` too, from kollektiv's `design/labels.json`. The `pr-labelled` status checks the two separately and stays pending until both are on.
 - [ ] One concern.
 - [ ] Generated files were regenerated rather than hand-edited (`src/data/generated/`, `src/styles/tokens.css`, lockfiles). A `fingerprints.json` diff was read, not regenerated past.
