@@ -101,7 +101,7 @@ Other conventions:
 - Task tracking is **GitHub Issues**. Do not add a `TODO.md`. See `docs/suite.md`.
 - A merged pull request's title is a release-notes line and its `type:` label is the
   only thing that files it; every pull request carries one `type:` and one `area:`
-  label, and CI's `pr-labelled` job fails without both. The rules, the label ladder
+  label, and the `pr-labelled` status stays pending without both. The rules, the label ladder
   and the release-notes generator are kollektiv's (`docs/conventions.md` there);
   `.github/changelog.json` is this repo's one input, the paths that never reach what
   ships.
