@@ -37,8 +37,14 @@ What _is_ genuinely shared is narrower and more valuable:
   silently does nothing.
 - **The health-check discipline.** Run every check, report a table, never report a
   skipped check as passing.
+- **The wording limits.** A test function is named in at most 60 characters, a
+  label that is scanned fits in 20, and a message that shares a line with
+  controls stays on that line under 140. kollektiv's `docs/conventions.md`
+  § Wording says why. The `test names stay readable` invariant in
+  `.claude/suite.json` holds the first here; the other two wait for a surface
+  that needs them.
 
-Those three are conventions, not code. They travel as a Claude Code plugin.
+Those four are conventions, not code. They travel as a Claude Code plugin.
 
 Four workflows travel as vendored copies under `.github/workflows/`, put there by
 kollektiv's `sync-workflows.sh` and never edited here: the aislop score
