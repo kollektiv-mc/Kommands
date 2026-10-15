@@ -69,7 +69,7 @@ Formatting is Prettier-enforced; do not hand-format. Non-default settings:
 **no semicolons**, **single quotes**, **trailing commas everywhere**,
 **100-column** print width, **2-space** indentation.
 
-Four rules are not enforceable by the formatter and are checked by
+Five rules are not enforceable by the formatter and are checked by
 `/suite-kit:health`:
 
 1. **No hardcoded game values.** Item IDs, entity IDs, enchantments, effects,
@@ -90,6 +90,8 @@ Four rules are not enforceable by the formatter and are checked by
    `kollektiv/design/tokens.json` and overwritten by that repo's
    `scripts/sync-tokens.sh`. A token added here alone is lost on the next sync
    and never reaches Konnekt, which reads the same source.
+5. **A test function is named in at most 60 characters.** The suite's wording
+   rule; `docs/suite.md` has the three limits and where each is held.
 
 Other conventions:
 
