@@ -8,6 +8,7 @@
 .claude/suite-memory.py
 .github/scripts/release-notes.py
 .github/scripts/release-notes_test.py
+.github/scripts/changelog-section.py
 
 # Generated: the command skeletons and registries from mcmeta, the fingerprint
 # index, and the token sheet (see CLAUDE.md § Conventions, rule 3).
