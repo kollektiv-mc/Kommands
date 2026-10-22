@@ -43,8 +43,13 @@ What _is_ genuinely shared is narrower and more valuable:
   § Wording says why. The `test names stay readable` invariant in
   `.claude/suite.json` holds the first here; the other two wait for a surface
   that needs them.
+- **The copy rules.** Say what a thing is, once: no glyph or accent-coloured
+  labels, no slogan headlines, no line that explains the layout, few fixed
+  header facts. Same section of kollektiv's conventions; the list an agent
+  loads is [`.claude/rules/copy.md`](../.claude/rules/copy.md), scoped to the
+  files copy is written in. Review holds it, not a gate.
 
-Those four are conventions, not code. They travel as a Claude Code plugin.
+Those five are conventions, not code. They travel as a Claude Code plugin.
 
 Four workflows travel as vendored copies under `.github/workflows/`, put there by
 kollektiv's `sync-workflows.sh` and never edited here: the aislop score
