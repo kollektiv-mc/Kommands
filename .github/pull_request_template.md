@@ -1,11 +1,13 @@
 <!--
 Title rules, because a merged pull request title becomes public release-notes
 copy: imperative mood, sentence case, no trailing period, one line, no em
-dashes. Say what changed, not which files moved. The label, not the title,
+dashes. Say what changed, not which files moved. The type, not the title,
 decides which section it lands in; .github/changelog.json says which paths
 never reach what ships.
 
-Keep one pull request to one concern.
+One pull request can carry several changes: list each in the Changelog
+section below. Split only when a part is risky on its own, has to be
+revertable on its own, or ships at a different time.
 -->
 
 ## Why
@@ -16,6 +18,20 @@ Keep one pull request to one concern.
 
 <!-- The shape of the change. Enough that a reviewer knows where to look. -->
 
+## Changelog
+
+<!--
+One line per change, as public release-notes copy with the same rules as the
+title. The type is feature, fix, chore, docs or skip, chosen by the test at
+the bottom. chore and docs are counted in the notes, not listed.
+
+- feature: Add a block palette to the editor
+- fix: Keep the cursor on the line after a paste
+
+Leave the section empty for a single change and the notes use the title and
+the type: label instead (the pr-labelled status warns that it did).
+-->
+
 ## How it was verified
 
 <!-- What you actually ran, and what it said. Name the gates: pnpm typecheck /
@@ -25,7 +41,8 @@ a manual check in the running app. -->
 ---
 
 <!--
-Which label. Ask these in order and stop at the first yes:
+Which type, for each Changelog line or, without a section, for the type: label.
+Ask these in order and stop at the first yes:
 
   1. Can a user of Kommands tell the difference? If nothing they can see, run or
      click changed, it is type:chore - or type:docs when the change is
@@ -39,7 +56,6 @@ Which label. Ask these in order and stop at the first yes:
 The full ladder is kollektiv's docs/conventions.md, "Which type: label".
 -->
 
-- [ ] Labelled by the test above rather than by the title's verb: `type:feature`, `type:bug`, `type:docs` or `type:chore`.
-- [ ] Labelled with an `area:` too, from kollektiv's `design/labels.json`. The `pr-labelled` status checks the two separately and stays pending until both are on.
-- [ ] One concern.
+- [ ] A Changelog line per change, or a `type:` label (`type:feature`, `type:bug`, `type:docs`, `type:chore`) for a single change. Typed by the test above rather than by the verb.
+- [ ] Labelled with an `area:` from kollektiv's `design/labels.json`. The `pr-labelled` status stays pending until the area and one of the two above are there.
 - [ ] Generated files were regenerated rather than hand-edited (`src/data/generated/`, `src/styles/tokens.css`, lockfiles). A `fingerprints.json` diff was read, not regenerated past.
