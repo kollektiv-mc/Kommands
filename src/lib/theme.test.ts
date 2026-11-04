@@ -188,3 +188,13 @@ function contrast(a: string, b: string): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
   return (hi! + 0.05) / (lo! + 0.05)
 }
+
+test("the product accent is the suite's brand-kommands token", () => {
+  // The accent is handed to the skin as a hex at runtime, so it is restated here rather
+  // than read from the generated sheet. The suite's source of the colour is the token,
+  // which the Kollektiv mark and site paint Kommands with; this keeps the two one value.
+  const source = JSON.parse(readFileSync('tokens.source.json', 'utf8')) as {
+    color: { brand: Record<string, { dark: { hex: string } }> }
+  }
+  expect(PRODUCT_ACCENT).toBe(source.color.brand['brand-kommands']!.dark.hex)
+})

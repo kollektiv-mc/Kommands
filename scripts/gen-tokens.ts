@@ -28,6 +28,10 @@ const CSS_OUT = new URL('../src/styles/tokens.css', import.meta.url)
 
 const SUPPORTED_VERSION = 1
 
+// The colour groups the shared schema says a consumer exposes as separable
+// channels as well as a composed value: status, and each product's brand colour.
+const CHANNEL_GROUPS = new Set(['status', 'brand'])
+
 interface ColorValue {
   hex: string
   alpha?: number
@@ -309,7 +313,7 @@ function emitCss(src: TokenSource): string {
         // A null light value means the token inherits its dark one; emitting it
         // again would be a second copy to keep in step for no behavioural gain.
         if (value == null) continue
-        if (group === 'status') {
+        if (CHANNEL_GROUPS.has(group)) {
           // Channel triplets, so alpha composes from one token:
           // rgb(var(--accent-rgb) / 0.2) needs no second --accent-20 token.
           push(`  --${name}-rgb: ${channels(value.hex)};`)

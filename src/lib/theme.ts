@@ -31,7 +31,11 @@
  */
 
 /**
- * Ember (`#fb923c`, Tailwind's orange-400).
+ * Ember (`#fb923c`, Tailwind's orange-400), the suite's `brand-kommands` token.
+ *
+ * The token is Kommands' identity colour, its block in the Kollektiv mark. It is
+ * restated here because the skin below takes the accent as a hex at runtime, and
+ * `theme.test.ts` holds the two to one value.
  *
  * Chosen against the shared `--bg-base` of `#05060a`, where it carries roughly 9:1
  * contrast — enough for the accent to be readable as text at this UI's 12px body
