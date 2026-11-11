@@ -144,12 +144,12 @@ func main() {
 		// a user with both should not have to learn two window bars.
 		Frameless: true,
 		// --bg-base as src/lib/theme.ts computes it for the dark skin
-		// (#1c1612), so the instant before first paint is the same colour as
+		// (#17130f), so the instant before first paint is the same colour as
 		// the app that follows it. Neither the token pipeline nor the skin can
 		// reach Go; this restates the result, and drift shows up as a coloured
 		// flash on launch rather than silently. productSkin() in that file is
 		// exported so the value can be read rather than guessed at.
-		BackgroundColour: &options.RGBA{R: 28, G: 22, B: 18, A: 255},
+		BackgroundColour: &options.RGBA{R: 23, G: 19, B: 15, A: 255},
 		Linux: &linux.Options{
 			Icon: appIcon,
 			// Restates the default Wails applies when Linux options are nil —

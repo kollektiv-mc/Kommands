@@ -78,9 +78,9 @@ const ELEVATED_ALPHA = 0.82
  * lightness every hue is black, so a tint alone would have changed nothing anyone
  * could see.
  *
- * Dark lands on `#1c1612` / `#2a221c`, which carries white text at roughly 18:1 —
- * well past the 7:1 this UI's 12px body size wants, and past the 4.5:1 WCAG AA asks
- * for. Light is the same construction against a near-white, so the pair stays a
+ * Dark lands on `#17130f` / `#1c1612`: the ground, and the panels that sit on it, as
+ * the dashboard design has them. White text on either is roughly 18:1, well past the
+ * 7:1 this UI's 12px body size wants. Light is the same construction against a near-white, so the pair stays a
  * theme swap rather than two unrelated palettes.
  */
 /**
@@ -107,7 +107,7 @@ const LIGHT_ACCENT: [number, number] = [0.92, 0.35]
 
 const SKIN: Record<Theme, { base: [number, number]; elevated: [number, number] }> = {
   // [saturation, lightness]
-  dark: { base: [0.22, 0.09], elevated: [0.2, 0.137] },
+  dark: { base: [0.21, 0.075], elevated: [0.22, 0.09] },
   light: { base: [0.33, 0.97], elevated: [0.26, 0.94] },
 }
 

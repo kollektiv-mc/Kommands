@@ -37,6 +37,13 @@ export interface StoredLayout {
    * would make removing a closed panel and restoring it silently reopen it.
    */
   collapsed?: string[]
+  /**
+   * The order Saved commands was dragged into, as ids. Optional for the same reason as
+   * `collapsed`: a layout from before reordering existed is a layout with no order.
+   */
+  order?: string[]
+  /** Group names the browser offers, including ones nothing is filed under yet. */
+  groups?: string[]
 }
 
 export const LAYOUT_VERSION = 1
@@ -58,13 +65,18 @@ export function readLayout(): StoredLayout | null {
       // older file rather than a malformed one, and rejecting the whole layout over a
       // field that did not exist when it was written would lose an arrangement the
       // user made for a preference they never expressed.
-      collapsed: Array.isArray(layout.collapsed)
-        ? layout.collapsed.filter((id): id is string => typeof id === 'string')
-        : [],
+      collapsed: strings(layout.collapsed),
+      order: strings(layout.order),
+      groups: strings(layout.groups),
     }
   } catch {
     return null
   }
+}
+
+/** The strings in an optional stored list; anything else reads as empty. */
+function strings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
 }
 
 export function writeLayout(layout: StoredLayout): void {

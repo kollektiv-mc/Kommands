@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode, Ref } from 'react'
 
 /**
  * The tones an icon control comes in.
@@ -35,26 +35,32 @@ export function IconButton({
   tone = 'muted',
   className = '',
   disabled,
+  small = false,
+  ref,
   'aria-pressed': pressed,
 }: {
-  onClick?: () => void
+  onClick?: (event: MouseEvent<HTMLButtonElement>) => void
   /** Both the tooltip and the accessible name — the icon carries neither. */
   title: string
   children: ReactNode
   tone?: keyof typeof TONES
   className?: string
   disabled?: boolean
+  /** 22px rather than 24px, for the controls on a dashboard tile. */
+  small?: boolean
+  ref?: Ref<HTMLButtonElement>
   'aria-pressed'?: boolean
 }) {
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onClick}
       title={title}
       aria-label={title}
       aria-pressed={pressed}
       disabled={disabled}
-      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${TONES[tone]} ${className}`}
+      className={`flex ${small ? 'size-5.5' : 'size-6'} shrink-0 items-center justify-center rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${TONES[tone]} ${className}`}
     >
       {children}
     </button>

@@ -99,3 +99,23 @@ export const DEFAULT_PLACED: readonly PanelId[] = ['pinned', 'saved', 'recent', 
 export function panelById(id: PanelId): PanelDescriptor | undefined {
   return PANELS.find((panel) => panel.id === id)
 }
+
+/**
+ * Saved commands in the order they were dragged into.
+ *
+ * `order` is a list of ids. A command it does not name is newer than the last drag,
+ * so it goes first, in the order the store gave it (newest first). An id for a command
+ * that no longer exists is skipped.
+ */
+export function arrange(
+  commands: readonly SavedCommand[],
+  order: readonly string[],
+): readonly SavedCommand[] {
+  if (order.length === 0) return commands
+  const rank = new Map(order.map((id, i) => [id, i]))
+  const fresh = commands.filter((command) => !rank.has(command.id))
+  const placed = commands
+    .filter((command) => rank.has(command.id))
+    .toSorted((a, b) => rank.get(a.id)! - rank.get(b.id)!)
+  return [...fresh, ...placed]
+}

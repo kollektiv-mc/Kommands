@@ -1,5 +1,6 @@
 import { Outlet, useMatchRoute } from '@tanstack/react-router'
 import { Dashboard } from './Dashboard'
+import { DotGrid } from './dashboard/DotGrid'
 
 /**
  * The dashboard, and whatever is currently covering it.
@@ -33,13 +34,15 @@ export function DashboardLayout() {
         the accessibility tree — the three things a hand-rolled trap tries to do and
         usually gets two of. It costs no bytes and no JS.
 
-        The overflow swap is the scroll lock. It also keeps the captured tile rect
+        The dashboard itself never scrolls on a wide window; below `lg` the panels
+        stack and it does. The overflow swap is the scroll lock. It also keeps the captured tile rect
         valid: a dashboard that could scroll under the overlay would leave the exit
         animation collapsing to where the tile no longer is.
       */}
+      <DotGrid />
       <div
         inert={covered}
-        className={`h-full p-3 ${covered ? 'overflow-hidden' : 'overflow-auto'}`}
+        className={`relative h-full px-6 pt-5 pb-6 ${covered ? 'overflow-hidden' : 'overflow-auto lg:overflow-hidden'}`}
       >
         <Dashboard />
       </div>

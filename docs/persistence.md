@@ -81,6 +81,17 @@ And one flag that is a decision rather than data:
   the `revision` nor `updatedAt`: what Konnekt would run has not changed, only
   whether it can see it.
 
+Two more fields file a command without changing it, and move neither `revision` nor
+`updatedAt` either:
+
+- **`group`**, the one group the dashboard's browser files it under, absent when
+  ungrouped.
+- **`tags`**, lowercase labels the browser filters by, absent when there are none.
+
+The dashboard layout itself (collapsed panels, the saved tiles' drag order, and the
+group names offered before anything is filed under them) is a preference, not part of
+any saved command, and never crosses into Konnekt.
+
 ### The identifier is the load-bearing part
 
 **A stable `id`, generated once at save time and never regenerated.**

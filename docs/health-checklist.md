@@ -420,18 +420,19 @@ belongs here.
 The not-yet-closed follow-ups. Keep this section short and current; everything above
 it should be stable between runs.
 
-**P2 — The aislop gate holds 95, not the suite's 100**
+**P2: The aislop gate holds 97, not the suite's 100**
 
 - `.aislop/config.yml` overrides the vendored base's `failBelow: 100` with the score
   the tree has, so a new finding still fails the build while the existing warnings
   are worked off. It was 93 with 24 warnings when the gate was adopted; the suite
   controls (#107) closed the three datalist findings in `SelectorEditor`,
-  `RegistryPicker` and `TextComponentEditor`, and the pinned output panel closed the
-  two `setState` calls inside effects (`SaveCommandBar`, `CommandWorkbench`). What is
-  left, by rule: eleven
-  `jsx-a11y` findings (`SavedCommandTile`, `CommandOverlay`, `SettingsDialog`,
-  `FontSettings`), four `then` properties
-  the expression parser and CSG compiler put on objects (`unicorn/no-thenable`), a component
+  `RegistryPicker` and `TextComponentEditor`, the pinned output panel closed the
+  two `setState` calls inside effects (`SaveCommandBar`, `CommandWorkbench`), and the
+  dashboard redesign moved tile clicks onto real buttons. What is left, by rule: six
+  `jsx-a11y` findings (`CommandOverlay`, `SettingsDialog`, `FontSettings`, and the
+  drag handlers on `BrowserRow` and the `SavedBrowser` group headings), four `then`
+  properties the expression parser and CSG compiler put on objects
+  (`unicorn/no-thenable`), a `new Array` in `expression/functions.ts`, a component
   created during render (`PreviewStage`), a duplicate block in
   `useSavedCommandsStore`, a double cast in `schema/argument-types/index.ts`, a hidden
   fallback in `schema/paths.ts`, and four empty function bodies (`lib/flip.ts`,
@@ -453,16 +454,20 @@ it should be stable between runs.
   an installable build on two of those three engines, so the first artefact is the
   moment to look. A regression here stays invisible to `pnpm test` either way.
 
-**P2 — The organizer maximize control is drawn but does nothing**
+**P2: The dashboard's drag moves have no keyboard path**
 
-- Every dashboard panel header carries a maximize button, present and disabled with the
-  reason in its accessible name — the same call `SavedCommandTile` makes for the Konnekt
-  link, for the reason § The split must be visible gives. What is missing is the panel
-  itself: Konnekt's is a FLIP out of the tile's rect into a `p-6` container over a
-  backdrop, and this repo already has both halves — `lib/flip.ts`, and `CommandOverlay`
-  doing exactly that for the editor. The work is generalising that overlay to take any
-  panel rather than only the editor, not writing a new one. Until then the control is
-  honest rather than green.
+- Reordering saved tiles and filing a browser row under a group are pointer drags
+  only. Grouping has no other control yet, so a keyboard user can tag a command but
+  cannot file it. A "Move to group" menu on the row, and arrow-key reordering on a
+  focused tile, would close both.
+
+**P3: The dashboard design's tile ledge and full width are not built**
+
+- The design draws a 2px dark ledge under each tile, which is a drop shadow, and
+  this repo has none (`.claude/rules/styling.md`). If it is wanted, it needs a
+  border token rather than a shadow. The hosted build's floating frame also caps the
+  dashboard at `max-w-6xl`, so a wide window shows three tile columns where the
+  design shows four.
 
 **P2 — The version-comparison guard cannot see a named constant**
 

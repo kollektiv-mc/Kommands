@@ -1,14 +1,17 @@
 import { expect, test } from 'vitest'
 import {
   canResume,
+  cleanTag,
   contentChange,
   createSaved,
   nextInstanceIdFor,
   renameSaved,
   resumability,
   reviseSaved,
+  setGroup,
   setLinked,
   setPinned,
+  setTags,
   structureState,
   touchOpened,
   type SaveClock,
@@ -256,6 +259,26 @@ test('linking changes nothing but the link', () => {
   expect(setLinked(linked, false).linked).toBe(false)
   // A record that predates the flag was never in Konnekt.
   expect(saved.linked).toBeUndefined()
+})
+
+test('grouping and tagging change nothing but the filing', () => {
+  const saved = createSaved(DRAFT, fixedClock())
+  const filed = setTags(setGroup(saved, 'Kits'), ['pvp', 'event', 'pvp', ''])
+
+  expect(filed.group).toBe('Kits')
+  expect(filed.tags).toEqual(['pvp', 'event'])
+  expect(filed.revision).toBe(saved.revision)
+  expect(filed.updatedAt).toBe(saved.updatedAt)
+  // Cleared fields leave no key behind, so an untagged record looks like a new one.
+  const cleared = setTags(setGroup(filed, undefined), [])
+  expect('group' in cleared).toBe(false)
+  expect('tags' in cleared).toBe(false)
+})
+
+test('a typed tag is stored in one form', () => {
+  expect(cleanTag('  #PvP Arena ')).toBe('pvp-arena')
+  expect(cleanTag('##')).toBe('')
+  expect(cleanTag('a'.repeat(30))).toHaveLength(20)
 })
 
 test('structure state separates the four ways a tree can fail to fit', () => {

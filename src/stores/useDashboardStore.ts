@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { DEFAULT_PLACED, PANELS, type PanelId } from '../components/dashboard/panels'
 import { LAYOUT_VERSION, readLayout, writeLayout } from '../storage/preferences'
+import { moveTo } from '../lib/reorder'
 
 interface DashboardState {
   placed: readonly PanelId[]
@@ -13,6 +14,10 @@ interface DashboardState {
    * would make removing a closed panel and restoring it quietly reopen it.
    */
   collapsed: readonly PanelId[]
+  /** Saved command ids in the order they were dragged into. See `arrange`. */
+  order: readonly string[]
+  /** Group names the browser offers, nothing filed under them or not. */
+  groups: readonly string[]
   hydrated: boolean
   /** Read the stored arrangement. Safe to call repeatedly; only the first does work. */
   hydrate: () => void
@@ -20,6 +25,10 @@ interface DashboardState {
   restore: (id: PanelId) => void
   /** Open a closed panel, or close an open one. */
   toggleCollapsed: (id: PanelId) => void
+  /** Move `from` to where `to` is, given the ids in the order they are shown now. */
+  reorder: (shown: readonly string[], from: string, to: string) => void
+  /** Offer a new group in the browser. A blank or known name does nothing. */
+  addGroup: (name: string) => void
 }
 
 const KNOWN = new Set<string>(PANELS.map((panel) => panel.id))
@@ -65,16 +74,14 @@ function reconcile(stored: ReturnType<typeof readLayout>): {
   return { placed, removed, collapsed }
 }
 
-function persist(
-  placed: readonly PanelId[],
-  removed: readonly PanelId[],
-  collapsed: readonly PanelId[],
-): void {
+function persist(state: DashboardState): void {
   writeLayout({
     version: LAYOUT_VERSION,
-    placed: [...placed],
-    removed: [...removed],
-    collapsed: [...collapsed],
+    placed: [...state.placed],
+    removed: [...state.removed],
+    collapsed: [...state.collapsed],
+    order: [...state.order],
+    groups: [...state.groups],
   })
 }
 
@@ -93,12 +100,22 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   placed: DEFAULT_PLACED,
   removed: [],
   collapsed: [],
+  order: [],
+  groups: [],
   hydrated: false,
 
   hydrate: () => {
     if (get().hydrated) return
-    const { placed, removed, collapsed } = reconcile(readLayout())
-    set({ placed, removed, collapsed, hydrated: true })
+    const stored = readLayout()
+    const { placed, removed, collapsed } = reconcile(stored)
+    set({
+      placed,
+      removed,
+      collapsed,
+      order: stored?.order ?? [],
+      groups: stored?.groups ?? [],
+      hydrated: true,
+    })
   },
 
   remove: (id) => {
@@ -109,7 +126,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     // restores one — and `AddPanelMenu` gives no hint that what returns will be shut.
     const collapsed = get().collapsed.filter((panel) => panel !== id)
     set({ placed, removed, collapsed })
-    persist(placed, removed, collapsed)
+    persist({ ...get(), placed, removed, collapsed })
   },
 
   restore: (id) => {
@@ -119,7 +136,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     const placed = [...get().placed, id]
     const removed = get().removed.filter((panel) => panel !== id)
     set({ placed, removed })
-    persist(placed, removed, get().collapsed)
+    persist({ ...get(), placed, removed })
   },
 
   toggleCollapsed: (id) => {
@@ -128,6 +145,21 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       ? get().collapsed.filter((panel) => panel !== id)
       : [...get().collapsed, id]
     set({ collapsed })
-    persist(get().placed, get().removed, collapsed)
+    persist({ ...get(), collapsed })
+  },
+
+  reorder: (shown, from, to) => {
+    const order = moveTo(shown, shown.indexOf(from), shown.indexOf(to))
+    if (order === shown) return
+    set({ order })
+    persist({ ...get(), order })
+  },
+
+  addGroup: (name) => {
+    const clean = name.trim()
+    if (clean === '' || get().groups.includes(clean)) return
+    const groups = [...get().groups, clean]
+    set({ groups })
+    persist({ ...get(), groups })
   },
 }))

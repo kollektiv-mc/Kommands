@@ -10,6 +10,8 @@ beforeEach(() => {
     placed: DEFAULT_PLACED,
     removed: [],
     collapsed: [],
+    order: [],
+    groups: [],
     hydrated: false,
   })
 })
@@ -153,4 +155,17 @@ test('hydrating twice does not re-read', () => {
   // once-per-session read, not a refresh.
   useDashboardStore.getState().hydrate()
   expect(useDashboardStore.getState().placed).not.toContain('saved')
+})
+
+test('a dragged order and an added group survive a reload', () => {
+  useDashboardStore.getState().hydrate()
+  useDashboardStore.getState().reorder(['a', 'b', 'c'], 'c', 'a')
+  useDashboardStore.getState().addGroup(' Kits ')
+  useDashboardStore.getState().addGroup('Kits')
+  useDashboardStore.getState().addGroup('  ')
+
+  useDashboardStore.setState({ hydrated: false, order: [], groups: [] })
+  useDashboardStore.getState().hydrate()
+  expect(useDashboardStore.getState().order).toEqual(['c', 'a', 'b'])
+  expect(useDashboardStore.getState().groups).toEqual(['Kits'])
 })
