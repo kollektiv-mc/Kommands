@@ -34,4 +34,5 @@ ci:
   # score it found rather than the score it wants. Raise this as findings
   # close; never lower it. docs/health-checklist.md lists what is open.
   # 95 since the suite controls replaced the three datalists (#107).
-  failBelow: 95
+  # 97 since the dashboard redesign moved tile and row clicks onto real buttons.
+  failBelow: 97

@@ -4,7 +4,9 @@ import {
   renameSaved,
   reviseSaved,
   setLinked,
+  setGroup,
   setPinned,
+  setTags,
   touchOpened,
   type SavedCommand,
   type SavedCommandDraft,
@@ -66,6 +68,10 @@ interface SavedCommandsState {
    * says it leads nowhere there (`distribution.md` § The split must be visible).
    */
   link: (id: string, linked: boolean) => Promise<void>
+  /** File it under a group, or under none. Filing only: no revision, no reorder. */
+  group: (id: string, group: string | undefined) => Promise<void>
+  /** Replace its tags. Filing only, like `group`. */
+  tag: (id: string, tags: readonly string[]) => Promise<void>
   remove: (id: string) => Promise<void>
 }
 
@@ -116,6 +122,28 @@ export function storageKind(): SavedCommandStorage['kind'] | null {
 /** The message an unknown thrown value reports as. */
 function reason(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * Write one metadata change to a held command: look it up, derive the next record,
+ * store it, and only then show it. A failed write leaves the tile as it was and
+ * reports why.
+ */
+async function refile(id: string, change: (existing: SavedCommand) => SavedCommand) {
+  const store = storage()
+  const existing = useSavedCommandsStore.getState().commands.find((held) => held.id === id)
+  if (!store || !existing) return
+  const next = change(existing)
+  try {
+    await store.put(next)
+  } catch (error) {
+    useSavedCommandsStore.setState({ error: reason(error) })
+    return
+  }
+  useSavedCommandsStore.setState((s) => ({
+    commands: s.commands.map((held) => (held.id === id ? next : held)),
+    error: null,
+  }))
 }
 
 export const useSavedCommandsStore = create<SavedCommandsState>((set, get) => ({
@@ -224,37 +252,13 @@ export const useSavedCommandsStore = create<SavedCommandsState>((set, get) => ({
     set((s) => ({ commands: s.commands.map((held) => (held.id === id ? next : held)) }))
   },
 
-  pin: async (id, pinned) => {
-    const store = storage()
-    const existing = get().commands.find((held) => held.id === id)
-    if (!store || !existing) return
-    const next = setPinned(existing, pinned)
-    try {
-      await store.put(next)
-    } catch (error) {
-      return set({ error: reason(error) })
-    }
-    set((s) => ({
-      commands: s.commands.map((held) => (held.id === id ? next : held)),
-      error: null,
-    }))
-  },
+  pin: (id, pinned) => refile(id, (existing) => setPinned(existing, pinned)),
 
-  link: async (id, linked) => {
-    const store = storage()
-    const existing = get().commands.find((held) => held.id === id)
-    if (!store || !existing) return
-    const next = setLinked(existing, linked)
-    try {
-      await store.put(next)
-    } catch (error) {
-      return set({ error: reason(error) })
-    }
-    set((s) => ({
-      commands: s.commands.map((held) => (held.id === id ? next : held)),
-      error: null,
-    }))
-  },
+  link: (id, linked) => refile(id, (existing) => setLinked(existing, linked)),
+
+  group: (id, group) => refile(id, (existing) => setGroup(existing, group)),
+
+  tag: (id, tags) => refile(id, (existing) => setTags(existing, tags)),
 
   remove: async (id) => {
     const store = storage()

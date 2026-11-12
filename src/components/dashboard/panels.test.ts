@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { PANELS, panelById, type CommandPanel, type PanelId } from './panels'
+import { PANELS, arrange, panelById, type CommandPanel, type PanelId } from './panels'
 import type { SavedCommand } from '../../schema/saved'
 
 function command(over: Partial<SavedCommand>): SavedCommand {
@@ -97,4 +97,15 @@ test('the pinned-generators panel is not a lens over saved commands', () => {
   // a lie with a type signature, and this is the assertion that the shape stays honest.
   expect(panelById('pinned')?.source).toBe('generators')
   expect(LENSES.map((panel) => panel.id)).toEqual(['saved', 'recent', 'quick', 'linked'])
+})
+
+test('a dragged order holds, and anything newer than it comes first', () => {
+  const E = command({ id: 'e', name: 'E' })
+  expect(arrange([E, A, B, C], ['c', 'gone', 'a', 'b']).map((c) => c.id)).toEqual([
+    'e',
+    'c',
+    'a',
+    'b',
+  ])
+  expect(arrange(ALL, [])).toBe(ALL)
 })

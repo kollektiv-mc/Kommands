@@ -4,82 +4,64 @@ import { storageKind, useSavedCommandsStore } from '../stores/useSavedCommandsSt
 import { useDashboardStore } from '../stores/useDashboardStore'
 import { usePinnedGeneratorsStore } from '../stores/usePinnedGeneratorsStore'
 import { originOf, useUiStore } from '../stores/useUiStore'
-import { SavedCommandTile } from './SavedCommandTile'
-import { PinnedGeneratorTile } from './PinnedGeneratorTile'
-import { AddPanelMenu } from './dashboard/AddPanelMenu'
-import { DashboardPanel } from './dashboard/DashboardPanel'
-import { panelById } from './dashboard/panels'
+import { PinnedPanel } from './dashboard/PinnedPanel'
+import { SavedPanel } from './dashboard/SavedPanel'
+import { ListPanel } from './dashboard/ListPanel'
+import { PANELS, arrange, panelById, type CommandPanel, type PanelId } from './dashboard/panels'
 import { loadFingerprints } from '../data/loadGenerated'
-import { structureStateFromIndex } from '../schema/saved'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import { LABEL, WARNING } from './editors/fieldStyles'
 
 const CTA =
-  'border-hairline border-accent bg-accent text-canvas rounded-md px-3 py-1.5 font-mono text-1xs font-semibold'
+  'border-hairline border-accent bg-accent text-canvas hover:bg-accent/85 rounded-md px-3.5 py-1.5 font-mono text-xs font-semibold'
 
 /**
- * The dashboard: four organizers over one saved-commands list and one pin list.
+ * The dashboard: pinned generators across the top, saved commands beside Recent, Quick
+ * and Linked to Konnekt.
  *
- * Each panel is a view rather than a folder — Saved is all of them, Recent is the ones
- * opened lately, Quick is the pinned ones — so a command can show in more than one at a
- * time and nothing is duplicated behind the scenes. Pinned generators are the exception
- * and read a different collection; see `dashboard/panels.ts` for why that is a union
- * rather than a fourth lens.
+ * Each panel is a view rather than a folder: Saved is all of them, Recent the ones
+ * opened lately, Quick the pinned ones, so a command can show in more than one at once.
+ * Pinned generators read a different collection; see `dashboard/panels.ts`.
  *
- * **There is no empty-state hero.** There was one — a full-page wordmark, a sentence,
- * and a New command button, shown whenever nothing was saved — and it was wrong twice
- * over. It hid the organizers from exactly the person who had never seen them, so the
- * dashboard's shape was a thing you discovered by saving something first; and it put
- * the product name in the middle of the page while the title bar was already carrying
- * it. An empty organizer now says it is empty, in one sentence, and takes up no more
- * room than that sentence needs.
+ * On a wide window the dashboard fills it and never scrolls: every panel shows what
+ * fits and pages the rest, and the saved commands browser is the one thing that
+ * scrolls. Narrower than `lg` the panels stack and the page scrolls instead.
  *
- * Panels stack vertically and the page scrolls, rather than sitting on a draggable
- * grid. Konnekt uses `react-grid-layout` for its canvas; this app's dashboard is its
- * entry chunk, held to a CI-enforced ceiling, and that library plus its CSS would spend
- * a large share of it on a rearrangement nobody asked for.
- *
- * Every tile still reads its `preview` string rather than re-serializing, and a pinned
- * generator reads a label snapshotted at pin time. That is the whole reason both fields
- * exist: drawing either from a definition would pull 560 KB of command skeletons and
- * 668 KB of registries onto the app's first screen.
+ * Tiles read each command's cached `preview`, and pinned generators a label snapshotted
+ * at pin time, so the dashboard never loads the command skeletons or registries.
  */
 export function Dashboard() {
   const commands = useSavedCommandsStore((s) => s.commands)
   const status = useSavedCommandsStore((s) => s.status)
   const error = useSavedCommandsStore((s) => s.error)
   const load = useSavedCommandsStore((s) => s.load)
-  const rename = useSavedCommandsStore((s) => s.rename)
   const remove = useSavedCommandsStore((s) => s.remove)
   const pin = useSavedCommandsStore((s) => s.pin)
   const link = useSavedCommandsStore((s) => s.link)
+  const group = useSavedCommandsStore((s) => s.group)
+  const tag = useSavedCommandsStore((s) => s.tag)
 
-  const placed = useDashboardStore((s) => s.placed)
-  const removed = useDashboardStore((s) => s.removed)
   const hydrate = useDashboardStore((s) => s.hydrate)
-  const removePanel = useDashboardStore((s) => s.remove)
-  const restorePanel = useDashboardStore((s) => s.restore)
   const collapsed = useDashboardStore((s) => s.collapsed)
   const toggleCollapsed = useDashboardStore((s) => s.toggleCollapsed)
+  const order = useDashboardStore((s) => s.order)
+  const reorder = useDashboardStore((s) => s.reorder)
+  const groups = useDashboardStore((s) => s.groups)
+  const addGroup = useDashboardStore((s) => s.addGroup)
 
   const pinnedGenerators = usePinnedGeneratorsStore((s) => s.pinned)
   const hydratePins = usePinnedGeneratorsStore((s) => s.hydrate)
   const togglePin = usePinnedGeneratorsStore((s) => s.toggle)
 
-  // Fixed for the life of the build, so it is read once here rather than per tile.
   // Only the standalone build writes the file Konnekt reads, so only it can link.
   const linkable = storageKind() === 'file'
 
   const openFrom = useUiStore((s) => s.openFrom)
   const navigate = useNavigate()
 
-  // The fingerprint index, so a tile can say a tree will not restore *before* it is
-  // opened. Deliberately the only generated file this view loads: ~1.6 KB gzipped
-  // against the 560 KB of command skeletons that answering the same question from a
-  // definition would cost — which is the whole reason a saved command caches a
-  // `preview`. Held as null until it arrives, and a failure leaves it null rather than
-  // surfacing: an unreachable index costs a warning the editor still gives on open, so
-  // it is not worth an error message about a file the user has never heard of.
+  // The fingerprint index (~1.6 KB gzipped), so a tile can warn that a command will
+  // not reopen as saved before it is opened. Null until it arrives; a failure leaves it
+  // null, and the editor still refuses on open.
   const [fingerprints, setFingerprints] = useState<Readonly<Record<string, string>> | null>(null)
 
   useEffect(() => {
@@ -94,39 +76,24 @@ export function Dashboard() {
       .then((index) => {
         if (live) setFingerprints(index)
       })
-      .catch(() => {
-        // Left null: tiles simply say nothing structural, as they did before the index
-        // existed. The refusal on open is unaffected — it hashes the real definition.
-      })
+      .catch(() => {})
     return () => {
       live = false
     }
   }, [])
 
-  // Selected once per render rather than per panel, and memoised on the command list —
-  // these are plain array functions, and calling them inside a Zustand selector would
-  // return a fresh array on every store touch and re-render the whole dashboard.
-  const views = useMemo(
+  const saved = useMemo(() => arrange(commands, order), [commands, order])
+  const lenses = useMemo(
     () =>
-      placed
-        .map((id) => panelById(id))
-        .filter((panel) => panel !== undefined)
-        .map((panel) => ({
-          panel,
-          commands: panel.source === 'commands' ? panel.select(commands) : [],
-        })),
-    [placed, commands],
+      PANELS.filter(
+        (panel): panel is CommandPanel => panel.source === 'commands' && panel.id !== 'saved',
+      ).map((panel) => ({ panel, commands: panel.select(commands) })),
+    [commands],
   )
 
   if (status === 'unavailable') {
     return (
       <section className="flex flex-col items-start gap-3">
-        {/*
-          Not an error screen. A browser refusing site data has a working generator and
-          no way to keep what it makes, which is a smaller problem than it looks — so
-          this says what is off and then gets out of the way. No wordmark: the title bar
-          carries it on every route, including this one.
-        */}
         <p className={LABEL}>
           This browser is not letting the page store anything, so commands cannot be saved here. The
           generator itself works.
@@ -142,94 +109,76 @@ export function Dashboard() {
     return <p className={LABEL}>Loading saved commands…</p>
   }
 
+  const pinnedPanel = panelById('pinned')
+  const isCollapsed = (id: PanelId) => collapsed.includes(id)
+  const linkedCount = commands.filter((c) => c.linked === true).length
+
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <h1 className="font-title text-text-primary text-sm">Dashboard</h1>
-        {/*
-          The linked count only where linking is possible. On the web build it would
-          read "0 linked" forever, which is the sentence below said as a number.
-        */}
-        <span className={LABEL}>
+    <div className="flex flex-col gap-4.5 lg:h-full">
+      <div className="flex shrink-0 flex-wrap items-center gap-3">
+        <h1 className="font-title text-text-primary text-xl font-bold tracking-tight">Dashboard</h1>
+        {/* The linked count only where linking is possible; on the web it would read 0 forever. */}
+        <span className="text-text-secondary font-mono text-xs">
           {linkable
-            ? `${commands.length} saved · ${commands.filter((c) => c.linked === true).length} linked`
+            ? `${commands.length} saved · ${linkedCount} linked`
             : `${commands.length} saved`}
         </span>
         <span className="flex-1" />
-        <AddPanelMenu removed={removed} onRestore={restorePanel} />
         <Link to="/c" className={CTA}>
           New command
         </Link>
       </div>
 
-      {/*
-        Said once, up here, rather than repeated under every tile. The `link` control on
-        each tile carries the same reason in its accessible name; this is the sentence a
-        sighted user reads to find out why the control is dim, which is what "stated,
-        not discovered" means in `distribution.md` § The split must be visible.
-      */}
-      {!linkable && (
-        <p className={LABEL}>
-          Linking a command into Konnekt needs the standalone build: a browser cannot reach the file
-          the two share.
-        </p>
-      )}
-
       {error && <p className={WARNING}>{error}</p>}
 
-      {views.map(({ panel, commands: shown }) =>
-        panel.source === 'generators' ? (
-          <DashboardPanel
-            key={panel.id}
-            panel={panel}
-            count={pinnedGenerators.length}
-            collapsed={collapsed.includes(panel.id)}
-            onToggle={() => toggleCollapsed(panel.id)}
-            onRemove={() => removePanel(panel.id)}
-          >
-            {pinnedGenerators.map((generator) => (
-              <PinnedGeneratorTile
-                key={generator.id}
-                generator={generator}
-                onUnpin={() => togglePin(generator)}
-              />
-            ))}
-          </DashboardPanel>
-        ) : (
-          <DashboardPanel
-            key={panel.id}
-            panel={panel}
-            count={shown.length}
-            collapsed={collapsed.includes(panel.id)}
-            onToggle={() => toggleCollapsed(panel.id)}
-            onRemove={() => removePanel(panel.id)}
-          >
-            {shown.map((saved) => (
-              <SavedCommandTile
-                key={saved.id}
-                saved={saved}
-                onOpen={(element) => {
-                  // Captured at the click, because a rect is a fact about this paint.
-                  // Keyed to the command so the editor can look it up without anything
-                  // having to consume it — see useUiStore.originFor.
-                  openFrom(saved.id, originOf(element))
-                  void navigate({
-                    to: '/c/$commandId',
-                    params: { commandId: saved.definitionId },
-                    search: { saved: saved.id },
-                  })
-                }}
-                onRename={(name) => void rename(saved.id, name)}
-                onRemove={() => void remove(saved.id)}
-                onPin={() => void pin(saved.id, saved.pinned !== true)}
-                onLink={() => void link(saved.id, saved.linked !== true)}
-                linkable={linkable}
-                structure={fingerprints ? structureStateFromIndex(saved, fingerprints) : undefined}
-              />
-            ))}
-          </DashboardPanel>
-        ),
-      )}
+      <PinnedPanel
+        generators={pinnedGenerators}
+        empty={pinnedPanel?.empty ?? ''}
+        collapsed={isCollapsed('pinned')}
+        onToggle={() => toggleCollapsed('pinned')}
+        onUnpin={togglePin}
+      />
+
+      <div className="flex min-h-0 flex-1 flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_--spacing(85)] lg:grid-rows-[minmax(0,1fr)]">
+        <SavedPanel
+          commands={saved}
+          groups={groups}
+          fingerprints={fingerprints}
+          linkable={linkable}
+          collapsed={isCollapsed('saved')}
+          onToggle={() => toggleCollapsed('saved')}
+          actions={{
+            onEdit: (command, element) => {
+              // Captured at the click, because a rect is a fact about this paint.
+              openFrom(command.id, originOf(element))
+              void navigate({
+                to: '/c/$commandId',
+                params: { commandId: command.definitionId },
+                search: { saved: command.id },
+              })
+            },
+            onRemove: (id) => void remove(id),
+            onPin: (command) => void pin(command.id, command.pinned !== true),
+            onLink: (command) => void link(command.id, command.linked !== true),
+            onReorder: reorder,
+            onGroup: (id, name) => void group(id, name),
+            onTags: (id, tags) => void tag(id, tags),
+            onAddGroup: addGroup,
+          }}
+        />
+        <div className="flex min-h-0 min-w-0 flex-col gap-5">
+          {lenses.map(({ panel, commands: shown }) => (
+            <ListPanel
+              key={panel.id}
+              title={panel.title}
+              empty={panel.empty}
+              commands={shown}
+              collapsed={isCollapsed(panel.id)}
+              onToggle={() => toggleCollapsed(panel.id)}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

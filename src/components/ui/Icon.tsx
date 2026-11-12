@@ -27,6 +27,7 @@ const STROKE_PX = 1.25
  * the class paints the box, and the number is what the stroke is computed against.
  */
 const SIZE = {
+  xs: { cls: 'size-3', px: 12 },
   sm: { cls: 'size-3.5', px: 14 },
   md: { cls: 'size-4', px: 16 },
 } as const

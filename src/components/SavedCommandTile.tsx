@@ -1,283 +1,185 @@
-import { useState } from 'react'
-import type { SavedCommand, StructureState } from '../schema/saved'
-import { resumability } from '../schema/saved'
-import { findVersion } from '../data/versions'
-import { v1_21_1 } from '../data/versions/1.21.1'
-import { FIELD, LABEL, WARNING } from './editors/fieldStyles'
+import { useRef, useState, type DragEvent } from 'react'
+import type { SavedCommand } from '../schema/saved'
 import { IconButton } from './ui/IconButton'
 import { Icon } from './ui/Icon'
+import { copyNote, useCopy } from './dashboard/useCopy'
+import { REVEALED, useReveal } from './dashboard/useReveal'
+import { savedOn } from './dashboard/dates'
+import { Warning } from './dashboard/StateIcons'
 
-/** What the three resumability answers say to someone looking at a tile. */
-const RESUMABILITY_NOTE = {
-  ready: null,
-  retraited: 'Authored for a version that writes this differently',
-  'unknown-version': 'Authored for a version this build does not know',
-} as const
-
-/**
- * What the structural verdict says here — shorter than the editor's wording in
- * `CommandEditor.REFUSAL`, and deliberately so: this is a badge on a tile, and the
- * full explanation belongs at the moment of the refusal rather than in a grid of
- * twelve of them. The outcome is identical either way; the tile only says it sooner.
- */
-const STRUCTURE_NOTE = {
-  verified: null,
-  stale: 'Saved against an older shape of this command: opens empty',
-  'unknown-command': 'The command this was built for is not in this build',
-  unverified: 'Saved before Kommands recorded command shapes: opens empty',
-} as const
+export interface TileDrag {
+  /** This tile is the one being dragged. */
+  dragging: boolean
+  /** Another tile is being dragged over this one. */
+  target: boolean
+  onDragStart: () => void
+  onDragOver: () => void
+  onDrop: () => void
+  onDragEnd: () => void
+}
 
 /**
- * One saved command, as a panel.
+ * One saved command on the dashboard.
  *
- * A panel in the shared language's sense: `rounded-panel` + `border-hairline` over
- * `bg-surface`, with no shadow — elevation here is the translucent surface and the
- * hairline, and the token set has no shadow to reach for.
+ * A click anywhere copies the command, which is what the tile is for: the product is a
+ * string pasted somewhere else. Edit opens it in the generator, growing out of this
+ * tile. Dragging moves it among the other tiles.
  *
- * The whole tile is the control that opens it, which is what makes the expand
- * animation read as the tile becoming the editor rather than as a button being
- * pressed. That was the intent from the start and only the name was actually wired,
- * so most of a tile did nothing when clicked.
- *
- * It is a handler on the `<li>` rather than a link stretched across it with
- * `absolute inset-0`, which is the other standard way to do this. The stretched link
- * would put an invisible element over the command text, and the command text is the
- * one thing on this tile someone might want to select and copy — this app's entire
- * product is a string you paste somewhere else. So the tile listens for the click and
- * lets the text stay text.
- *
- * The cost of that choice is one guard: a drag that selects text ends in a `click` on
- * the common ancestor, so opening on any click would open the editor every time
- * someone highlighted a command. `getSelection()` is what tells the two apart.
- *
- * The name stays a real `<button>`, because a `<li>` with a handler is unreachable by
- * keyboard. Rename and delete sit inside and stop propagation, so the layers never
- * fight: clicking a tile opens, clicking a control in a tile does that control.
+ * The name is a real button so the copy is reachable by keyboard; the `<li>` handler is
+ * the pointer's way to the same thing. The command text fades into the console where it
+ * is cut. The trash fades in as the pointer nears the bottom left, and a warning icon
+ * says when the command will not reopen as saved.
  */
 export function SavedCommandTile({
   saved,
-  onOpen,
-  onRename,
+  note,
+  linkable,
+  onEdit,
   onRemove,
   onPin,
   onLink,
-  linkable,
-  structure,
+  drag,
 }: {
   saved: SavedCommand
-  /** Given the tile's own element, so the caller can capture the rect it grows from. */
-  onOpen: (element: HTMLElement) => void
-  onRename: (name: string) => void
-  onRemove: () => void
-  /** Toggle the pin that puts this command in the Quick panel. */
-  onPin: () => void
-  /**
-   * Toggle the link that puts this command in Konnekt's Commands tile, and in the
-   * Linked panel here. Saving keeps a command in this app; linking is the separate,
-   * explicit act that lets it cross over — see `SavedCommand.linked`.
-   */
-  onLink: () => void
-  /**
-   * Whether this build can link a command into Konnekt at all.
-   *
-   * Passed in rather than read here, so the answer is fetched once for the dashboard
-   * instead of once per tile — and so this component stays something that renders what
-   * it is given.
-   */
+  /** From `tileNote` in `dashboard/notes.ts`. */
+  note: string | null
+  /** Whether this build can link into Konnekt at all. Only the desktop build can. */
   linkable: boolean
-  /**
-   * Whether the definition still has the shape this tree was built against, judged
-   * against the committed fingerprint index rather than the definition itself.
-   *
-   * `undefined` while that index is still loading. Passed in for the same reason
-   * `linkable` is: the index is fetched once for the dashboard, not once per tile.
-   */
-  structure?: StructureState
+  /** Given the tile's own element, so the editor can grow out of it. */
+  onEdit: (element: HTMLElement) => void
+  onRemove: () => void
+  onPin: () => void
+  onLink: () => void
+  drag: TileDrag
 }) {
-  const [renaming, setRenaming] = useState(false)
-  const [draft, setDraft] = useState(saved.name)
+  const [copied, copy] = useCopy()
+  const [cut, setCut] = useState(false)
+  const tile = useRef<HTMLLIElement>(null)
+  const { card, control } = useReveal('bottom-left')
+  const said = copyNote(copied)
+  const pinned = saved.pinned === true
+  const linked = saved.linked === true
 
-  // One note, and *version* outranks structure — which is the opposite of what tile
-  // real-estate would suggest and is the honest order. The index this build ships
-  // describes the *active* version's definitions, so comparing a tree authored for
-  // another version against it is a comparison across two catalogues: it can report
-  // "the shape moved" when what actually moved is the version. Where the version is
-  // foreign, that is the fact to state, and the structural verdict is not evidence.
-  //
-  // So the structural note speaks only once the version question is settled — and
-  // `structure` is undefined while the index is still loading, the one case with
-  // nothing honest to say yet.
-  const version = resumability(saved, v1_21_1, findVersion)
-  const note =
-    version === 'ready'
-      ? structure
-        ? STRUCTURE_NOTE[structure]
-        : null
-      : RESUMABILITY_NOTE[version]
+  // Measured rather than guessed from the text length, so the fade appears exactly
+  // when the second line is not the last one.
+  const measure = (el: HTMLElement | null) => {
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => setCut(el.scrollHeight > el.clientHeight + 1))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }
 
-  const open = (element: HTMLElement) => {
-    // A drag that highlighted the command text ends in a click here. Opening on it
-    // would make the preview text unselectable in practice, which is the whole reason
-    // this is a handler rather than a link stretched over the tile.
-    if ((window.getSelection()?.toString() ?? '') !== '') return
-    onOpen(element)
+  const dragProps = {
+    draggable: true,
+    onDragStart: (e: DragEvent) => {
+      e.dataTransfer.effectAllowed = 'move'
+      e.dataTransfer.setData('text/plain', saved.preview)
+      drag.onDragStart()
+    },
+    onDragOver: (e: DragEvent) => {
+      e.preventDefault()
+      drag.onDragOver()
+    },
+    onDrop: (e: DragEvent) => {
+      e.preventDefault()
+      drag.onDrop()
+    },
+    onDragEnd: drag.onDragEnd,
   }
 
   return (
     <li
-      // The pointer affordance only. The keyboard path is the name button below, which
-      // is why a handler on a non-interactive element is not the accessibility hole it
-      // usually is — nothing here is reachable *only* this way.
-      onClick={(e) => open(e.currentTarget)}
-      className={
-        'border-hairline border-border-subtle bg-surface rounded-panel hover:border-border-hover ' +
-        'flex min-h-28 flex-col gap-1.5 p-3' +
-        (renaming ? '' : ' cursor-pointer')
-      }
+      ref={(el) => {
+        tile.current = el
+        return card(el)
+      }}
+      {...dragProps}
       data-saved-id={saved.id}
+      className={
+        'border-hairline bg-surface hover:border-border-hover duration-fast relative rounded-lg ' +
+        'flex min-h-0 flex-col gap-1.5 overflow-hidden pt-2 pr-2.5 pb-1 pl-3 select-none ' +
+        (drag.target ? 'border-accent ' : 'border-border-subtle ') +
+        (drag.dragging ? 'opacity-40' : '')
+      }
     >
-      {renaming ? (
-        <form
-          className="flex items-center gap-2"
-          // The rename form is inside the tile's click target, so every press in it —
-          // the field included — would otherwise open the editor underneath.
-          onClick={(e) => e.stopPropagation()}
-          onSubmit={(e) => {
-            e.preventDefault()
-            const next = draft.trim()
-            if (next !== '') onRename(next)
-            setRenaming(false)
-          }}
-        >
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            aria-label="Name"
-            autoFocus
-            className={FIELD}
-          />
-          <button type="submit" className={LABEL}>
-            Rename
-          </button>
-        </form>
-      ) : (
-        <button
-          type="button"
-          // The tile's own element rather than the button's: the rect the editor grows
-          // from should be the panel the user sees, and a button laid out inside it is
-          // a different, smaller box. Kept as a button purely so the tile is reachable
-          // by keyboard — a pointer press anywhere lands on the `<li>` above, and this
-          // one would bubble there too, which is why it stops.
-          onClick={(e) => {
-            e.stopPropagation()
-            open(e.currentTarget.closest('li')!)
-          }}
-          className="text-text-primary text-left font-mono text-sm font-semibold"
-        >
+      {/* Stretched over the tile: the tile is the copy target, and a real button keeps
+          it reachable by keyboard. Everything drawn above it lets the press through,
+          except the controls row. */}
+      <button
+        type="button"
+        onClick={() => copy(saved.preview)}
+        aria-label={`Copy ${saved.name}`}
+        className="absolute inset-0 cursor-copy rounded-lg"
+      />
+      <div className="pointer-events-none relative flex min-h-5.5 items-center gap-2">
+        <span className="font-title text-text-primary min-w-0 flex-1 truncate text-sm font-semibold">
           {saved.name}
-        </button>
-      )}
-
-      <code className="text-text-secondary text-2xs font-mono break-all">
-        {saved.preview || <span className="text-text-faint">empty command</span>}
-      </code>
-
-      {/* Every control below acts on this tile rather than opening it, so the row as a
-          whole stops the click. One handler here rather than five on the buttons: they
-          all want the same thing, and a control added later gets it by being in the
-          row rather than by remembering. */}
-      <div onClick={(e) => e.stopPropagation()} className="mt-auto flex items-center gap-2">
-        {/*
-          `min-w-0` and `truncate` together, which is the pair that actually works: a
-          flex child's default `min-width: auto` refuses to shrink below its content, so
-          `truncate` alone leaves a long definition id pushing the controls off the tile
-          at the six-column breakpoint rather than ellipsing.
-        */}
-        <span className={`${LABEL} min-w-0 truncate`}>
-          {`${saved.definitionId} · rev ${saved.revision}`}
         </span>
-        <span className="flex-1" />
-        {/*
-          Four glyphs rather than four words, and the reason is what a tile is for.
-          These sit on a card whose subject is a line of command text, at six across on
-          a wide viewport; four lowercase labels in a row read as a sentence competing
-          with the command above them, and set the tile's width from the length of the
-          word "rename". The icons collapse that to one square each — the same
-          `IconButton` the panel header and `PinnedGeneratorTile` already use, so the
-          dashboard has one control language rather than two.
-
-          What the words carried, the accessible name now carries, and it carries more:
-          `Delete Starter kit` rather than `delete`, because a dashboard holding twelve
-          commands otherwise offers twelve identical buttons called "delete" to anyone
-          reading it linearly. `title` puts the same string in the tooltip, which is
-          what replaces the visible label for a sighted user.
-        */}
-        <div className="flex items-center gap-0.5">
-          {/*
-            Present and disabled rather than absent. Linking is standalone-only and
-            permanently so, and `distribution.md` § The split must be visible names the
-            failure to design against: a user discovering that by finding nothing where
-            they expected something. A control that is there and says why is a smaller
-            disappointment than one that never appears.
-
-            The reason lives in the accessible name as well as in the header line above,
-            because a `title` is discovered on hover — which is the same failure one
-            level down. `SavedCommandStorage.kind` is what decides; nothing here sniffs
-            a user agent or a build flag.
-
-            A toggle in the pin's mould: one glyph, tinted and `aria-pressed` when the
-            command is linked, because what it reports is what is true now — this
-            command is in Konnekt — rather than what a press would do.
-          */}
-          <IconButton
-            onClick={onLink}
-            disabled={!linkable}
-            aria-pressed={saved.linked === true}
-            title={
-              !linkable
-                ? `Link ${saved.name} into Konnekt: needs the desktop build`
-                : saved.linked === true
-                  ? `Unlink ${saved.name} from Konnekt`
-                  : `Link ${saved.name} into Konnekt`
-            }
-            className={saved.linked === true ? 'text-accent' : ''}
-          >
-            <Icon name="link" size="sm" />
-          </IconButton>
-          {/*
-            One glyph for both states, tinted and `aria-pressed` rather than swapped for
-            a `pin-off`. A toggle that changes its icon is telling the user what the
-            press would do; one that changes its colour is telling them what is true
-            now, and `PinnedGeneratorTile` already made that call for the same pin.
-          */}
-          <IconButton
-            onClick={onPin}
-            aria-pressed={saved.pinned === true}
-            title={saved.pinned === true ? `Unpin ${saved.name}` : `Pin ${saved.name}`}
-            className={saved.pinned === true ? 'text-accent' : ''}
-          >
-            <Icon name="pin" size="sm" />
-          </IconButton>
-          {/*
-            Kept in the row while the rename form is open rather than removed, so
-            pressing it is also the way *out* of renaming. The old text control
-            unmounted itself on the way in, which left the row one control narrower
-            mid-interaction and the only exit a submit or a click elsewhere.
-          */}
-          <IconButton
-            onClick={() => setRenaming((was) => !was)}
-            aria-pressed={renaming}
-            title={renaming ? `Stop renaming ${saved.name}` : `Rename ${saved.name}`}
-          >
-            <Icon name="pencil" size="sm" />
-          </IconButton>
-          <IconButton onClick={onRemove} tone="danger" title={`Delete ${saved.name}`}>
-            <Icon name="trash" size="sm" />
-          </IconButton>
-        </div>
+        {note && <Warning note={note} />}
       </div>
 
-      {note && <span className={WARNING}>{note}</span>}
+      <code className="bg-canvas border-hairline border-border-subtle text-text-primary text-1xs pointer-events-none relative shrink-0 rounded-md px-2 py-1.5 font-mono leading-normal break-all">
+        <span
+          ref={measure}
+          className={`block h-[2lh] overflow-hidden ${cut ? 'mask-b-from-50% mask-b-to-100%' : ''}`}
+        >
+          {saved.preview || <span className="text-text-faint">empty command</span>}
+        </span>
+      </code>
+
+      <span
+        className={`text-1xs pointer-events-none relative truncate font-mono ${said ? 'text-accent' : 'text-text-secondary'}`}
+      >
+        {said ?? savedOn(saved.updatedAt)}
+      </span>
+
+      <div className="relative -mx-1 mt-auto flex items-center">
+        <IconButton
+          small
+          ref={control}
+          tone="danger"
+          onClick={onRemove}
+          title={`Delete ${saved.name}`}
+          className={REVEALED}
+        >
+          <Icon name="trash" size="xs" />
+        </IconButton>
+        <span className="flex-1" />
+        <IconButton
+          small
+          onClick={onLink}
+          disabled={!linkable}
+          aria-pressed={linked}
+          title={
+            !linkable
+              ? `Link ${saved.name} into Konnekt: needs the desktop build`
+              : linked
+                ? `Unlink ${saved.name} from Konnekt`
+                : `Link ${saved.name} into Konnekt`
+          }
+          className={linked ? 'text-accent' : ''}
+        >
+          <Icon name="link" size="xs" />
+        </IconButton>
+        <IconButton
+          small
+          onClick={onPin}
+          aria-pressed={pinned}
+          title={pinned ? `Unpin ${saved.name}` : `Pin ${saved.name}`}
+          className={pinned ? 'text-accent' : ''}
+        >
+          <Icon name="pin" size="xs" />
+        </IconButton>
+        <IconButton
+          small
+          onClick={() => {
+            if (tile.current) onEdit(tile.current)
+          }}
+          title={`Edit ${saved.name}`}
+        >
+          <Icon name="pencil" size="xs" />
+        </IconButton>
+      </div>
     </li>
   )
 }

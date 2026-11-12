@@ -109,6 +109,21 @@ test('linking is a flag on the record, and never a revision', async () => {
   expect(useSavedCommandsStore.getState().commands[0]!.linked).toBe(false)
 })
 
+test('grouping and tagging reach the backend as filing only', async () => {
+  const id = (await useSavedCommandsStore.getState().create(DRAFT))!
+
+  await useSavedCommandsStore.getState().group(id, 'Kits')
+  await useSavedCommandsStore.getState().tag(id, ['pvp'])
+
+  const [stored] = await localStorageBackend(backing).list()
+  expect(stored!.group).toBe('Kits')
+  expect(stored!.tags).toEqual(['pvp'])
+  expect(stored!.revision).toBe(1)
+
+  await useSavedCommandsStore.getState().group(id, undefined)
+  expect(useSavedCommandsStore.getState().commands[0]!.group).toBeUndefined()
+})
+
 test('loading reads what a previous session wrote, newest first', async () => {
   // Written through the backend with timestamps a millisecond apart rather than saved
   // twice in a row. `create` stamps from the real clock, and two saves in one

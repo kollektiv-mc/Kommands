@@ -97,6 +97,16 @@ export interface SavedCommand {
    */
   readonly linked?: boolean
   /**
+   * The group the dashboard's browser files it under. Absent is ungrouped.
+   *
+   * Filing metadata, like a pin: it changes neither `revision` nor `updatedAt`, and
+   * nothing outside this app reads it. The shell keeps entries verbatim, so an older
+   * build carries it through untouched.
+   */
+  readonly group?: string
+  /** Free-form tags the browser filters and searches on. Absent is none. */
+  readonly tags?: readonly string[]
+  /**
    * Bumped when the command this record **emits** changes, so a consumer can tell "I
    * have already seen this" from "this changed" without diffing the tree.
    *
@@ -284,6 +294,37 @@ export function setPinned(saved: SavedCommand, pinned: boolean): SavedCommand {
  */
 export function setLinked(saved: SavedCommand, linked: boolean): SavedCommand {
   return { ...saved, linked }
+}
+
+/**
+ * The same command, filed under a group, or under none.
+ *
+ * Filing metadata like a pin, so neither `revision` nor `updatedAt` moves: a regrouped
+ * command emits the same text and should not jump to the top of Saved.
+ */
+export function setGroup(saved: SavedCommand, group: string | undefined): SavedCommand {
+  const { group: _previous, ...rest } = saved
+  return group === undefined ? rest : { ...rest, group }
+}
+
+/**
+ * The same command with a new tag list, deduplicated, in the order given.
+ *
+ * Filing metadata like `setGroup`. An empty list drops the field rather than writing
+ * `tags: []`, so an untagged command looks the same however it got there.
+ */
+export function setTags(saved: SavedCommand, tags: readonly string[]): SavedCommand {
+  const { tags: _previous, ...rest } = saved
+  const unique = tags.filter((tag, i) => tag !== '' && tags.indexOf(tag) === i)
+  return unique.length === 0 ? rest : { ...rest, tags: unique }
+}
+
+/**
+ * A tag as typed, made into the form it is stored in: trimmed, lower case, no leading
+ * `#`, inner spaces as hyphens, at most 20 characters. Empty when nothing is left.
+ */
+export function cleanTag(raw: string): string {
+  return raw.trim().toLowerCase().replace(/^#+/, '').trim().replace(/\s+/g, '-').slice(0, 20)
 }
 
 /**

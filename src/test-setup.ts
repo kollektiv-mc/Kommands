@@ -74,3 +74,9 @@ if (typeof globalThis.CSS === 'undefined') {
 if (typeof globalThis.CSS.escape !== 'function') {
   globalThis.CSS.escape = (value: string) => value.replace(/([^\w-])/g, '\\$1')
 }
+
+// jsdom has no 2D canvas and logs "not implemented" for each attempt. The dashboard's
+// dot grid already treats a missing context as nothing to draw.
+if (typeof HTMLCanvasElement !== 'undefined') {
+  HTMLCanvasElement.prototype.getContext = () => null
+}
