@@ -79,11 +79,10 @@ export function AppShell({ children }: AppShellProps) {
  * says so in as many words. The two must not be confused: a `--serve` session floats
  * in a page here *and* saves and links exactly as the window does.
  *
- * Why it earns the change: full-bleed is a claim that the app owns the display, which
- * is true of a window and false of a tab. On a wide monitor the dashboard's six-column
- * grid stretched a three-tile row across 2560px of screen, and the title bar's
- * wordmark and the browser's own chrome sat flush against each other with nothing
- * between them.
+ * The frame is a gutter and a hairline, not a width cap. It used to stop at
+ * `max-w-6xl` to match the standalone window's default size, which left most of a
+ * wide monitor empty; the dashboard now measures its panels and fills whatever room
+ * it is given, so the frame gives it all of it.
  *
  * The ground is `bg-overlay` and the panel keeps `bg-canvas`, rather than the other way
  * round. Every translucent surface in this app — `bg-surface` on a tile, on a panel
@@ -103,13 +102,10 @@ function FloatingFrame({ children }: { children: ReactNode }) {
   return (
     <div className="bg-overlay h-full p-2 sm:p-4">
       {/*
-        `max-w-6xl` is 1152px, which is the standalone window's 1100px default rounded
-        to the nearest step on Tailwind's own scale — the point being that the two
-        surfaces are the same product at the same size, not that either number is
-        special. `overflow-hidden` is what makes the radius clip the title bar, whose
-        own background would otherwise square off the top two corners.
+        `overflow-hidden` is what makes the radius clip the title bar, whose own
+        background would otherwise square off the top two corners.
       */}
-      <div className="border-hairline border-border-subtle rounded-panel mx-auto h-full max-w-6xl overflow-hidden">
+      <div className="border-hairline border-border-subtle rounded-panel h-full overflow-hidden">
         {children}
       </div>
     </div>

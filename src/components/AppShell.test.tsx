@@ -26,9 +26,9 @@ afterEach(() => {
   delete (window as { runtime?: unknown }).runtime
 })
 
-/** The framing element the web surfaces get, found by the constraint that defines it. */
+/** The framing element the web surfaces get: the panel that holds the title bar. */
 function frame(): Element | null {
-  return document.querySelector('.max-w-6xl')
+  return document.querySelector('main')?.closest('.rounded-panel') ?? null
 }
 
 test('on the web the app is a panel on the page, not the page', async () => {
@@ -38,13 +38,14 @@ test('on the web the app is a panel on the page, not the page', async () => {
     </AppShell>,
   )
 
-  // Full-bleed is a claim that the app owns the display — true of a window, false of a
-  // tab. Without this the dashboard's six-column grid stretched across a 2560px screen
-  // and the title bar sat flush against the browser's own chrome.
+  // A gutter and a hairline set the app off the browser's own chrome. Without them the
+  // title bar sits flush against the tab strip.
   const framed = frame()
   expect(framed).not.toBeNull()
   expect(framed!.className).toContain('rounded-panel')
   expect(framed!.className).toContain('border-hairline')
+  // Full width: the dashboard fills whatever room it is given.
+  expect(framed!.className).not.toMatch(/max-w-/)
 })
 
 test('in the desktop window the operating system already draws the gutter', async () => {
