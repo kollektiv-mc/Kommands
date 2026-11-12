@@ -461,13 +461,11 @@ it should be stable between runs.
   cannot file it. A "Move to group" menu on the row, and arrow-key reordering on a
   focused tile, would close both.
 
-**P3: The dashboard design's tile ledge and full width are not built**
+**P3: The dashboard design's tile ledge is not built**
 
 - The design draws a 2px dark ledge under each tile, which is a drop shadow, and
   this repo has none (`.claude/rules/styling.md`). If it is wanted, it needs a
-  border token rather than a shadow. The hosted build's floating frame also caps the
-  dashboard at `max-w-6xl`, so a wide window shows three tile columns where the
-  design shows four.
+  border token rather than a shadow.
 
 **P2 — The version-comparison guard cannot see a named constant**
 
