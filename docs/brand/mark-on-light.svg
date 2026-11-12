@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Kommands">
+<title>Kommands</title>
+<defs><mask id="km-light" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="#fff"/><polygon points="6.554,11.688 8.496,12.809 6.554,13.93 6.554,15.448 11.124,12.809 6.554,10.171" fill="#000"/></mask></defs><polygon points="8.075,3.1 2.33,6.417 2.33,17.583 8.075,20.9 8.075,19.168 3.83,16.717 3.83,7.283 8.075,4.832" fill="#f97316"/><polygon points="15.925,4.832 20.17,7.283 20.17,16.717 15.925,19.168 15.925,20.9 21.67,17.583 21.67,6.417 15.925,3.1" fill="#f97316"/><g mask="url(#km-light)"><polygon points="12,4.7 18.322,8.35 18.322,15.65 12,19.3 5.678,15.65 5.678,8.35" fill="#ea580c"/><polygon points="12,4.7 18.322,8.35 12,12 5.678,8.35" fill="#f97316"/><polygon points="5.678,8.35 12,12 12,19.3 5.678,15.65" fill="#ea580c"/><polygon points="12,12 18.322,8.35 18.322,15.65 12,19.3" fill="#c2410c"/></g>
+</svg>
