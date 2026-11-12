@@ -7,7 +7,6 @@ import { configureStorage, useSavedCommandsStore } from '../stores/useSavedComma
 import { useDashboardStore } from '../stores/useDashboardStore'
 import { usePinnedGeneratorsStore } from '../stores/usePinnedGeneratorsStore'
 import { useUiStore } from '../stores/useUiStore'
-import { DEFAULT_PLACED } from './dashboard/panels'
 import { localStorageBackend } from '../storage/local'
 import { createSaved, type SavedCommandDraft } from '../schema/saved'
 import { EMPTY_VALUE } from '../schema/serialize'
@@ -54,12 +53,10 @@ beforeEach(() => {
   useSavedCommandsStore.setState({ commands: [], status: 'idle', error: null })
   // The panel layout is a *second* persisted thing, and it lives in the real jsdom
   // `localStorage` rather than in `backing`. Without this reset these tests would pass
-  // or fail depending on what an earlier file happened to leave there — and a panel
-  // removed by one test would hide another test's tiles.
+  // or fail depending on what an earlier file happened to leave there, and a panel
+  // closed by one test would hide another test's tiles.
   window.localStorage.clear()
   useDashboardStore.setState({
-    placed: DEFAULT_PLACED,
-    removed: [],
     collapsed: [],
     order: [],
     groups: [],

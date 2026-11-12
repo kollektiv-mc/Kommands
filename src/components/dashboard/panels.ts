@@ -93,9 +93,6 @@ export const PANELS: readonly PanelDescriptor[] = [
   },
 ]
 
-/** Every panel, placed, in the order they are drawn on a dashboard nobody has touched. */
-export const DEFAULT_PLACED: readonly PanelId[] = ['pinned', 'saved', 'recent', 'quick', 'linked']
-
 export function panelById(id: PanelId): PanelDescriptor | undefined {
   return PANELS.find((panel) => panel.id === id)
 }

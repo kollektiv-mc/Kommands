@@ -4,7 +4,7 @@
  * **Deliberately not `SavedCommandStorage`.** Different key, different lifetime, and —
  * the part that matters — it never enters the file the standalone build shares with
  * Konnekt. `persistence.md` is about formats that outlive the build that wrote them and
- * cross into another application; this is which panels a person left on their
+ * cross into another application; this is how a person arranged their
  * dashboard. Routing it through the saved-command backend would put a layout
  * preference into a cross-repo compatibility surface for no reason at all.
  *
@@ -24,29 +24,24 @@ const KEY = 'kommands.dashboard-layout'
 
 export interface StoredLayout {
   version: number
-  placed: string[]
-  removed: string[]
   /**
-   * The panels left closed. Optional, because a layout written before panels could be
-   * collapsed is still a valid layout and must still load — the same skip-what-you-do-
-   * not-understand rule the saved-command reader follows, one file over. Absent reads
-   * as "nothing is closed", which is what those layouts meant.
-   *
-   * A third list rather than a flag on the other two, because closed is orthogonal to
-   * placed and removed: a panel is closed *and* placed, and folding the two together
-   * would make removing a closed panel and restoring it silently reopen it.
+   * The panels left closed. Every list here is optional: a layout written by an older
+   * build is still a valid layout and must still load, the same skip-what-you-do-not-
+   * understand rule the saved-command reader follows, one file over. Absent reads as
+   * empty, which is what those layouts meant.
    */
   collapsed?: string[]
-  /**
-   * The order Saved commands was dragged into, as ids. Optional for the same reason as
-   * `collapsed`: a layout from before reordering existed is a layout with no order.
-   */
+  /** The order Saved commands was dragged into, as ids. */
   order?: string[]
   /** Group names the browser offers, including ones nothing is filed under yet. */
   groups?: string[]
 }
 
-export const LAYOUT_VERSION = 1
+/**
+ * 2 since panels stopped being removable. Layouts from 1 also carry `placed` and
+ * `removed`, which this build ignores: every panel is always on the dashboard.
+ */
+export const LAYOUT_VERSION = 2
 
 /** The stored layout, or null if there is none, it is unreadable, or storage is refused. */
 export function readLayout(): StoredLayout | null {
@@ -54,17 +49,10 @@ export function readLayout(): StoredLayout | null {
     const raw = window.localStorage.getItem(KEY)
     if (raw === null) return null
     const parsed: unknown = JSON.parse(raw)
-    if (typeof parsed !== 'object' || parsed === null) return null
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null
     const layout = parsed as Partial<StoredLayout>
-    if (!Array.isArray(layout.placed) || !Array.isArray(layout.removed)) return null
     return {
       version: typeof layout.version === 'number' ? layout.version : LAYOUT_VERSION,
-      placed: layout.placed.filter((id): id is string => typeof id === 'string'),
-      removed: layout.removed.filter((id): id is string => typeof id === 'string'),
-      // Not required to be an array, unlike the two above: a file without it is an
-      // older file rather than a malformed one, and rejecting the whole layout over a
-      // field that did not exist when it was written would lose an arrangement the
-      // user made for a preference they never expressed.
       collapsed: strings(layout.collapsed),
       order: strings(layout.order),
       groups: strings(layout.groups),
