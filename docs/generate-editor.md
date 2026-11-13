@@ -255,13 +255,17 @@ above with an interface. Only the interface changed.
 
 - A **shape** (sphere, box, cylinder, torus, triangle, cone, gyroid, formula, half) carries
   an operation, **Add**, **Cut** or **Overlap**: union, subtract or intersect with
-  everything below it.
+  everything above it. A Cut at the top of a list has nothing to cut from, and the list
+  marks it as doing nothing.
 - A **group** is one layer to its parent, which is how the stack branches: in A ∪ (B − C),
   C cuts only B because B and C share a group. Nesting is the only branching there is, so
   the document is a tree and maps onto `CsgTree` directly.
 - A **modifier** (mirror, distort, array, radial, bend, taper, revolve) acts on every layer
-  below it in its own list. The prototype lowers modifiers to raw expression nodes;
-  building it properly means modifier nodes in `src/worldedit/csg/`.
+  below it in its own list. Each is a node in `src/worldedit/csg/` that changes its
+  child's frame, as a transform does but not linearly: `mirror`, `wave` and `twist`
+  (Distort's two kinds), `array`, `radial`, `bend`, `taper` and `revolve`. Like a
+  primitive, each acts at the origin along an axis, so a modifier moved or turned in the
+  editor is that node between a transform and its inverse.
 - A **reference** is another `//generate` command drawn as a ghost beside this one, for a
   build that needs one command per material. It is never part of the command.
 
@@ -351,6 +355,15 @@ discovery halfway through.
    so `abs(y)<1` leaves the bottom layer empty in game. Switching to `<=` is not the fix: it
    puts single-block bumps on every sphere. A shape meant to touch the edge has to reach
    past it.
+
+   **Decided: an authoring rule, not a compile-time nudge.** Shrinking the coordinates
+   by a hair before every comparison would fill the edge layer, and it is `<=` again by
+   another route: a sphere of radius 1 grows a block at each pole, and every face that sits
+   exactly on a block centre anywhere in the volume moves a layer. What the editor does
+   instead is draw the truth: the selection box, grid and floor sit on the blocks' outer
+   faces, half a block past ±1, so a shape dragged down onto the floor already reaches
+   past the edge. And every template's grounded parts reach below −1, which a test checks
+   at 32³, 64³ and 128³ rather than a table of measured offsets.
 
 Also out of scope, and recorded above rather than here because it is a decision rather
 than a limit: **world masking**, and with it the world-reading functions `query`,

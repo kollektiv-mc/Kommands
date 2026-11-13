@@ -106,8 +106,21 @@ function grow(add: (node: CsgNode) => NodeId, random: () => number, depth: numbe
     'intersect',
     'subtract',
     'invert',
+    'affine',
+    'modifier',
   ] as const)
   switch (kind) {
+    case 'affine': {
+      // Quarters and halves, so lattice points still land on boundaries after the map.
+      const c = (): number => Math.round(random() * 8 - 4) / 4
+      return add({
+        kind,
+        child: grow(add, random, depth - 1),
+        matrix: [c(), c(), c(), c(), c(), c(), c(), c(), c(), c(), c(), c()],
+      })
+    }
+    case 'modifier':
+      return add(modifier(grow(add, random, depth - 1), random))
     case 'translate':
       return add({ kind, child: grow(add, random, depth - 1), offset: [span(), span(), span()] })
     case 'scale':
@@ -136,5 +149,60 @@ function grow(add: (node: CsgNode) => NodeId, random: () => number, depth: numbe
       const children = Array.from({ length: count }, () => grow(add, random, depth - 1))
       return add({ kind, children })
     }
+  }
+}
+
+/** One of the modifiers, with parameters a person might pick. */
+function modifier(child: NodeId, random: () => number): CsgNode {
+  const pick = <T>(xs: readonly T[]): T => xs[Math.floor(random() * xs.length)]!
+  const axis = pick(AXES)
+  const other = pick(AXES.filter((a) => a !== axis))
+  const kind = pick([
+    'mirror',
+    'wave',
+    'twist',
+    'array',
+    'radial',
+    'bend',
+    'taper',
+    'revolve',
+  ] as const)
+  switch (kind) {
+    case 'mirror':
+      return { kind, child, axis, keep: pick(['positive', 'negative'] as const) }
+    case 'wave':
+      return {
+        kind,
+        child,
+        axis,
+        along: other,
+        amplitude: Math.round(random() * 4) / 10,
+        frequency: Math.round(random() * 8) + 1,
+      }
+    case 'twist':
+      return { kind, child, axis, rate: Math.round(random() * 8 - 4) / 2 }
+    case 'array':
+      return {
+        kind,
+        child,
+        axis,
+        spacing: (Math.round(random() * 4) + 1) / 4,
+        count: Math.floor(random() * 4) + 1,
+      }
+    case 'radial':
+      return { kind, child, axis, count: Math.floor(random() * 7) + 1 }
+    case 'bend':
+      return {
+        kind,
+        child,
+        axis,
+        toward: other,
+        rate: Math.round(random() * 8 - 4) / 2,
+        side: pick(['both', 'positive', 'negative'] as const),
+      }
+    case 'taper':
+      return { kind, child, axis, amount: Math.round(random() * 12 - 6) / 10 }
+    case 'revolve':
+      return { kind, child, axis }
   }
 }

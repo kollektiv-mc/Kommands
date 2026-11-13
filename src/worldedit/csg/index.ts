@@ -15,15 +15,22 @@ export { compileTree, type CsgCompilation, type CsgCompileOptions } from './comp
 export { simplify } from './simplify'
 export {
   EMPTY_TREE,
+  IDENTITY_AFFINE,
   axisFrame,
+  isFrameNode,
+  turn,
   buildTree,
   childrenOf,
   describeTree,
   treeProblems,
+  type Affine,
   type Axis,
+  type BendSide,
   type CsgNode,
   type CsgNodeKind,
   type CsgTree,
+  type FrameNode,
   type NodeId,
+  type Side,
   type Vec3,
 } from './tree'

@@ -1,12 +1,27 @@
 import type { Diagnostic } from '../../schema/types'
-import type { BinaryOperator, Expr, Program, Stmt } from '../expression/ast'
+import type { Expr, Program, Stmt } from '../expression/ast'
 import { parse } from '../expression/parse'
 import { printExpr, printProgram } from '../expression/print'
 import {
+  add,
+  asPredicate,
+  binary,
+  call,
+  constantSquare,
+  logical,
+  mul,
+  name,
+  not,
+  num,
+  square,
+  sub,
+} from './builders'
+import { childFrame, frameKey, ROOT_FRAME, type Frame } from './frames'
+import {
   axisFrame,
+  isFrameNode,
   perpendicular,
   treeProblems,
-  type CsgNode,
   type CsgTree,
   type NodeId,
 } from './tree'
@@ -49,164 +64,6 @@ import {
  * boundary with its consumer. That is also what makes flattening and double-negation
  * sound in `simplify.ts`.
  */
-
-// ── Expression builders, folding the identities as they go ──────────────────
-
-const num = (value: number): Expr => ({ kind: 'number', value })
-const name = (id: string): Expr => ({ kind: 'name', name: id, at: 0 })
-const call = (fn: string, args: Expr[]): Expr => ({ kind: 'call', name: fn, at: 0, args })
-const binary = (op: BinaryOperator, left: Expr, right: Expr): Expr => ({
-  kind: 'binary',
-  op,
-  left,
-  right,
-})
-
-const numeric = (expr: Expr): number | undefined =>
-  expr.kind === 'number' ? expr.value : undefined
-
-/**
- * Arithmetic identities, folded while building.
- *
- * Not an optimisation pass — a rotation by zero would otherwise emit `x*1+y*0` and a
- * translation by zero `x-0`, on every axis of every transform, and the output is a line
- * someone reads. Each identity is exact for finite doubles; the only value they change
- * is the sign of a zero, which no comparison can see.
- */
-function add(a: Expr, b: Expr): Expr {
-  const [x, y] = [numeric(a), numeric(b)]
-  if (x !== undefined && y !== undefined) return num(x + y)
-  if (y === 0) return a
-  if (x === 0) return b
-  return binary('+', a, b)
-}
-
-function sub(a: Expr, b: Expr): Expr {
-  const [x, y] = [numeric(a), numeric(b)]
-  if (x !== undefined && y !== undefined) return num(x - y)
-  if (y === 0) return a
-  // Translating by a negative offset is as common as by a positive one, and `x- -0.4`
-  // costs three characters over `x+0.4` — two for the negation and one for the space the
-  // no-merge rule has to insert so it does not lex as a decrement.
-  if (y !== undefined && y < 0) return binary('+', a, num(-y))
-  return binary('-', a, b)
-}
-
-function mul(a: Expr, b: Expr): Expr {
-  const [x, y] = [numeric(a), numeric(b)]
-  if (x !== undefined && y !== undefined) return num(x * y)
-  if (y === 1) return a
-  if (x === 1) return b
-  if (y === 0 || x === 0) return num(0)
-  return binary('*', a, b)
-}
-
-function div(a: Expr, b: Expr): Expr {
-  const [x, y] = [numeric(a), numeric(b)]
-  if (x !== undefined && y !== undefined) return num(x / y)
-  if (y === 1) return a
-  return binary('/', a, b)
-}
-
-const square = (expr: Expr): Expr => binary('^', expr, num(2))
-
-/**
- * A constant squared, spelled whichever way is shorter.
- *
- * `1^2` folds to `1`, which is what makes a unit sphere thirteen characters. `0.1^2`
- * does *not* fold, because `0.010000000000000002` is fifteen characters longer and
- * float noise in a command someone reads is worse than a visible `^2`. The rule is the
- * compiler's general one: never make the output longer.
- *
- * Either spelling evaluates identically — `^` compiles to `**` — so the reference
- * interpreter agrees bit for bit whichever is chosen.
- */
-function constantSquare(value: number): Expr {
-  const folded = value ** 2
-  return String(folded).length <= String(value).length + 2 ? num(folded) : square(num(value))
-}
-
-const COMPARISONS: ReadonlySet<string> = new Set(['==', '!=', '~=', '<', '<=', '>', '>='])
-
-/** Whether an expression is already 0 or 1, so `&&` over it means what it looks like. */
-function isPredicate(expr: Expr): boolean {
-  switch (expr.kind) {
-    case 'binary':
-      return COMPARISONS.has(expr.op)
-    case 'unary':
-      return expr.op === '!'
-    case 'logical':
-      return isPredicate(expr.left) && isPredicate(expr.right)
-    case 'number':
-      return expr.value === 0 || expr.value === 1
-    default:
-      return false
-  }
-}
-
-/** `EditSession.makeShape` places a block where the expression is greater than zero. */
-const asPredicate = (expr: Expr): Expr => (isPredicate(expr) ? expr : binary('>', expr, num(0)))
-
-const not = (expr: Expr): Expr => ({ kind: 'unary', op: '!', operand: asPredicate(expr) })
-
-const logical = (op: '&&' | '||', left: Expr, right: Expr): Expr => ({
-  kind: 'logical',
-  op,
-  left: asPredicate(left),
-  right: asPredicate(right),
-})
-
-// ── Frames ─────────────────────────────────────────────────────────────────
-
-/** The three coordinate expressions a node is evaluated against. */
-type Frame = readonly [Expr, Expr, Expr]
-
-const ROOT_FRAME: Frame = [name('x'), name('y'), name('z')]
-
-const frameKey = (frame: Frame): string => frame.map(printExpr).join('|')
-
-/**
- * The frame a transform's child sees.
- *
- * Transforms map the *point*, not the shape: to ask whether p is inside a shape moved by
- * d, ask whether p − d is inside the shape that has not moved. So every entry here is
- * the inverse of what the node is named after.
- */
-function childFrame(node: CsgNode, frame: Frame): Frame {
-  switch (node.kind) {
-    case 'translate':
-      return [
-        sub(frame[0], num(node.offset[0])),
-        sub(frame[1], num(node.offset[1])),
-        sub(frame[2], num(node.offset[2])),
-      ]
-
-    case 'scale':
-      return [
-        div(frame[0], num(node.factor[0])),
-        div(frame[1], num(node.factor[1])),
-        div(frame[2], num(node.factor[2])),
-      ]
-
-    case 'rotate': {
-      // Two linear combinations with constant coefficients — never the `rotate()`
-      // built-in, which writes back through its arguments and so demands bare variable
-      // names. Turned by −angle, because the point moves opposite to the shape.
-      const { u, v, w } = axisFrame(node.axis)
-      const cos = num(Math.cos(node.angle))
-      const sin = num(Math.sin(node.angle))
-      const minusSin = num(-Math.sin(node.angle))
-      const turned: [Expr, Expr, Expr] = [num(0), num(0), num(0)]
-      turned[u] = add(mul(frame[u], cos), mul(frame[v], sin))
-      turned[v] = add(mul(frame[u], minusSin), mul(frame[v], cos))
-      turned[w] = frame[w]
-      return turned
-    }
-
-    default:
-      return frame
-  }
-}
 
 // ── Raw expression nodes ───────────────────────────────────────────────────
 
@@ -414,11 +271,6 @@ function build(
     case 'expression':
       return asPredicate(rawBody(node.source, frame, report))
 
-    case 'translate':
-    case 'scale':
-    case 'rotate':
-      return at(node.child, childFrame(node, frame))
-
     case 'union':
       return node.children.length === 0
         ? num(0)
@@ -443,6 +295,9 @@ function build(
 
     case 'invert':
       return not(at(node.child, frame))
+
+    default:
+      return isFrameNode(node) ? at(node.child, childFrame(node, frame)) : num(0)
   }
 }
 
@@ -553,6 +408,17 @@ function share(
   return { hoists, root: substitute(root) }
 }
 
+// ── Rounding ───────────────────────────────────────────────────────────────
+
+/** Every literal at `digits` significant digits, kept as it was where that is no shorter. */
+function roundNumbers(expr: Expr, digits: number): Expr {
+  if (expr.kind === 'number') {
+    const rounded = Number(expr.value.toPrecision(digits))
+    return String(rounded).length < String(expr.value).length ? num(rounded) : expr
+  }
+  return mapExpr(expr, (child) => roundNumbers(child, digits))
+}
+
 // ── The entry point ────────────────────────────────────────────────────────
 
 export interface CsgCompileOptions {
@@ -560,6 +426,16 @@ export interface CsgCompileOptions {
   share?: boolean
   /** For a test that needs to know the names. Defaults to the shortest free one. */
   namePrefix?: string
+  /**
+   * Significant digits to round every number to, where that prints shorter.
+   *
+   * The editor's Round numbers. Off by default, because it changes the shape: a turn of
+   * 30° has a cosine of 0.8660254037844387, and 0.866 moves a face by up to a few parts in
+   * ten thousand, which at 128³ is under a tenth of a block but can still flip one that
+   * sits exactly on it. With it on the command is the one written, not an approximation
+   * of it, so the preview is evaluated from the same rounded text.
+   */
+  precision?: number
 }
 
 export interface CsgCompilation {
@@ -594,7 +470,8 @@ export function compileTree(tree: CsgTree, options: CsgCompileOptions = {}): Csg
   }
 
   const built = nodeExpression(tree, tree.root, ROOT_FRAME, new Map(), report)
-  const predicate = asPredicate(built)
+  const exact = asPredicate(built)
+  const predicate = options.precision === undefined ? exact : roundNumbers(exact, options.precision)
 
   const { hoists, root } =
     options.share === false
