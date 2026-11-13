@@ -29,7 +29,8 @@ import {
   type UiMetadata,
 } from '../schema/types'
 import { ARG_LABEL, HELP, WARNING } from './editors/fieldStyles'
-import { busiestSizes, tilesFor, type TileEntry } from '../schema/tiles'
+import { busiestSizes, tilesFor, tileStates, type TileEntry } from '../schema/tiles'
+import { planColumns } from '../lib/tileLayout'
 import { TileGrid } from './TileGrid'
 import { AnimatedHeight } from './ui/AnimatedHeight'
 import { Segmented } from './ui/Segmented'
@@ -162,7 +163,10 @@ export function CommandRenderer({
     () => tilesFor(definition, value, catalogue),
     [definition, value, catalogue],
   )
-  const busiest = useMemo(() => busiestSizes(definition), [definition])
+  const plan = useMemo(
+    () => planColumns(busiestSizes(definition), tileStates(definition, catalogue)),
+    [definition, catalogue],
+  )
   const tiles = entries.map((entry) => ({
     key: entry.key,
     size: entry.size,
@@ -182,7 +186,7 @@ export function CommandRenderer({
     <div className="arg-form">
       {/* Keyed by command: another command is a new grid that fades in, not this one's
           tiles leaving one by one around the next command's. */}
-      <TileGrid key={definition.id} tiles={tiles} busiest={busiest} />
+      <TileGrid key={definition.id} tiles={tiles} plan={plan} />
     </div>
   )
 }
@@ -226,7 +230,7 @@ function TileView({
         </div>
       )
     case 'preview':
-      return <div className="arg-tile arg-tile-fill">{preview}</div>
+      return <div className="arg-tile arg-tile-fill arg-tile-elastic">{preview}</div>
   }
   return (
     <RowLayout.Provider value="tile">

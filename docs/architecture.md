@@ -264,9 +264,16 @@ command:
 
 - The column count, one to four, comes from the command's busiest state (every
   choice on its tallest branch), so a choice never widens the sheet.
-- Each state is then packed by trying every split of its tiles across at most that
-  many columns, scoring a stretched row as three times a row of height. The last
-  tile of a short column stretches, so every column ends level.
+- Each tile then gets one column for every state the command can be in
+  (`planColumns`, over the states `tileStates` walks), so a choice adds and removes
+  tiles but never moves one to another column. Assignments are scored by summing,
+  over the states, rows plus three per stretched row, with the state the editor
+  opens in weighted to keep the layout it would have alone. A column a state leaves
+  empty is dropped, and the last tile of a short column stretches, so every column
+  ends level.
+- A preview takes the height its column gives it and asks for none
+  (`.arg-tile-elastic`), since its canvas is sized from its box: counted, it held
+  the sheet at the tallest height a neighbour ever gave it.
 - A tile whose editor needs the full width (a text component, `wideTile`) takes a
   band below the columns instead of counting toward them.
 

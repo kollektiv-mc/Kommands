@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
-import { chooseColumns, layoutTiles, type Placement, type TileSize } from '../lib/tileLayout'
+import { layoutState, type ColumnPlan, type Placement, type TileSize } from '../lib/tileLayout'
 import { useMotion } from '../lib/useMotion'
 
 export interface Tile {
@@ -19,25 +19,20 @@ function place(cell: HTMLDivElement | null, at: Placement | undefined) {
 /**
  * The editor's tiles on their grid (`lib/tileLayout.ts`).
  *
- * The column count comes from the command's busiest state and holds while choices add
- * and remove tiles; where each tile sits is decided per state, and a tile that needs the
- * full width (a message) takes a band below the columns. Tiles enter, leave and move
+ * Every tile keeps the column the command's plan gives it (`planColumns`) whichever
+ * branch a choice is on, so a choice adds and removes tiles without moving the others
+ * to another column. A tile that needs the full width (a message) takes a band below
+ * the columns. Tiles enter, leave and move
  * with the shared motion (`useMotion`), keyed by path, so a choice that swaps the tiles
  * under it reads as the tiles rearranging rather than the form being replaced.
  */
-export function TileGrid({ tiles, busiest }: { tiles: readonly Tile[]; busiest: TileSize[] }) {
+export function TileGrid({ tiles, plan }: { tiles: readonly Tile[]; plan: ColumnPlan }) {
   const [grid] = useMotion<HTMLDivElement>()
-  const cols = useMemo(() => chooseColumns(busiest), [busiest])
-  const signature = tiles.map((t) => `${t.size}${t.wide ? 'w' : ''}`).join(',')
+  const signature = tiles.map((t) => `${t.key}:${t.size}${t.wide ? 'w' : ''}`).join(',')
   const layout = useMemo(
-    () =>
-      layoutTiles(
-        tiles.map((t) => t.size),
-        cols,
-        tiles.map((t) => t.wide === true),
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the sizes are the dependency
-    [signature, cols],
+    () => layoutState(tiles, plan),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the keys and sizes are the dependency
+    [signature, plan],
   )
 
   // One stable ref for both jobs: AutoAnimate's controller is set up once per element,

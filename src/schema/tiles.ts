@@ -3,7 +3,7 @@ import { branch, child, choiceSelection, NO_BRANCH, ROOT, type Path } from './pa
 import { branchLabel, chainTail, choiceControl, choiceRows, NO_BRANCH_LABEL } from './presentation'
 import type { CommandValue } from './serialize'
 import { REF_ANY, type CommandDefinition, type Node, type UiMetadata } from './types'
-import type { TileSize } from '../lib/tileLayout'
+import type { LayoutTile, TileSize } from '../lib/tileLayout'
 
 type ChoiceNode = Extract<Node, { kind: 'choice' }>
 
@@ -111,6 +111,64 @@ export function busiestSizes(definition: CommandDefinition): TileSize[] {
   })
   // A wide tile takes a band of its own below the columns, so it does not count.
   return withPreview(definition, entries).flatMap((e) => (e.wide ? [] : [e.size]))
+}
+
+/** The most states `tileStates` walks. */
+const STATE_LIMIT = 64
+
+/**
+ * The tiles of the states a command can be in, for the editor to plan its columns
+ * against (`planColumns`), so that a choice never moves a tile to another column.
+ *
+ * Breadth first from every choice on its first branch: each state found queues one
+ * more per other branch of each choice it shows, so up to `STATE_LIMIT` the states
+ * that differ from the first by one choice all come before any that differ by two,
+ * and every branch near the top is seen before a combination deep down. An embedded
+ * command is chosen by the user, so `@any` Refs contribute nothing here.
+ */
+export function tileStates(
+  definition: CommandDefinition,
+  catalogue: Readonly<Record<string, CommandDefinition>> = {},
+): LayoutTile[][] {
+  const states: LayoutTile[][] = []
+  const queue: ReadonlyMap<Path, number>[] = [new Map()]
+  const seen = new Set<string>([''])
+  for (let next = 0; next < queue.length && states.length < STATE_LIMIT; next++) {
+    const picks = queue[next]!
+    const met: { path: Path; options: number[] }[] = []
+    const walk: Walk = {
+      pick: (node, path) => {
+        const options = node.nodes.map((_, i) => i)
+        if (node.optional) options.unshift(NO_BRANCH)
+        if (!picks.has(path)) met.push({ path, options })
+        return picks.get(path) ?? options[0]!
+      },
+      refTarget: () => undefined,
+    }
+    const entries = collect(definition.root, ROOT, walk, {
+      ui: definition.ui,
+      literals: [],
+      depth: MAX_DEPTH,
+      catalogue,
+    })
+    states.push(
+      withPreview(definition, entries).map(({ key, size, wide }) => ({ key, size, wide })),
+    )
+    for (const { path, options } of met) {
+      for (const option of options.slice(1)) {
+        const more = new Map(picks).set(path, option)
+        const id = [...more]
+          .map(([p, o]) => `${p}=${o}`)
+          .sort()
+          .join(',')
+        if (!seen.has(id)) {
+          seen.add(id)
+          queue.push(more)
+        }
+      }
+    }
+  }
+  return states
 }
 
 function withPreview(definition: CommandDefinition, entries: TileEntry[]): TileEntry[] {

@@ -498,6 +498,16 @@ body {
   overflow: hidden;
 }
 
+/* A tile that takes the height the grid gives it and asks for none: the preview, whose
+   canvas is sized from its box. Were the canvas counted, a sheet grown by a neighbour
+   would keep that height after the neighbour shrank, since the canvas would still be
+   as tall as the rows it was given. The floor stands in for the rows on a phone, where
+   the grid has none. */
+.arg-tile-elastic {
+  contain: size;
+  min-height: calc(var(--spacing) * 40);
+}
+
 @media (max-width: 40rem) {
   .tile-grid,
   .tile-grid-wide {
