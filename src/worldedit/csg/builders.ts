@@ -80,7 +80,20 @@ export function add(a: Expr, b: Expr): Expr {
   if (x !== undefined && y !== undefined) return num(x + y)
   if (y === 0) return a
   if (x === 0) return b
+  // `x-0.3` rather than `x+-0.3`, and `x-y*0.5` rather than `x+y*-0.5`: an affine row
+  // adds every term, and half its coefficients are negative. `a + -c` and `a - c` are
+  // the same IEEE operation, so neither spelling changes a value.
+  if (y !== undefined && y < 0) return binary('-', a, num(-y))
+  const scaled = negativeProduct(b)
+  if (scaled !== undefined) return binary('-', a, scaled)
   return binary('+', a, b)
+}
+
+/** `e*-c` as `e*c`, for `add` to subtract instead. */
+function negativeProduct(expr: Expr): Expr | undefined {
+  if (expr.kind !== 'binary' || expr.op !== '*') return undefined
+  const c = numeric(expr.right)
+  return c !== undefined && c < 0 ? binary('*', expr.left, num(-c)) : undefined
 }
 
 export function sub(a: Expr, b: Expr): Expr {
