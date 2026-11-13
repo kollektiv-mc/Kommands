@@ -8,7 +8,8 @@ import { motionTiming, reducedMotion, sequence } from './useMotion'
  * the sheet has its new size.
  *
  * Returns the refs it works on: the stage the sheet is centred in, the sheet, its header
- * band, the frame its content is laid out in, and the content. The content lays itself
+ * band, the frame its content is laid out in, and the content. The content is never
+ * narrower than the header needs, so the header never runs out of the sheet. The content lays itself
  * out at its natural size, capped by what the stage leaves (`--sheet-max-w`,
  * `--sheet-max-h`), and a ResizeObserver hands every change to the sheet.
  *
@@ -57,6 +58,15 @@ export function useSheetSize<T extends HTMLElement>() {
     let glide: Animation | undefined
     /** Takes the content's size, and answers how long the sheet takes to get there. */
     const fitSheet = () => {
+      // The header is laid out at the sheet's width, so the content is held at least as
+      // wide as the header needs: its natural width, read by letting it size itself.
+      const laidOut = band.style.width
+      band.style.width = 'max-content'
+      // The used width, with its fraction: rounded down, the header would truncate.
+      const needs = Math.ceil(parseFloat(getComputedStyle(band).width))
+      // Never past the room, which min-width would otherwise win over.
+      inner.style.minWidth = `min(var(--sheet-max-w, 100%), max(var(--sheet-min-w), ${needs}px))`
+      band.style.width = laidOut
       const width = inner.offsetWidth
       const height = inner.offsetHeight + band.offsetHeight
       if (width === 0 || height === 0) return 0

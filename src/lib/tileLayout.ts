@@ -14,7 +14,10 @@
 /** Rows a tile takes, or `'fill'` for a tile that takes a column to itself. */
 export type TileSize = number | 'fill'
 
-/** One column of standard width, or one twice as wide for a command that reads better stacked. */
+/**
+ * One column of standard width, or one twice as wide for a command whose one column
+ * holds an editor that needs the room (a message, a chain of steps, a preview).
+ */
 export type ColumnWidth = 'standard' | 'wide'
 
 export interface Placement {
@@ -207,7 +210,10 @@ export function planColumns(
   states: readonly (readonly LayoutTile[])[],
 ): ColumnPlan {
   const cols = chooseColumns(busiest)
-  const width: ColumnWidth = cols === 1 ? 'wide' : 'standard'
+  // A lone field is not given twice the width: `/op` is one selector, and the sheet's
+  // own floor (its header and the command line) already leaves it room.
+  const roomy = states.some((tiles) => tiles.some((t) => t.wide === true || t.size === 'fill'))
+  const width: ColumnWidth = cols === 1 && roomy ? 'wide' : 'standard'
   const keys: string[] = []
   const index = new Map<string, number>()
   let fills = 0

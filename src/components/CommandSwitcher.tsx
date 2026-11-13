@@ -62,7 +62,7 @@ export function CommandSwitcher({
         </span>
         <kbd
           aria-hidden="true"
-          className="border-hairline border-border-hover text-text-faint text-1xs hidden rounded-sm px-1 font-mono sm:inline"
+          className="border-hairline border-border-hover text-text-faint text-1xs hidden rounded-sm px-1 font-mono whitespace-nowrap sm:inline"
         >
           Ctrl K
         </kbd>

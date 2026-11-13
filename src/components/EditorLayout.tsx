@@ -22,7 +22,7 @@ export function EditorLayout({
 }) {
   if (activeId === undefined) {
     return (
-      <div className="p-2">
+      <div className="editor-list p-2">
         <CommandNav catalogue={catalogue} focusFilter />
       </div>
     )
