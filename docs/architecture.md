@@ -273,14 +273,20 @@ command:
 Motion is automatic rather than written per element. `lib/useMotion.ts` puts
 AutoAnimate (`@formkit/auto-animate`, MIT, about 3.6 KB gzip) on a container: every
 child it gains fades in, every child it loses fades out, and every child that moves
-or resizes glides, on the panel duration and standard curve read from the token
-layer. The tile grid and each argument's control use it, so a tile or field added
-later animates with no code of its own. A rule in `styles/index.css` transitions
-every element's paint properties (colour, background, border, outline, opacity) the
-same way. Three pieces cover what neither can: `useSheetSize` glides the sheet to its
-content's size, `useSlidingMark` slides a list's highlight between options, and
-`ui/Swap.tsx` crossfades a line of text when it changes. All of it stands down under
-reduced motion.
+slides, on the panel duration and standard curve read from the token layer. The tile
+grid uses it, so a tile added later animates with no code of its own. A rule in
+`styles/index.css` eases the colours and borders of what can be acted on (buttons,
+fields, options, tiles), and `.motion-arrive` fades in what appears often, such as an
+argument's notes, with no JS behind it. Three pieces cover the rest: `useSheetSize`
+glides the sheet to its content's size, `useSlidingMark` slides a list's highlight
+between options, and `ui/Swap.tsx` crossfades a line of text when it changes. All of
+it stands down under reduced motion.
+
+Every animation here runs on `transform` and `opacity` only, which the compositor
+animates without the main thread. A size is never tweened: the element takes its new
+size at once, and what moves around it slides. That rule and pausing the dashboard's
+dot grid under the editor took a choice change from about two thirds of frames
+dropped to under a tenth, measured with the CPU slowed fourfold.
 
 ---
 

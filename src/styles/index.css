@@ -307,18 +307,34 @@ body {
 }
 
 /* ── Motion for everything else ──────────────────────────────────────────────
-   Every colour, border, outline and fade in the app eases instead of snapping, with
-   nothing to add per element: a pressed segment, a focused field, a hovered row, a
-   status dot changing colour. Zero specificity (:where), so any element that names a
-   transition of its own keeps it. Layout motion (things arriving, leaving, moving,
-   resizing) is src/lib/useMotion.ts. */
+   The colour, border and outline of whatever the pointer or the keyboard acts on ease
+   instead of snapping, with nothing to add per element: a pressed segment, a focused
+   field, a hovered tile, a chosen option. Zero specificity (:where), so an element that
+   names a transition of its own keeps it. Scoped to what can be acted on, not to every
+   element: a transition on every node made each style change in the editor a
+   transition check across the whole tree, and measured as half the dropped frames of
+   a choice change. Layout motion (arriving, leaving, moving) is src/lib/useMotion.ts. */
 @media (prefers-reduced-motion: no-preference) {
-  :where(#root) :where(*, ::before, ::after) {
-    transition-property:
-      color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
-      opacity;
+  :where(#root)
+    :where(button, a, input, select, textarea, label, summary, [role='option'], .arg-tile) {
+    transition-property: color, background-color, border-color, outline-color;
     transition-duration: var(--duration-fast);
     transition-timing-function: var(--ease-standard);
+  }
+}
+
+/* An entrance with no JS behind it, for something that appears often and in many
+   places at once (an argument's notes), where a `useMotion` observer apiece costs
+   more than the entrance is worth. It leaves without motion. */
+@keyframes motion-arrive {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .motion-arrive {
+    animation: motion-arrive var(--duration-panel) var(--ease-standard);
   }
 }
 
@@ -427,16 +443,8 @@ body {
   max-height: var(--sheet-max-h, 100%);
 }
 
-.sheet-glide {
-  transition:
-    width var(--duration-panel) var(--ease-standard),
-    height var(--duration-panel) var(--ease-standard);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sheet-glide {
-    transition: none;
-  }
+.sheet-surface {
+  transform-origin: 0 0;
 }
 
 /* ── The editor's tiles ─────────────────────────────────────────────────────

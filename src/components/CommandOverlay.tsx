@@ -33,7 +33,7 @@ export function CommandOverlay({
   header?: ReactNode
   children: ReactNode
 }) {
-  const { stage, sheet: panel, content } = useSheetSize<HTMLDivElement>()
+  const { stage, sheet: panel, surface, content } = useSheetSize<HTMLDivElement>()
   const backdrop = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
   const navigate = useNavigate()
@@ -118,17 +118,23 @@ export function CommandOverlay({
             that, since their text read through it. `bg-canvas` under a `bg-surface`
             layer is Konnekt's maximized `TileWrapper` recipe, so the two products'
             panels are the same surface. The size is the content's, written by
-            `useSheetSize` so a change of size can glide.
+            `useSheetSize`, and the surface is an element of its own so a change of
+            size can glide by scaling it.
           */
-          className="sheet border-hairline border-border-subtle bg-canvas rounded-panel pointer-events-auto relative overflow-hidden bg-[linear-gradient(var(--bg-surface),var(--bg-surface))]"
+          className="sheet pointer-events-auto relative"
         >
+          <div
+            ref={surface}
+            aria-hidden="true"
+            className="sheet-surface border-hairline border-border-subtle bg-canvas rounded-panel absolute inset-0 bg-[linear-gradient(var(--bg-surface),var(--bg-surface))]"
+          />
           <div ref={content} className="sheet-content flex flex-col">
             {/*
               The band that says where you are: the editor, not the dashboard. The
               accent wash and the Editor mark are what the dashboard's panels do not
               have.
             */}
-            <div className="border-b-hairline border-accent/30 bg-accent/10 flex shrink-0 items-center gap-3 px-3 py-2">
+            <div className="border-b-hairline border-accent/30 bg-accent/10 rounded-t-panel flex shrink-0 items-center gap-3 px-3 py-2">
               <span className="bg-accent text-canvas text-2xs rounded-sm px-1.5 py-0.5 font-bold tracking-wider uppercase">
                 Editor
               </span>

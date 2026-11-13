@@ -58,7 +58,7 @@ export function TileGrid({ tiles, busiest }: { tiles: readonly Tile[]; busiest: 
     <div
       ref={attach}
       data-columns={layout?.cols ?? 0}
-      className={`tile-grid ${layout?.width === 'wide' ? 'tile-grid-wide' : ''}`}
+      className={`tile-grid motion-arrive ${layout?.width === 'wide' ? 'tile-grid-wide' : ''}`}
     >
       {tiles.map((tile, i) => (
         <div key={tile.key} ref={(cell) => place(cell, layout?.place[i])} className="tile-cell">

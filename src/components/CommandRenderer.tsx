@@ -31,7 +31,6 @@ import {
 import { ARG_LABEL, HELP, WARNING } from './editors/fieldStyles'
 import { busiestSizes, tilesFor, type TileEntry } from '../schema/tiles'
 import { TileGrid } from './TileGrid'
-import { useMotion } from '../lib/useMotion'
 import { AnimatedHeight } from './ui/AnimatedHeight'
 import { Segmented } from './ui/Segmented'
 import { Switch } from './ui/Switch'
@@ -181,7 +180,9 @@ export function CommandRenderer({
   }))
   return (
     <div className="arg-form">
-      <TileGrid tiles={tiles} busiest={busiest} />
+      {/* Keyed by command: another command is a new grid that fades in, not this one's
+          tiles leaving one by one around the next command's. */}
+      <TileGrid key={definition.id} tiles={tiles} busiest={busiest} />
     </div>
   )
 }
@@ -834,8 +835,6 @@ function ArgumentView({
   // definition with no authored metadata still renders something addressable.
   const presentation = argumentPresentation(ui, node, literals)
 
-  // Warnings and notes under the control arrive and leave with the shared motion.
-  const [motion] = useMotion<HTMLDivElement>()
   const controlId = useId()
   const labelId = useId()
   const helpId = useId()
@@ -887,7 +886,7 @@ function ArgumentView({
           </span>
         )}
       </div>
-      <div ref={motion} className="flex min-w-0 flex-col items-start gap-1.5">
+      <div className="flex min-w-0 flex-col items-start gap-1.5">
         {group ? (
           <fieldset
             aria-labelledby={labelId}
@@ -900,7 +899,9 @@ function ArgumentView({
           editor
         )}
         {hasNotes && (
-          <div id={notesId} className="flex flex-col gap-0.5">
+          // Fades in by CSS (`.motion-arrive`) rather than by `useMotion`: one per
+          // argument, the observers that would cost outweighed a note's entrance.
+          <div id={notesId} className="motion-arrive flex flex-col gap-0.5">
             {/*
               Said beside the field rather than left for the output to explain, because
               the output only shows the result: a `0` nobody typed, or a `<seconds>` in
