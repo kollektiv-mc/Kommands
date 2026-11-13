@@ -115,6 +115,12 @@ describe('layoutState', () => {
     expect(alone([4], [true])).toMatchObject({ cols: 1, width: 'wide', rows: 4 })
   })
 
+  it('keeps a lone field in a column of standard width', () => {
+    expect(alone([2])).toMatchObject({ cols: 1, width: 'standard' })
+    expect(alone([2, 'fill'])).toMatchObject({ width: 'standard' })
+    expect(alone(['fill'])).toMatchObject({ cols: 1, width: 'wide' })
+  })
+
   it('places a tile the plan never saw around the others', () => {
     const plan = planColumns([2, 2], [tiles([2, 2])])
     const state = [...tiles([2, 2]), { key: 'embedded', size: 2 }]

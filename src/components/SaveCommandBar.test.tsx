@@ -197,14 +197,14 @@ test('pinning from the editor is the same pin the dashboard shows', async () => 
   const editor = within(container)
 
   await user.click(await editor.findByRole('button', { name: 'More' }))
-  await user.click(editor.getByRole('button', { name: 'Pin to Quick' }))
+  await user.click(screen.getByRole('button', { name: 'Pin to Quick' }))
 
   // One flag, two places. Quick on the dashboard reads this, so pinning here has to
   // reach the same record rather than a second notion of pinned.
   const [after] = await localStorageBackend(backing).list()
   expect(after!.pinned).toBe(true)
   await user.click(editor.getByRole('button', { name: 'More' }))
-  expect(await editor.findByRole('button', { name: 'Unpin from Quick' })).toBeDefined()
+  expect(await screen.findByRole('button', { name: 'Unpin from Quick' })).toBeDefined()
 })
 
 test('linking from the editor is the same link the dashboard shows', async () => {
@@ -220,7 +220,7 @@ test('linking from the editor is the same link the dashboard shows', async () =>
   const editor = within(container)
 
   await user.click(await editor.findByRole('button', { name: 'More' }))
-  await user.click(editor.getByRole('button', { name: 'Link to Konnekt' }))
+  await user.click(screen.getByRole('button', { name: 'Link to Konnekt' }))
 
   // One flag, two places, exactly as the pin: the Linked panel reads this, and so does
   // the projection that decides what Konnekt sees.
@@ -228,7 +228,7 @@ test('linking from the editor is the same link the dashboard shows', async () =>
   expect(after!.linked).toBe(true)
   expect(after!.revision).toBe(1)
   await user.click(editor.getByRole('button', { name: 'More' }))
-  expect(await editor.findByRole('button', { name: 'Unlink from Konnekt' })).toBeDefined()
+  expect(await screen.findByRole('button', { name: 'Unlink from Konnekt' })).toBeDefined()
 })
 
 test('rename opens the same popover, seeded with the current name', async () => {
@@ -238,22 +238,23 @@ test('rename opens the same popover, seeded with the current name', async () => 
 
   const [saved] = await localStorageBackend(backing).list()
   // Scoped to this render. The first one is still mounted (cleanup runs between tests,
-  // not between renders) and its own controls would answer an unscoped query.
+  // not between renders) and its own controls would answer an unscoped query. What
+  // opens in a popover is queried unscoped, since a popover is portalled to the root.
   const { container } = await renderWithRouter(bar('/give @p stone', saved!.id))
   const editor = within(container)
 
   // A saved command shows Save changes and no field until one is asked for.
   expect(editor.queryByRole('textbox')).toBeNull()
   await user.click(await editor.findByRole('button', { name: 'More' }))
-  await user.click(editor.getByRole('button', { name: 'Rename' }))
+  await user.click(screen.getByRole('button', { name: 'Rename' }))
 
-  const field = await editor.findByRole('textbox', { name: 'Rename' })
+  const field = await screen.findByRole('textbox', { name: 'Rename' })
   // Seeded with the current name: a rename is usually an edit of what is there, and an
   // empty field makes someone retype it to change one word.
   expect((field as HTMLInputElement).value).toBe('Starter kit')
   await user.clear(field)
   await user.type(field, 'Kit v2')
-  await user.click(editor.getByRole('button', { name: 'Rename' }))
+  await user.click(screen.getByRole('button', { name: 'Rename' }))
 
   const [renamed] = await localStorageBackend(backing).list()
   expect(renamed!.name).toBe('Kit v2')

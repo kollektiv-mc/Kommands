@@ -96,8 +96,9 @@ Brigadier reads arguments by position, so when a later part of the same sequence
 set and this argument is empty, dropping it would slide the later value into its slot:
 `/effect give @p speed` with only an amplifier used to come out as `speed 2`, a
 two-second effect. In that case the serializer writes the default, or the argument's
-`<name>` placeholder when it has none. Anywhere else an empty optional argument still
-contributes nothing, and its editor shows the default as the value in force.
+`<name>` placeholder when it has none, and the editor flips that argument's `optional`
+pill to `required`. Anywhere else an empty optional argument still contributes nothing,
+and its editor shows the default as the value in force.
 
 Defaults are never derived, because Brigadier's tree carries none. Each one lives in
 `src/data/authored/defaults/`, keyed by the same selectors constraints use, and names a

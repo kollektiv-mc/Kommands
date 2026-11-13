@@ -214,6 +214,11 @@ body {
   }
 }
 
+/* The space between a popover and its trigger, read by ui/Popover.tsx to place it. */
+.popover {
+  --popover-gap: calc(var(--spacing) * 1);
+}
+
 .popover-enter {
   transform-origin: top center;
   animation: popover-in var(--duration-fast) var(--ease-standard);
@@ -399,17 +404,25 @@ body {
 /* ── The editor sheet ────────────────────────────────────────────────────────
    src/components/CommandOverlay.tsx: the sheet is sized by src/lib/useSheetSize.ts to
    its content, which lays out at its natural size inside what the stage leaves. */
+/* The command list a new command starts from: as wide as a command of two standard
+   columns (two tiles, their gap and the sheet's padding), the width most commands
+   open at, so choosing one does not first throw the sheet to another size. */
+.editor-list {
+  width: calc(var(--spacing) * (62 * 2 + 2.5 + 8));
+  max-width: 100%;
+}
+
 .sheet-content {
+  /* The narrowest a command's sheet gets: room for the command line's status, its
+     length and the version on one line. useSheetSize.ts raises it to what the header
+     needs. */
+  --sheet-min-w: calc(var(--spacing) * 90);
   position: absolute;
   top: 0;
   left: 0;
   width: max-content;
   max-width: var(--sheet-max-w, 100%);
   max-height: var(--sheet-max-h, 100%);
-}
-
-.sheet-surface {
-  transform-origin: 0 0;
 }
 
 /* ── The editor's tiles ─────────────────────────────────────────────────────
@@ -423,7 +436,15 @@ body {
   --tile-w: calc(var(--spacing) * 62);
   --tile-gap: calc(var(--spacing) * 2.5);
   display: grid;
-  grid-template-columns: repeat(var(--tile-cols, 1), var(--tile-w));
+  /* At least the tile width, and more only when the sheet is wider than its tiles
+     (its header, for a command of one short column): the columns share the rest
+     rather than leaving it empty at the right. The grid's own width is stated rather
+     than measured from its tiles, which an fr track would let a long option widen. */
+  grid-template-columns: repeat(var(--tile-cols, 1), minmax(var(--tile-w), 1fr));
+  contain: inline-size;
+  min-width: calc(
+    var(--tile-cols, 1) * var(--tile-w) + (var(--tile-cols, 1) - 1) * var(--tile-gap)
+  );
   grid-template-rows: repeat(var(--tile-rows, 1), minmax(calc(var(--spacing) * 8), auto));
   gap: var(--tile-gap);
 }
@@ -485,6 +506,7 @@ body {
   .tile-grid-wide {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: none;
+    min-width: 0;
   }
 
   .tile-cell {

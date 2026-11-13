@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { useBlocker, useNavigate } from '@tanstack/react-router'
 import { flipIn, flipOut } from '../lib/flip'
 import { useSheetSize } from '../lib/useSheetSize'
 import { originOf, useUiStore } from '../stores/useUiStore'
@@ -9,7 +9,9 @@ import { originOf, useUiStore } from '../stores/useUiStore'
  *
  * As big as the command it holds and no bigger: a command of three fields gets a small
  * sheet and a command with a preview a wide one. When the command or its choices change
- * what the sheet holds, the sheet glides to its new size (`useSheetSize`).
+ * what the sheet holds, the sheet glides to its new size (`useSheetSize`). Moving to
+ * another command waits for the one on screen to fade out first, and the new one fades
+ * in once the sheet has its size.
  *
  * Owns the whole open/close gesture: the entrance that grows out of the tile, the
  * exit that shrinks back into it, the dim behind, and the three ways out.
@@ -23,6 +25,7 @@ export function CommandOverlay({
   originKey,
   label,
   header,
+  contentKey,
   children,
 }: {
   /** The saved command this was opened from, if any. Keys the rect to grow from. */
@@ -31,9 +34,19 @@ export function CommandOverlay({
   label?: string
   /** The header band's own content, beside the Editor mark: the command switcher. */
   header?: ReactNode
+  /** What is shown: a change of it is a change of the whole content, not of a part. */
+  contentKey?: string
   children: ReactNode
 }) {
-  const { stage, sheet: panel, surface, content } = useSheetSize<HTMLDivElement>()
+  const {
+    stage,
+    sheet: panel,
+    header: band,
+    frame,
+    content,
+    leave,
+    settle,
+  } = useSheetSize<HTMLDivElement>()
   const backdrop = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
   const navigate = useNavigate()
@@ -62,6 +75,21 @@ export function CommandOverlay({
     closing.current = true
     flipOut(panel.current, collapseTo(), backdrop.current, () => void navigate({ to: '/' }))
   }, [collapseTo, navigate, panel])
+
+  // Another command, or the list: the one on screen fades out before the route changes,
+  // and the new one is placed and faded in once the sheet has resized to it.
+  useBlocker({
+    shouldBlockFn: async ({ current, next }) => {
+      if (closing.current || next.pathname === current.pathname) return false
+      if (!/^\/c(\/|$)/.test(next.pathname)) return false
+      await leave()
+      // In case the route lands on what is already shown, which no change of key reveals.
+      window.setTimeout(settle, 1000)
+      return false
+    },
+    enableBeforeUnload: false,
+  })
+  useLayoutEffect(settle, [contentKey, settle])
 
   useLayoutEffect(() => {
     if (!panel.current) return
@@ -117,24 +145,25 @@ export function CommandOverlay({
             translucent on purpose, and a layer over a grid of command tiles cannot afford
             that, since their text read through it. `bg-canvas` under a `bg-surface`
             layer is Konnekt's maximized `TileWrapper` recipe, so the two products'
-            panels are the same surface. The size is the content's, written by
-            `useSheetSize`, and the surface is an element of its own so a change of
-            size can glide by scaling it.
+            panels are the same surface. The size is the content's, written and
+            animated by `useSheetSize`.
           */
           className="sheet pointer-events-auto relative"
         >
           <div
-            ref={surface}
             aria-hidden="true"
-            className="sheet-surface border-hairline border-border-subtle bg-canvas rounded-panel absolute inset-0 bg-[linear-gradient(var(--bg-surface),var(--bg-surface))]"
+            className="border-hairline border-border-subtle bg-canvas rounded-panel absolute inset-0 bg-[linear-gradient(var(--bg-surface),var(--bg-surface))]"
           />
-          <div ref={content} className="sheet-content flex flex-col">
+          <div className="relative flex h-full flex-col">
             {/*
               The band that says where you are: the editor, not the dashboard. The
               accent wash and the Editor mark are what the dashboard's panels do not
-              have.
+              have. Laid out at the sheet's width, so it resizes with the sheet.
             */}
-            <div className="border-b-hairline border-accent/30 bg-accent/10 rounded-t-panel flex shrink-0 items-center gap-3 px-3 py-2">
+            <div
+              ref={band}
+              className="border-b-hairline border-accent/30 bg-accent/10 rounded-t-panel flex shrink-0 items-center gap-3 px-3 py-2"
+            >
               <span className="bg-accent text-canvas text-2xs rounded-sm px-1.5 py-0.5 font-bold tracking-wider uppercase">
                 Editor
               </span>
@@ -157,7 +186,18 @@ export function CommandOverlay({
                 <span aria-hidden="true">×</span>
               </button>
             </div>
-            <div className="sheet-body min-h-0 overflow-auto">{children}</div>
+            {/*
+              The content at its own size in a frame of fixed size, clipped by the
+              sheet while the sheet is smaller than it: nothing in here is laid out
+              again while the sheet resizes around it.
+            */}
+            <div className="rounded-b-panel min-h-0 flex-1 overflow-hidden">
+              <div ref={frame} className="relative">
+                <div ref={content} className="sheet-content overflow-auto">
+                  {children}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

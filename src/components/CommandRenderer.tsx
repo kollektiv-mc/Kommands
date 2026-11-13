@@ -828,7 +828,7 @@ function ArgumentView({
   const labelId = useId()
   const helpId = useId()
   const notesId = useId()
-  const hasNotes = forced !== undefined || diagnostics.length > 0
+  const hasNotes = diagnostics.length > 0
   const describedBy =
     [presentation?.help ? helpId : '', hasNotes ? notesId : ''].filter(Boolean).join(' ') ||
     undefined
@@ -836,7 +836,10 @@ function ArgumentView({
   const labelText = (
     <>
       {presentation?.label ?? node.name}
-      {node.optional && <span className={OPTIONAL}>optional</span>}
+      {/* An optional argument a later value makes the output write is required now. */}
+      {node.optional && (
+        <span className={OPTIONAL}>{forced === undefined ? 'optional' : 'required'}</span>
+      )}
     </>
   )
   const editor = (
@@ -891,19 +894,6 @@ function ArgumentView({
           // Fades in by CSS (`.motion-arrive`) rather than by `useMotion`: one per
           // argument, the observers that would cost outweighed a note's entrance.
           <div id={notesId} className="motion-arrive flex flex-col gap-0.5">
-            {/*
-              Said beside the field rather than left for the output to explain, because
-              the output only shows the result: a `0` nobody typed, or a `<seconds>` in
-              a command that looked finished. The field is where the person can act.
-            */}
-            {forced?.how === 'default' && (
-              <span
-                className={HELP}
-              >{`Written as ${forced.text} because a later value is set.`}</span>
-            )}
-            {forced?.how === 'placeholder' && (
-              <span className={WARNING}>Needed because a later value is set.</span>
-            )}
             {diagnostics.map((d, i) => (
               <span key={i} className={WARNING}>
                 {d.message}

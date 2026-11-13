@@ -42,10 +42,16 @@ const SIZE = {
 export function Icon({
   name,
   size = 'md',
+  filled = false,
   className = '',
 }: {
   name: IconName
   size?: keyof typeof SIZE
+  /**
+   * Fill the glyph's closed shapes in its colour as well as stroking them: the "on" form
+   * of a toggle such as a pin. An open subpath encloses nothing and stays a line.
+   */
+  filled?: boolean
   /**
    * Colour and opacity only. Never a `size-*`: two same-specificity rules resolve by
    * stylesheet order rather than by string order, which would leave the painted box
@@ -56,7 +62,7 @@ export function Icon({
   return (
     <svg
       viewBox="0 0 24 24"
-      fill="none"
+      fill={filled ? 'currentColor' : 'none'}
       stroke="currentColor"
       // Held to a screen weight rather than a viewBox one — see STROKE_PX.
       strokeWidth={(STROKE_PX * 24) / SIZE[size].px}

@@ -157,18 +157,17 @@ export function SavedCommandTile({
                 ? `Unlink ${saved.name} from Konnekt`
                 : `Link ${saved.name} into Konnekt`
           }
-          className={linked ? 'text-accent' : ''}
         >
-          <Icon name="link" size="xs" />
+          {/* The state colours the glyph, not the button, whose own tone would win. */}
+          <Icon name="link" size="xs" className={linked ? 'text-accent' : ''} />
         </IconButton>
         <IconButton
           small
           onClick={onPin}
           aria-pressed={pinned}
           title={pinned ? `Unpin ${saved.name}` : `Pin ${saved.name}`}
-          className={pinned ? 'text-accent' : ''}
         >
-          <Icon name="pin" size="xs" />
+          <Icon name="pin" size="xs" filled={pinned} className={pinned ? 'text-accent' : ''} />
         </IconButton>
         <IconButton
           small
