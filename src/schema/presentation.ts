@@ -72,16 +72,30 @@ export function choiceLabel(node: ChoiceNode, inClause: boolean): string {
 /** What an optional Choice with nothing selected is called among its branches. */
 export const NO_BRANCH_LABEL = 'none'
 
+export type ChoiceControl = 'segmented' | 'stack' | 'listbox'
+
 /**
- * Whether a Choice's branches fit side by side as a segmented control, or need a list.
+ * Whether a Choice's branches fit side by side as a segmented control, one above
+ * another, or need a list.
  *
- * Side by side when they are few and short, because then every option is visible and
- * one click away, and a change of mind is another click rather than reopening a list.
- * `/execute`'s thirteen clauses, or `on`'s eight relations, would not fit a row and
- * go in a list.
+ * Visible when they are few and short, because then every option is one click away,
+ * and a change of mind is another click rather than reopening a list. Measured against
+ * one editor tile: what does not fit across it stacks, and `/execute`'s thirteen
+ * clauses, or `on`'s eight relations, go in a list.
  */
-export function choiceControl(labels: readonly string[]): 'segmented' | 'listbox' {
-  return labels.length <= 5 && labels.every((label) => label.length <= 12) ? 'segmented' : 'listbox'
+export function choiceControl(labels: readonly string[]): ChoiceControl {
+  // Every segment is as wide as the longest, so a row fits when count times the widest
+  // label does: about 34 characters' worth across one editor tile, padding included.
+  const widest = Math.max(0, ...labels.map((label) => label.length))
+  if (labels.length * (widest + 4) <= 34) return 'segmented'
+  // Up to five go one above another, every option still visible and one click away.
+  if (labels.length <= 5 && widest <= 24) return 'stack'
+  return 'listbox'
+}
+
+/** The rows of the editor grid a Choice's control takes (`lib/tileLayout.ts`). */
+export function choiceRows(control: ChoiceControl, count: number): number {
+  return control === 'stack' ? Math.ceil((count * 24 + 40) / 42) : 2
 }
 
 /**

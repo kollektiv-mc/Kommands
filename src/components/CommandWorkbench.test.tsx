@@ -139,7 +139,7 @@ test('hovering a piece of the output lights the row that set it, and the other w
   await user.type(screen.getByLabelText('Item'), 'stone')
 
   const piece = screen.getByText('minecraft:stone')
-  const row = screen.getByLabelText('Item').closest('.arg-row')!
+  const row = screen.getByLabelText('Item').closest('.arg-tile')!
   await user.hover(piece)
   expect(row.classList.contains('arg-row-lit')).toBe(true)
   await user.unhover(piece)

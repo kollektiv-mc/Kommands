@@ -149,14 +149,18 @@ export function CommandWorkbench({
         command is the product and the editors are how you reach it. Still ahead of
         the preview, as `.claude/rules/previews.md` requires.
       */}
-      <OutputPanel
-        text={report.text}
-        segments={report.segments}
-        versionId={version.id}
-        warnings={warnings}
-        history={{ undo, redo, canUndo: canUndo(history), canRedo: canRedo(history) }}
-        actions={actions?.(report.text)}
-      />
+      {/* As wide as the tiles below and no wider: `w-0 min-w-full` keeps the command
+          line's own length out of the sheet's width, which the tiles decide. */}
+      <div className="w-0 min-w-full">
+        <OutputPanel
+          text={report.text}
+          segments={report.segments}
+          versionId={version.id}
+          warnings={warnings}
+          history={{ undo, redo, canUndo: canUndo(history), canRedo: canRedo(history) }}
+          actions={actions?.(report.text)}
+        />
+      </div>
 
       <CommandRenderer
         definition={definition}
@@ -165,14 +169,15 @@ export function CommandWorkbench({
         actions={{ setArg, setFlag, setChoice, addInstance, reorderRepeat, setRef }}
         catalogue={embeddable}
         forced={report.forced}
+        // A tile of its own, beside the fields, and still separate from the output: the
+        // preview is an aid and the command is the product, so nothing else can be
+        // taken down by a preview that fails to load.
+        preview={
+          module !== undefined && (
+            <PreviewCanvas module={module} values={previewValues} registry={registries} />
+          )
+        }
       />
-
-      {/* Last, and a sibling of the output panel rather than a wrapper around it. The
-          preview is an aid and the command is the product, so nothing above can be
-          taken down by a preview that fails to load. */}
-      {module !== undefined && (
-        <PreviewCanvas module={module} values={previewValues} registry={registries} />
-      )}
     </div>
   )
 }

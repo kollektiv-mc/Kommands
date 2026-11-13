@@ -2,7 +2,8 @@ import { useId, useLayoutEffect, useRef } from 'react'
 import type { ListOption } from '../../lib/listbox'
 
 /**
- * A few short choices shown side by side, with a thumb that slides to the one chosen.
+ * A few short choices shown side by side, or one above another, with a thumb that
+ * slides to the one chosen.
  *
  * Built on native radio inputs, visually hidden behind their labels, rather than on
  * buttons with ARIA roles. The browser then supplies the radio group's semantics, its
@@ -18,6 +19,7 @@ export function Segmented<V extends string>({
   options,
   onChange,
   name,
+  orientation = 'horizontal',
   className = '',
   'aria-label': ariaLabel,
   'aria-labelledby': labelledBy,
@@ -27,6 +29,8 @@ export function Segmented<V extends string>({
   onChange: (value: V) => void
   /** The radio group's name. Generated when absent; only a form would need a stable one. */
   name?: string
+  /** Side by side, or one above another when the options do not fit across. */
+  orientation?: 'horizontal' | 'vertical'
   className?: string
   'aria-label'?: string
   'aria-labelledby'?: string
@@ -48,11 +52,12 @@ export function Segmented<V extends string>({
       role="radiogroup"
       aria-label={ariaLabel}
       aria-labelledby={labelledBy}
-      className={`segmented border-hairline border-border-hover bg-surface relative inline-grid auto-cols-fr grid-flow-col rounded-lg p-0.5 ${className}`}
+      aria-orientation={orientation}
+      className={`segmented border-hairline border-border-hover bg-surface relative rounded-lg p-0.5 ${orientation === 'vertical' ? 'segmented-vertical grid w-full grid-flow-row auto-rows-fr' : 'inline-grid auto-cols-fr grid-flow-col'} ${className}`}
     >
       <span
         aria-hidden="true"
-        className={`segmented-thumb border-hairline bg-accent/15 border-accent/40 pointer-events-none absolute inset-y-0.5 left-0.5 ${index < 0 ? 'opacity-0' : ''}`}
+        className={`segmented-thumb border-hairline bg-accent/15 border-accent/40 pointer-events-none absolute ${orientation === 'vertical' ? 'inset-x-0.5 top-0.5' : 'inset-y-0.5 left-0.5'} ${index < 0 ? 'opacity-0' : ''}`}
       />
       {options.map((option) => (
         <label key={option.value} className="relative flex cursor-pointer">
@@ -65,9 +70,7 @@ export function Segmented<V extends string>({
             className="peer sr-only"
           />
           <span
-            className={
-              'text-text-secondary hover:text-text-primary peer-checked:text-accent peer-focus-visible:outline-accent duration-fast w-full rounded-md px-3 py-1 text-center text-xs font-medium whitespace-nowrap transition-colors peer-focus-visible:outline-1 motion-reduce:transition-none'
-            }
+            className={`text-text-secondary hover:text-text-primary peer-checked:text-accent peer-focus-visible:outline-accent duration-fast w-full rounded-md px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors peer-focus-visible:outline-1 motion-reduce:transition-none ${orientation === 'vertical' ? 'text-left' : 'text-center'}`}
           >
             {option.label}
           </span>

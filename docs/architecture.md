@@ -252,6 +252,46 @@ Design detail in [`adding-a-preview.md`](adding-a-preview.md).
 
 ---
 
+## The editor's tiles and motion
+
+The renderer does not lay a command out as a form. `schema/tiles.ts` flattens the
+definition into tiles: an argument, a choice's picker followed by the branch it
+picked, a flag set, an `@any` Ref's picker, and a tile that fills a column for a
+chain of steps or a bound preview. Each tile takes a whole number of grid rows, which
+its argument type declares (`tile`) rather than the layout measuring a form that is
+still rendering. `lib/tileLayout.ts` packs them, the same procedure for every
+command:
+
+- The column count, one to four, comes from the command's busiest state (every
+  choice on its tallest branch), so a choice never widens the sheet.
+- Each state is then packed by trying every split of its tiles across at most that
+  many columns, scoring a stretched row as three times a row of height. The last
+  tile of a short column stretches, so every column ends level.
+- A tile whose editor needs the full width (a text component, `wideTile`) takes a
+  band below the columns instead of counting toward them.
+
+Motion is automatic rather than written per element. `lib/useMotion.ts` puts
+AutoAnimate (`@formkit/auto-animate`, MIT, about 3.6 KB gzip) on a container: every
+child it gains fades in, every child it loses fades out, and every child that moves
+slides, on the panel duration and standard curve read from the token layer. The tile
+grid uses it, so a tile added later animates with no code of its own. A rule in
+`styles/index.css` eases the colours and borders of what can be acted on (buttons,
+fields, options, tiles), and `.motion-arrive` fades in what appears often, such as an
+argument's notes, with no JS behind it. Three pieces cover the rest: `useSheetSize`
+glides the sheet to its content's size, `useSlidingMark` slides a list's highlight
+between options, and `ui/Swap.tsx` crossfades a line of text when it changes. All of
+it stands down under reduced motion.
+
+The tiles and the sheet animate `transform` and `opacity` only, which the compositor
+runs without the main thread: an element takes its new size at once, and what moves
+around it slides. Two small exceptions tween a size, both on boxes whose change lays
+out little: a sliding mark's width and height (an empty, absolutely placed element)
+and `AnimatedHeight`'s `max-height` on a swapped branch. That rule and pausing the dashboard's
+dot grid under the editor took a choice change from about two thirds of frames
+dropped to under a tenth, measured with the CPU slowed fourfold.
+
+---
+
 ## Design tokens
 
 The visual language is the suite's shared one, defined in
@@ -284,3 +324,5 @@ values themselves live in `kollektiv/design/tokens.json`.
 | Two builds, one codebase       | Web only, or desktop only         | A LAN server has no route to a hosted site; a browser tab cannot write a shared file                        |
 | Capability interface           | A `isDesktop` flag at call sites  | The difference is a capability, so it belongs behind one — the same argument as traits over version numbers |
 | Kommands writes, Konnekt reads | Either side may write             | A single writer makes divergence structurally impossible rather than merely unlikely                        |
+| One packer for every layout    | A layout per command              | 79 commands and counting; a rule that is tested once is right for the next command too                      |
+| Motion by container            | An animation per element          | A new field animates the day it is written, and nothing is left out because someone forgot                  |

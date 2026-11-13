@@ -44,7 +44,7 @@ import {
 import { serializePattern, validatePattern, EMPTY_PATTERN, type PatternValue } from './we-pattern'
 import { validateExpression } from './we-expression'
 import { COORDINATE_SHAPES, coordinateProblems, serializeCoordinates } from '../coordinates'
-import { enumControl } from '../presentation'
+import { choiceRows, enumControl } from '../presentation'
 import { validateResource } from '../resource-location'
 
 /**
@@ -154,7 +154,9 @@ function enumType(key: ArgumentTypeKey, values: readonly string[]): ErasedArgume
   const control = enumControl(values)
   return defineArgumentType<string>({
     key,
-    labelling: control === 'segmented' ? 'group' : 'control',
+    labelling: control === 'listbox' ? 'control' : 'group',
+    // Counted with the Default segment an optional one leads with.
+    tile: choiceRows(control, values.length + 1),
     editor: enumEditor(values, control),
     serialize: (value) => value,
     validate: (value) =>
@@ -216,6 +218,7 @@ const TYPES: ErasedArgumentType[] = [
   defineArgumentType<ItemStackValue>({
     key: 'item_stack',
     labelling: 'group',
+    tile: 4,
     editor: ItemStackEditor,
     serialize: serializeItemStack,
     validate: (value, _options, ctx) => validateItemStack(value, ctx),
@@ -224,6 +227,8 @@ const TYPES: ErasedArgumentType[] = [
   defineArgumentType<TextComponent>({
     key: 'text_component',
     labelling: 'group',
+    tile: 4,
+    wideTile: true,
     editor: TextComponentEditor,
     serialize: (value, ctx) =>
       isEmptyTextComponent(value) ? '' : serializeTextComponent(value, ctx),

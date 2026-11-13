@@ -25,6 +25,7 @@
     "gen": "pnpm gen:commands && pnpm gen:fingerprints && pnpm gen:tokens"
   },
   "dependencies": {
+    "@formkit/auto-animate": "0.10.2",
     "@react-three/fiber": "^9.7.0",
     "@tanstack/react-router": "^1.135.4",
     "react": "^19.2.0",

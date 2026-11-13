@@ -1,5 +1,6 @@
 import { Outlet, getRouteApi, useParams, useSearch } from '@tanstack/react-router'
 import { CommandOverlay } from './CommandOverlay'
+import { CommandSwitcher } from './CommandSwitcher'
 import { EditorLayout } from './EditorLayout'
 
 // `/dashboard/c`, not `/c`. The URL is still `/c` — what changed is the route *id*,
@@ -38,7 +39,11 @@ export function EditorShell() {
   const label = commandId === undefined ? undefined : catalogue[commandId]?.label
 
   return (
-    <CommandOverlay originKey={saved} label={label}>
+    <CommandOverlay
+      originKey={saved}
+      label={label}
+      header={<CommandSwitcher catalogue={catalogue} activeId={commandId} />}
+    >
       <EditorLayout catalogue={catalogue} activeId={commandId}>
         <Outlet />
       </EditorLayout>

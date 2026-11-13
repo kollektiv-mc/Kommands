@@ -23,7 +23,7 @@ export function TextEditor({
       id={id}
       aria-describedby={describedBy}
       type="text"
-      className={`${FIELD} w-full max-w-md`}
+      className={`${FIELD} w-full`}
       value={value}
       placeholder={
         typeof options.placeholder === 'string' ? options.placeholder : defaultText(options)

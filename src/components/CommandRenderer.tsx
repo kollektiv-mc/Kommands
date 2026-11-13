@@ -1,4 +1,13 @@
-import { lazy, Suspense, useId, useRef, type ReactNode } from 'react'
+import {
+  createContext,
+  lazy,
+  Suspense,
+  useContext,
+  useId,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from 'react'
 import type { SerializeContext } from '../data/versions/types'
 import { argumentOptions, lookupArgumentType } from '../schema/argument-types'
 import {
@@ -8,7 +17,6 @@ import {
   instance,
   NO_BRANCH,
   repeatInstances,
-  ROOT,
   type InstanceId,
   type Path,
 } from '../schema/paths'
@@ -21,6 +29,8 @@ import {
   type UiMetadata,
 } from '../schema/types'
 import { ARG_LABEL, HELP, WARNING } from './editors/fieldStyles'
+import { busiestSizes, tilesFor, type TileEntry } from '../schema/tiles'
+import { TileGrid } from './TileGrid'
 import { AnimatedHeight } from './ui/AnimatedHeight'
 import { Segmented } from './ui/Segmented'
 import { Switch } from './ui/Switch'
@@ -134,6 +144,8 @@ interface CommandRendererProps {
    * that decides what a later argument forces.
    */
   forced?: ReadonlyMap<Path, ForcedSlot>
+  /** The command's preview, drawn in a tile of its own when the definition binds one. */
+  preview?: ReactNode
 }
 
 export function CommandRenderer({
@@ -144,20 +156,95 @@ export function CommandRenderer({
   catalogue = {},
   maxDepth = DEFAULT_MAX_DEPTH,
   forced = NOTHING_FORCED,
+  preview,
 }: CommandRendererProps) {
-  return (
-    <div className="arg-form flex flex-col">
-      <NodeView
-        node={definition.root}
-        path={ROOT}
+  const entries = useMemo(
+    () => tilesFor(definition, value, catalogue),
+    [definition, value, catalogue],
+  )
+  const busiest = useMemo(() => busiestSizes(definition), [definition])
+  const tiles = entries.map((entry) => ({
+    key: entry.key,
+    size: entry.size,
+    wide: entry.wide,
+    node: (
+      <TileView
+        entry={entry}
         value={value}
         ctx={ctx}
         actions={actions}
-        scope={{ ui: definition.ui, catalogue, depth: maxDepth, forced }}
-        literals={[]}
-        nested={false}
+        scope={{ ui: entry.ui, catalogue, depth: Math.min(entry.depth, maxDepth), forced }}
+        preview={preview}
       />
+    ),
+  }))
+  return (
+    <div className="arg-form">
+      {/* Keyed by command: another command is a new grid that fades in, not this one's
+          tiles leaving one by one around the next command's. */}
+      <TileGrid key={definition.id} tiles={tiles} busiest={busiest} />
     </div>
+  )
+}
+
+/**
+ * Rows drawn as tiles of the editor grid, or as rows inside something else: the steps
+ * of a chain keep the compact two-column row, since a step is already a card.
+ */
+const RowLayout = createContext<'tile' | 'row'>('row')
+
+/** One tile, from the entry the walk produced (`schema/tiles.ts`). */
+function TileView({
+  entry,
+  value,
+  ctx,
+  actions,
+  scope,
+  preview,
+}: {
+  entry: TileEntry
+  value: CommandValue
+  ctx: SerializeContext
+  actions: Actions
+  scope: Scope
+  preview?: ReactNode
+}) {
+  const props = {
+    path: entry.key,
+    value,
+    ctx,
+    actions,
+    scope,
+    literals: entry.literals,
+    nested: false,
+  }
+  switch (entry.kind) {
+    case 'chain':
+      return (
+        <div className="arg-tile arg-tile-fill">
+          <RepeatView {...props} node={entry.node} tail={entry.tail} />
+        </div>
+      )
+    case 'preview':
+      return <div className="arg-tile arg-tile-fill">{preview}</div>
+  }
+  return (
+    <RowLayout.Provider value="tile">
+      {entry.kind === 'argument' ? (
+        <ArgumentView
+          {...props}
+          node={entry.node}
+          ui={scope.ui}
+          forced={scope.forced.get(entry.key)}
+        />
+      ) : entry.kind === 'choice' ? (
+        <ChoicePicker {...props} node={entry.node} />
+      ) : entry.kind === 'flags' ? (
+        <FlagsView {...props} node={entry.node} />
+      ) : (
+        <RefPicker {...props} node={entry.node} />
+      )}
+    </RowLayout.Provider>
   )
 }
 
@@ -200,9 +287,10 @@ const ROW =
 function Row({ field, children }: { field: Path; children: ReactNode }) {
   const lit = useLit(field)
   const hover = useOutputHover((s) => s.hover)
+  const layout = useContext(RowLayout)
   return (
     <div
-      className={`${ROW} ${lit ? 'arg-row-lit' : ''}`}
+      className={`${layout === 'tile' ? 'arg-tile' : ROW} ${lit ? 'arg-row-lit' : ''}`}
       onPointerEnter={() => hover(field)}
       onPointerLeave={() => hover(null)}
     >
@@ -307,12 +395,9 @@ function literalChains(nodes: readonly Node[], start: readonly string[]): (reado
  * glides to its new height instead of jumping, with the new rows fading in.
  */
 function ChoiceView(props: NodeViewProps & { node: Extract<Node, { kind: 'choice' }> }) {
-  const { node, path, value, actions, scope, literals, nested, inClause } = props
-  const labelId = useId()
+  const { node, path, value, nested, inClause } = props
   const selected = choiceSelection(value.choices, path, node)
   const chosen = selected === NO_BRANCH ? undefined : node.nodes[selected]
-  const options = branchOptions(node, scope.ui, literals)
-  const pick = (next: string) => actions.setChoice(path, Number(next))
 
   // A step of a chain already says what it is, in its header, and was chosen from the
   // add menu. So the picker is not drawn again inside it; only a step with nothing
@@ -331,31 +416,7 @@ function ChoiceView(props: NodeViewProps & { node: Extract<Node, { kind: 'choice
 
   return (
     <>
-      <Row field={path}>
-        <div className="pt-1.5">
-          <span id={labelId} className={ARG_LABEL}>
-            {choiceLabel(node, inClause === true)}
-          </span>
-        </div>
-        <div className="flex min-w-0 items-start">
-          {choiceControl(options.map((o) => o.label)) === 'segmented' ? (
-            <Segmented
-              aria-labelledby={labelId}
-              value={String(selected)}
-              options={options}
-              onChange={pick}
-            />
-          ) : (
-            <Listbox
-              aria-labelledby={labelId}
-              value={String(selected)}
-              options={options}
-              onChange={pick}
-              className="min-w-48"
-            />
-          )}
-        </div>
-      </Row>
+      <ChoicePicker {...props} />
       <AnimatedHeight contentKey={String(selected)} className={nested && chosen ? INDENT : ''}>
         {chosen && (
           <NodeView
@@ -368,6 +429,49 @@ function ChoiceView(props: NodeViewProps & { node: Extract<Node, { kind: 'choice
         )}
       </AnimatedHeight>
     </>
+  )
+}
+
+/** The tile that picks the command a `@any` Ref embeds. */
+function RefPicker(props: NodeViewProps & { node: Extract<Node, { kind: 'ref' }> }) {
+  return <RefView {...props} pickerOnly />
+}
+
+/** The row, or the tile, that picks a Choice's branch. */
+function ChoicePicker(props: NodeViewProps & { node: Extract<Node, { kind: 'choice' }> }) {
+  const { node, path, value, actions, scope, literals, inClause } = props
+  const labelId = useId()
+  const selected = choiceSelection(value.choices, path, node)
+  const options = branchOptions(node, scope.ui, literals)
+  const pick = (next: string) => actions.setChoice(path, Number(next))
+  const control = choiceControl(options.map((o) => o.label))
+  return (
+    <Row field={path}>
+      <div className="pt-1.5">
+        <span id={labelId} className={ARG_LABEL}>
+          {choiceLabel(node, inClause === true)}
+        </span>
+      </div>
+      <div className="flex min-w-0 items-start">
+        {control === 'listbox' ? (
+          <Listbox
+            aria-labelledby={labelId}
+            value={String(selected)}
+            options={options}
+            onChange={pick}
+            className="w-full min-w-48"
+          />
+        ) : (
+          <Segmented
+            aria-labelledby={labelId}
+            value={String(selected)}
+            options={options}
+            onChange={pick}
+            orientation={control === 'stack' ? 'vertical' : 'horizontal'}
+          />
+        )}
+      </div>
+    </Row>
   )
 }
 
@@ -541,9 +645,11 @@ function RefView(
      * a command turns on and "none" turns off. See `chainEnding`.
      */
     detach?: { choice: Path; on: boolean }
+    /** Only the picker: the embedded command's own tiles are laid out beside it. */
+    pickerOnly?: boolean
   },
 ) {
-  const { detach, ...walk } = props
+  const { detach, pickerOnly, ...walk } = props
   const { node, path, value, actions, scope } = walk
   const labelId = useId()
   const picks = useRef(0)
@@ -567,29 +673,30 @@ function RefView(
   // keyed below this Ref's path, so two embedded commands never collide.
   const inner: Scope = { ...scope, ui: target?.ui, depth: scope.depth - 1 }
 
+  const picker = (
+    <Row field={path}>
+      <div className="pt-1.5">
+        <span id={labelId} className={ARG_LABEL}>
+          Command
+        </span>
+      </div>
+      <div className="flex min-w-0 items-start">
+        <Listbox
+          aria-labelledby={labelId}
+          value={chosenId}
+          placeholder="choose a command"
+          options={detach ? [{ value: NO_COMMAND, label: NO_BRANCH_LABEL }, ...commands] : commands}
+          onChange={pickCommand}
+          className="min-w-48"
+        />
+      </div>
+    </Row>
+  )
+  if (pickerOnly) return isAny ? picker : null
+
   return (
     <>
-      {isAny && (
-        <Row field={path}>
-          <div className="pt-1.5">
-            <span id={labelId} className={ARG_LABEL}>
-              Command
-            </span>
-          </div>
-          <div className="flex min-w-0 items-start">
-            <Listbox
-              aria-labelledby={labelId}
-              value={chosenId}
-              placeholder="choose a command"
-              options={
-                detach ? [{ value: NO_COMMAND, label: NO_BRANCH_LABEL }, ...commands] : commands
-              }
-              onChange={pickCommand}
-              className="min-w-48"
-            />
-          </div>
-        </Row>
-      )}
+      {isAny && picker}
       <AnimatedHeight contentKey={chosenId} className={target ? INDENT : ''}>
         {target && scope.depth > 0 && (
           <NodeView
@@ -756,8 +863,10 @@ function ArgumentView({
             {labelText}
           </label>
         )}
+        {/* Read to a screen reader as the field's description, never drawn: the editor
+            carries no help text, and what a field means belongs in the docs. */}
         {presentation?.help && (
-          <span id={helpId} className={HELP}>
+          <span id={helpId} className="sr-only">
             {presentation.help}
           </span>
         )}
@@ -775,7 +884,9 @@ function ArgumentView({
           editor
         )}
         {hasNotes && (
-          <div id={notesId} className="flex flex-col gap-0.5">
+          // Fades in by CSS (`.motion-arrive`) rather than by `useMotion`: one per
+          // argument, the observers that would cost outweighed a note's entrance.
+          <div id={notesId} className="motion-arrive flex flex-col gap-0.5">
             {/*
               Said beside the field rather than left for the output to explain, because
               the output only shows the result: a `0` nobody typed, or a `<seconds>` in

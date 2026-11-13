@@ -14,8 +14,12 @@ const FPS = 30
  * Drawn on a canvas in the primary text colour, read from the element's own `color`, so
  * it follows the theme. Still under reduced motion, and paused while the tab is hidden,
  * since `requestAnimationFrame` does not run then.
+ *
+ * Also paused while something covers the dashboard (`paused`): redrawing the whole
+ * window thirty times a second under the editor's dim is invisible, and measured as a
+ * large share of each frame the editor's own motion needed.
  */
-export function DotGrid() {
+export function DotGrid({ paused = false }: { paused?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -25,13 +29,19 @@ export function DotGrid() {
     const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
     let width = 0
     let height = 0
-    let seconds = 0
+    // Now, not zero, so the frame drawn on pausing is the one the animation had reached.
+    let seconds = performance.now() / 1000
     let frame = 0
     let last = 0
 
+    // Read about once a second rather than every frame: a computed style read every
+    // frame is a style recalculation every frame, and a theme change can wait a second.
+    let ink = ''
+    let drawn = 0
     const draw = () => {
       ctx.clearRect(0, 0, width, height)
-      ctx.fillStyle = getComputedStyle(canvas).color
+      if (drawn++ % FPS === 0) ink = getComputedStyle(canvas).color
+      ctx.fillStyle = ink
       const cols = Math.ceil(width / SPACING)
       const rows = Math.ceil(height / SPACING)
       for (let r = 0; r < rows; r++) {
@@ -59,6 +69,7 @@ export function DotGrid() {
       canvas.width = Math.round(width * dpr)
       canvas.height = Math.round(height * dpr)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      drawn = 0
       draw()
     }
 
@@ -73,12 +84,12 @@ export function DotGrid() {
     const observer = new ResizeObserver(resize)
     observer.observe(canvas)
     resize()
-    if (!still) frame = requestAnimationFrame(tick)
+    if (!still && !paused) frame = requestAnimationFrame(tick)
     return () => {
       cancelAnimationFrame(frame)
       observer.disconnect()
     }
-  }, [])
+  }, [paused])
 
   return (
     <canvas

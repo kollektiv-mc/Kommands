@@ -27,7 +27,7 @@ export function Combobox({
   limit = 50,
   placeholder,
   invalid,
-  className = 'w-full max-w-md',
+  className = 'w-full',
   'aria-label': ariaLabel,
   'aria-labelledby': labelledBy,
   'aria-describedby': describedBy,

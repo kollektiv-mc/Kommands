@@ -278,6 +278,72 @@ body {
     opacity var(--duration-fast) var(--ease-standard);
 }
 
+.segmented-vertical > .segmented-thumb {
+  width: auto;
+  height: calc((100% - 4px) / var(--seg-count, 1));
+  transform: translateY(calc(var(--seg-index, 0) * 100%));
+}
+
+/* ── Sliding highlight ───────────────────────────────────────────────────────
+   src/lib/useSlidingMark.ts writes the box of the option it marks; this moves it. */
+.slide-mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.slide-mark[data-shown='true'] {
+  opacity: 1;
+}
+
+.slide-mark-moving {
+  transition:
+    transform var(--duration-fast) var(--ease-standard),
+    width var(--duration-fast) var(--ease-standard),
+    height var(--duration-fast) var(--ease-standard),
+    opacity var(--duration-fast) var(--ease-standard);
+}
+
+/* ── Motion for everything else ──────────────────────────────────────────────
+   The colour, border and outline of whatever the pointer or the keyboard acts on ease
+   instead of snapping, with nothing to add per element: a pressed segment, a focused
+   field, a hovered tile, a chosen option. Zero specificity (:where), so an element that
+   names a transition of its own keeps it. Scoped to what can be acted on, not to every
+   element: a transition on every node made each style change in the editor a
+   transition check across the whole tree, and measured as half the dropped frames of
+   a choice change. Layout motion (arriving, leaving, moving) is src/lib/useMotion.ts. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(#root)
+    :where(button, a, input, select, textarea, label, summary, [role='option'], .arg-tile) {
+    transition-property: color, background-color, border-color, outline-color;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-standard);
+  }
+}
+
+/* An entrance with no JS behind it, for something that appears often and in many
+   places at once (an argument's notes), where a `useMotion` observer apiece costs
+   more than the entrance is worth. It leaves without motion. */
+@keyframes motion-arrive {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .motion-arrive {
+    animation: motion-arrive var(--duration-panel) var(--ease-standard);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide-mark-moving {
+    transition: none;
+  }
+}
+
 /* ── Switch ──────────────────────────────────────────────────────────────────
    src/components/ui/Switch.tsx: a native checkbox drawn as the toggle pattern in
    docs/design-tokens.md, a 20 by 36 pill with a 16px knob, --border-hover when off
@@ -339,10 +405,6 @@ body {
    layout did every time a choice added fields. Stacked when the form itself is narrow,
    measured against the form rather than the window, because the editor sits inside a
    panel whose width the window does not decide. */
-.arg-form {
-  container-type: inline-size;
-}
-
 .arg-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -359,6 +421,99 @@ body {
   .arg-row {
     grid-template-columns: calc(var(--spacing) * 40) minmax(0, 1fr);
     gap: calc(var(--spacing) * 4);
+  }
+}
+
+/* ── The editor sheet ────────────────────────────────────────────────────────
+   src/components/CommandOverlay.tsx: the sheet is sized by src/lib/useSheetSize.ts to
+   its content, which lays out at its natural size inside what the stage leaves. */
+.sheet-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: var(--sheet-max-w, 100%);
+  max-height: var(--sheet-max-h, 100%);
+}
+
+.sheet-surface {
+  transform-origin: 0 0;
+}
+
+/* ── The editor's tiles ─────────────────────────────────────────────────────
+   src/components/TileGrid.tsx places each tile by column, row and span
+   (src/lib/tileLayout.ts); this is only the grid they sit on. Columns are 62 spacing
+   steps wide, or one column twice that and a gap for a command that reads better
+   stacked. Rows are 8 steps: a label and one line of control is two of them with the
+   gap between. A row grows when what is in it is taller, so nothing is ever cut off,
+   and every column keeps ending level because the rows are shared. */
+.tile-grid {
+  --tile-w: calc(var(--spacing) * 62);
+  --tile-gap: calc(var(--spacing) * 2.5);
+  display: grid;
+  grid-template-columns: repeat(var(--tile-cols, 1), var(--tile-w));
+  grid-template-rows: repeat(var(--tile-rows, 1), minmax(calc(var(--spacing) * 8), auto));
+  gap: var(--tile-gap);
+}
+
+.tile-grid-wide {
+  --tile-w: calc(var(--spacing) * 124 + var(--tile-gap));
+}
+
+.tile-cell {
+  display: grid;
+  min-width: 0;
+}
+
+.arg-tile {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 1.5);
+  min-width: 0;
+  padding: calc(var(--spacing) * 2) calc(var(--spacing) * 2.5) calc(var(--spacing) * 2.5);
+  border: var(--border-hairline) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-surface);
+}
+
+/* The same wash an argument row takes on hover, or while its piece of the output is
+   under the pointer (.arg-row-lit), restated here because the tile's own surface is
+   declared after it. A tile that holds an editor of its own is never washed. */
+.arg-tile:not(.arg-tile-fill):hover,
+.arg-tile.arg-row-lit {
+  background-color: var(--hover-surface);
+}
+
+.arg-tile > :first-child {
+  padding-top: 0;
+}
+
+/* A tile that holds an editor of its own (a chain's steps, the preview) draws no
+   padding of its own, and is the query container for the rows inside it rather than
+   the whole form: a size container has no width of its own content, and the form's
+   width is what sizes the sheet. */
+.arg-tile-fill {
+  container-type: inline-size;
+  padding: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 40rem) {
+  .tile-grid,
+  .tile-grid-wide {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .tile-cell {
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+
+  /* One column has no track width to size the sheet by, and a tile that is a size
+     container (a chain) has none of its own, so on a phone the sheet takes the room. */
+  .sheet-content {
+    width: var(--sheet-max-w, 100%);
   }
 }
 

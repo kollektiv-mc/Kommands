@@ -454,6 +454,15 @@ it should be stable between runs.
   an installable build on two of those three engines, so the first artefact is the
   moment to look. A regression here stays invisible to `pnpm test` either way.
 
+**P3: The editor's motion is measured in Chromium only**
+
+- The tile and sheet motion (`useMotion`, `useSheetSize`) was profiled on the
+  production build in headless Chromium with the CPU slowed fourfold, where a choice
+  change drops under a tenth of its frames. The standalone build runs WebKitGTK,
+  WebView2 and WKWebView, and a frame count measured in one engine says nothing about
+  another. Look on the first release or snapshot artefact; nothing in CI renders
+  those engines.
+
 **P2: The dashboard's drag moves have no keyboard path**
 
 - Reordering saved tiles and filing a browser row under a group are pointer drags

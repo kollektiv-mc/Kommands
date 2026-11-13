@@ -39,7 +39,7 @@ export function DashboardLayout() {
         valid: a dashboard that could scroll under the overlay would leave the exit
         animation collapsing to where the tile no longer is.
       */}
-      <DotGrid />
+      <DotGrid paused={covered} />
       <div
         inert={covered}
         className={`relative h-full px-6 pt-5 pb-6 ${covered ? 'overflow-hidden' : 'overflow-auto lg:overflow-hidden'}`}

@@ -1,6 +1,7 @@
 // aislop-ignore-file jsx-a11y/prefer-tag-over-role -- this file is the replacement for <select> and <option>, which the platform draws and no stylesheet reaches (see docs/design-tokens.md § Component patterns)
-import { useEffect, useRef, type MouseEvent } from 'react'
+import { useEffect, type MouseEvent } from 'react'
 import { optionId, type ListOption } from '../../lib/listbox'
+import { useSlidingMark } from '../../lib/useSlidingMark'
 import { Icon } from './Icon'
 
 /**
@@ -29,7 +30,11 @@ export function OptionList<V extends string>({
   onHover: (index: number) => void
   label?: string
 }) {
-  const list = useRef<HTMLDivElement>(null)
+  // The highlight under the pointer or the arrow keys, sliding from option to option.
+  const { container: list, mark } = useSlidingMark<HTMLDivElement, HTMLSpanElement>(
+    '[data-active="true"]',
+    `${active}:${options.length}`,
+  )
 
   // Keeps the highlighted option in view as the arrow keys walk past the edge.
   // `scrollIntoView` is optional because jsdom has no layout and does not define it.
@@ -37,7 +42,7 @@ export function OptionList<V extends string>({
     list.current
       ?.querySelector<HTMLElement>('[data-active="true"]')
       ?.scrollIntoView?.({ block: 'nearest' })
-  }, [active])
+  }, [active, list])
 
   const pick = (event: MouseEvent, option: ListOption<V>) => {
     // Cancelled so a click here cannot activate a `<label>` the control sits inside,
@@ -52,8 +57,9 @@ export function OptionList<V extends string>({
       id={id}
       role="listbox"
       aria-label={label}
-      className="flex max-h-60 flex-col gap-px overflow-y-auto"
+      className="relative flex max-h-60 flex-col gap-px overflow-y-auto"
     >
+      <span ref={mark} aria-hidden="true" className="slide-mark bg-hover rounded-md" />
       {options.map((option, i) => {
         const isSelected = option.value === selected
         return (
@@ -73,8 +79,7 @@ export function OptionList<V extends string>({
             onMouseEnter={() => onHover(i)}
             onClick={(event) => pick(event, option)}
             className={
-              'duration-fast flex w-full items-baseline gap-2 rounded-md px-2 py-1.5 text-left font-mono text-xs transition-colors motion-reduce:transition-none ' +
-              (i === active ? 'bg-hover ' : '') +
+              'duration-fast relative flex w-full items-baseline gap-2 rounded-md px-2 py-1.5 text-left font-mono text-xs transition-colors motion-reduce:transition-none ' +
               (isSelected ? 'text-accent' : 'text-text-primary')
             }
           >

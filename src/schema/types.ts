@@ -74,6 +74,18 @@ export interface ArgumentType<T = unknown> {
    * wraps it in a group the label names, and each field inside names itself.
    */
   labelling?: 'control' | 'group'
+  /**
+   * The rows of the editor grid this argument's tile takes (`lib/tileLayout.ts`): 2,
+   * the default, is a label and one line of control. An editor of several lines says
+   * how many it needs, so the layout is decided from the definition rather than by
+   * measuring a form that is still rendering.
+   */
+  tile?: number
+  /**
+   * The editor needs the sheet's full width, as a message does: its tile takes a band
+   * across every column, below them.
+   */
+  wideTile?: boolean
 }
 
 /**
@@ -105,6 +117,8 @@ export interface ErasedArgumentType {
   validate: (value: unknown, options: ArgumentOptions, ctx: SerializeContext) => Diagnostic[]
   defaultValue: (options: ArgumentOptions) => unknown
   labelling?: 'control' | 'group'
+  tile?: number
+  wideTile?: boolean
 }
 
 // ── Nodes ───────────────────────────────────────────────────────────────────

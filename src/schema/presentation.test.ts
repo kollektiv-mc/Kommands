@@ -71,11 +71,15 @@ describe('choiceLabel', () => {
 })
 
 describe('choiceControl', () => {
-  test('few short options sit side by side, anything else is a list', () => {
+  test('options that fit across a tile sit side by side', () => {
     expect(choiceControl(['clear', 'give'])).toBe('segmented')
-    expect(choiceControl(['none', 'infinite', 'seconds'])).toBe('segmented')
-    expect(choiceControl(['a', 'b', 'c', 'd', 'e', 'f'])).toBe('listbox')
-    expect(choiceControl(['clear', 'a_rather_long_label'])).toBe('listbox')
+    expect(choiceControl(['x', 'y', 'z'])).toBe('segmented')
+  })
+
+  test('up to five that do not fit stack, more are a list', () => {
+    expect(choiceControl(['none', 'infinite', 'seconds'])).toBe('stack')
+    expect(choiceControl(['clear', 'a_rather_long_label'])).toBe('stack')
+    expect(choiceControl(['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot'])).toBe('listbox')
   })
 })
 

@@ -38,6 +38,8 @@ const KIND_OPTIONS = asOptions(TEXT_CONTENT_KINDS)
 const CLICK_OPTIONS = asOptions(CLICK_ACTIONS)
 const HOVER_OPTIONS = asOptions(HOVER_ACTIONS)
 const COLOR_OPTIONS = asOptions(TEXT_COLORS)
+/** A content field takes what the row leaves, so the message is as wide as the tile. */
+const CONTENT_FIELD = `${FIELD} min-w-32 flex-1`
 
 interface TextComponentFieldsProps {
   value: TextComponent
@@ -68,6 +70,8 @@ export function TextComponentFields({
       <div className={ROW}>
         <ContentFields value={value} onChange={onChange} ariaPrefix={ariaPrefix} ctx={ctx} />
         <ColorField value={value} onChange={onChange} ariaPrefix={ariaPrefix} />
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
         {FLAGS.map((flag) => (
           <label key={flag} className="flex items-center gap-1">
             <input
@@ -174,7 +178,7 @@ function ContentFields({ value, onChange, ariaPrefix, ctx }: PartProps) {
       {content.kind === 'text' && (
         <input
           type="text"
-          className={FIELD}
+          className={CONTENT_FIELD}
           value={content.text}
           aria-label={`${ariaPrefix} text`}
           onChange={(e) => setContent({ ...content, text: e.target.value })}
@@ -185,14 +189,14 @@ function ContentFields({ value, onChange, ariaPrefix, ctx }: PartProps) {
         <>
           <input
             type="text"
-            className={FIELD}
+            className={CONTENT_FIELD}
             value={content.translate}
             aria-label={`${ariaPrefix} translation key`}
             onChange={(e) => setContent({ ...content, translate: e.target.value })}
           />
           <input
             type="text"
-            className={FIELD}
+            className={CONTENT_FIELD}
             value={content.fallback ?? ''}
             aria-label={`${ariaPrefix} fallback`}
             onChange={(e) => setContent({ ...content, fallback: e.target.value || undefined })}
@@ -203,7 +207,7 @@ function ContentFields({ value, onChange, ariaPrefix, ctx }: PartProps) {
       {content.kind === 'selector' && (
         <input
           type="text"
-          className={FIELD}
+          className={CONTENT_FIELD}
           value={content.selector}
           aria-label={`${ariaPrefix} selector`}
           onChange={(e) => setContent({ ...content, selector: e.target.value })}
@@ -214,14 +218,14 @@ function ContentFields({ value, onChange, ariaPrefix, ctx }: PartProps) {
         <>
           <input
             type="text"
-            className={FIELD}
+            className={CONTENT_FIELD}
             value={content.objective}
             aria-label={`${ariaPrefix} objective`}
             onChange={(e) => setContent({ ...content, objective: e.target.value })}
           />
           <input
             type="text"
-            className={FIELD}
+            className={CONTENT_FIELD}
             value={content.name}
             aria-label={`${ariaPrefix} holder`}
             onChange={(e) => setContent({ ...content, name: e.target.value })}
@@ -389,7 +393,7 @@ function EventFields({ value, onChange, ariaPrefix, ctx }: PartProps) {
           />
           <input
             type="text"
-            className={FIELD}
+            className={CONTENT_FIELD}
             value={click.value}
             aria-label={`${ariaPrefix} click value`}
             onChange={(e) =>

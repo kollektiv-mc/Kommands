@@ -35,13 +35,15 @@ export function PreviewCanvas({
   }, [])
 
   return (
-    <div className="border-hairline border-border-subtle bg-elevated rounded-panel flex flex-col gap-1 p-2">
+    <div className="flex h-full flex-col gap-1 p-2">
       <div className="flex items-center gap-2">
         <span className={LABEL}>Preview</span>
         {status.cap !== undefined && <span className="text-text-faint text-2xs">{status.cap}</span>}
       </div>
 
-      <div className="bg-canvas relative aspect-video w-full overflow-hidden rounded-md">
+      {/* Fills its tile: the preview is the one tile given the height the fields beside
+          it take, so it grows with the command rather than holding a fixed ratio. */}
+      <div className="bg-canvas relative min-h-40 w-full flex-1 overflow-hidden rounded-md">
         <PreviewBoundary>
           <Suspense fallback={<Placeholder>Loading the preview…</Placeholder>}>
             <PreviewStage module={module} values={values} registry={registry} report={report} />

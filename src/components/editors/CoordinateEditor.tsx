@@ -35,7 +35,7 @@ export function coordinateEditor(shape: CoordinateShape) {
     const here = relativeHere(shape)
 
     return (
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex items-center gap-1.5">
         {shape.axes.map((axis, i) => (
           <input
             key={axis}
@@ -48,14 +48,14 @@ export function coordinateEditor(shape: CoordinateShape) {
             value={parts[i]}
             placeholder={fallback[i] || axis}
             onChange={(event) => set(i, event.target.value)}
-            className={`${FIELD} w-20 text-center`}
+            className={`${FIELD} w-full min-w-0 flex-1 text-center`}
           />
         ))}
         <button
           type="button"
           aria-pressed={value === here}
           onClick={() => onChange(value === here ? '' : here)}
-          className={`${FOCUS} text-accent hover:bg-accent/10 aria-pressed:bg-accent/15 duration-fast rounded-md px-2 py-1 text-xs font-medium transition-colors motion-reduce:transition-none`}
+          className={`${FOCUS} text-accent hover:bg-accent/10 aria-pressed:bg-accent/15 duration-fast shrink-0 rounded-md px-2 py-1 text-xs font-medium transition-colors motion-reduce:transition-none`}
         >
           {shape.fill}
         </button>

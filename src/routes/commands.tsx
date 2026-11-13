@@ -3,7 +3,6 @@ import { dashboardRoute } from './dashboard'
 import { EditorShell } from '../components/EditorShell'
 import { loadCatalogue } from '../data/catalogue'
 import { v1_21_1 } from '../data/versions/1.21.1'
-import { LABEL } from '../components/editors/fieldStyles'
 
 /**
  * The editor, as a layout route.
@@ -33,5 +32,6 @@ export const editorRoute = createRoute({
 export const editorIndexRoute = createRoute({
   getParentRoute: () => editorRoute,
   path: '/',
-  component: () => <p className={LABEL}>Pick a command from the list to start building one.</p>,
+  // The sheet shows the list itself here (`EditorLayout`), so the route adds nothing.
+  component: () => null,
 })

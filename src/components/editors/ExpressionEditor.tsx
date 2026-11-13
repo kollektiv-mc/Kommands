@@ -28,7 +28,7 @@ export function ExpressionEditor({
     <textarea
       id={id}
       aria-describedby={describedBy}
-      className={`${FIELD} min-w-64 resize-y`}
+      className={`${FIELD} w-full min-w-0 resize-y`}
       rows={options.variadic === true ? 2 : 1}
       value={value}
       spellCheck={false}
