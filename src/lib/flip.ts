@@ -16,6 +16,10 @@ import type { OriginRect } from '../stores/useUiStore'
  */
 const IN_MS = 180
 const IN_EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)'
+/** The dim's fade, in and out. */
+const BACKDROP_MS = 120
+/** Where a panel with no origin grows from and shrinks to: the same gesture, smaller. */
+const NO_ORIGIN = 'scale(0.93)'
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
@@ -50,7 +54,11 @@ function transformOnto(panel: HTMLElement, origin: OriginRect): string {
  * animates and sometimes cuts reads as a glitch; one that always animates, from a
  * rect when there is one, reads as the same gesture at two levels of detail.
  */
-export function flipIn(panel: HTMLElement, origin: OriginRect | null): () => void {
+export function flipIn(
+  panel: HTMLElement,
+  origin: OriginRect | null,
+  backdrop: HTMLElement | null = null,
+): () => void {
   if (prefersReducedMotion()) return () => {}
 
   // Reset before measuring, because this may be running on a panel it has already
@@ -68,8 +76,17 @@ export function flipIn(panel: HTMLElement, origin: OriginRect | null): () => voi
   panel.style.opacity = ''
   void panel.offsetHeight
 
-  const from = origin ? transformOnto(panel, origin) : 'scale(0.93)'
+  const from = origin ? transformOnto(panel, origin) : NO_ORIGIN
   if (from === '') return () => {}
+
+  // The dim fades in under the panel, the reverse of `flipOut`.
+  if (backdrop) {
+    backdrop.style.transition = 'none'
+    backdrop.style.opacity = '0'
+    void backdrop.offsetHeight
+    backdrop.style.transition = `opacity ${BACKDROP_MS}ms ease-out`
+    backdrop.style.opacity = ''
+  }
 
   panel.style.transformOrigin = 'center'
   panel.style.opacity = '0'
@@ -90,6 +107,7 @@ export function flipIn(panel: HTMLElement, origin: OriginRect | null): () => voi
     panel.style.transform = ''
     panel.style.transition = ''
     panel.style.transformOrigin = ''
+    if (backdrop) backdrop.style.transition = ''
   }, IN_MS + 20)
 
   // The cleanup strips the styles as well as the timer, so an animation torn down
@@ -100,6 +118,10 @@ export function flipIn(panel: HTMLElement, origin: OriginRect | null): () => voi
     panel.style.transform = ''
     panel.style.transition = ''
     panel.style.transformOrigin = ''
+    if (backdrop) {
+      backdrop.style.transition = ''
+      backdrop.style.opacity = ''
+    }
   }
 }
 
@@ -128,7 +150,6 @@ export function flipIn(panel: HTMLElement, origin: OriginRect | null): () => voi
  */
 const OUT_MS = 130
 const OUT_EASE = 'cubic-bezier(0.4, 0, 1, 0.6)'
-const BACKDROP_MS = 120
 
 export function flipOut(
   panel: HTMLElement | null,
@@ -142,7 +163,9 @@ export function flipOut(
   }
 
   // `flipIn` stripped its transform at IN_MS + 20, so the panel measures its true box.
-  const to = panel && origin ? transformOnto(panel, origin) : ''
+  // With no origin it shrinks where it stands, as it grew; one with no layout cuts.
+  const hasBox = panel !== null && panel.getBoundingClientRect().width > 0
+  const to = panel === null || !hasBox ? '' : origin ? transformOnto(panel, origin) : NO_ORIGIN
 
   if (!panel || prefersReducedMotion() || to === '') {
     done()
