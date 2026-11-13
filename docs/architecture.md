@@ -280,8 +280,12 @@ command:
 Motion is automatic rather than written per element. `lib/useMotion.ts` puts
 AutoAnimate (`@formkit/auto-animate`, MIT, about 3.6 KB gzip) on a container: every
 child it gains fades in, every child it loses fades out, and every child that moves
-slides, on the panel duration and standard curve read from the token layer. The tile
-grid uses it, so a tile added later animates with no code of its own. A rule in
+slides, on durations and the standard curve read from the token layer. The tile
+grid uses it, so a tile added later animates with no code of its own. The three run
+in order around the sheet's resize (`sequence`): what leaves fades out, what stays
+slides while the sheet resizes, and what arrives fades in once the sheet has the room.
+Moving to another command does the same with the whole content: a router blocker
+fades it out before the route changes, and it fades back in after the resize. A rule in
 `styles/index.css` eases the colours and borders of what can be acted on (buttons,
 fields, options, tiles), and `.motion-arrive` fades in what appears often, such as an
 argument's notes, with no JS behind it. Three pieces cover the rest: `useSheetSize`
@@ -289,11 +293,14 @@ glides the sheet to its content's size, `useSlidingMark` slides a list's highlig
 between options, and `ui/Swap.tsx` crossfades a line of text when it changes. All of
 it stands down under reduced motion.
 
-The tiles and the sheet animate `transform` and `opacity` only, which the compositor
-runs without the main thread: an element takes its new size at once, and what moves
-around it slides. Two small exceptions tween a size, both on boxes whose change lays
-out little: a sliding mark's width and height (an empty, absolutely placed element)
-and `AnimatedHeight`'s `max-height` on a swapped branch. That rule and pausing the dashboard's
+The tiles animate `transform` and `opacity` only, which the compositor runs without
+the main thread: a tile takes its new size at once, and what moves around it slides.
+Three exceptions tween a size, each on a box whose change lays out little: the
+sheet's width and height, whose content sits in a frame of fixed size so only the
+sheet and its header band are laid out per frame (scaling a surface instead let the
+header and tiles take their new size before the sheet had it); a sliding mark's width
+and height (an empty, absolutely placed element); and `AnimatedHeight`'s `max-height`
+on a swapped branch. That rule and pausing the dashboard's
 dot grid under the editor took a choice change from about two thirds of frames
 dropped to under a tenth, measured with the CPU slowed fourfold.
 

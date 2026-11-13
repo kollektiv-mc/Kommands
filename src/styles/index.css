@@ -441,10 +441,6 @@ body {
   max-height: var(--sheet-max-h, 100%);
 }
 
-.sheet-surface {
-  transform-origin: 0 0;
-}
-
 /* ── The editor's tiles ─────────────────────────────────────────────────────
    src/components/TileGrid.tsx places each tile by column, row and span
    (src/lib/tileLayout.ts); this is only the grid they sit on. Columns are 62 spacing

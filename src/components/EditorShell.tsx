@@ -42,6 +42,7 @@ export function EditorShell() {
     <CommandOverlay
       originKey={saved}
       label={label}
+      contentKey={commandId}
       header={<CommandSwitcher catalogue={catalogue} activeId={commandId} />}
     >
       <EditorLayout catalogue={catalogue} activeId={commandId}>
