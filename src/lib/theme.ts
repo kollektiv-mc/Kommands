@@ -54,6 +54,26 @@ export const PRODUCT_ACCENT = '#fb923c'
 export type Theme = 'dark' | 'light'
 
 /**
+ * The Kommands mark's three shades per ground, from the colour table in
+ * `docs/brand/README.md`: the top face and the brackets, the left face, the right
+ * face. Tailwind's orange 400 to 700, one step darker on a light ground.
+ *
+ * They are the mark's colours rather than roles, so a skin or a user accent never
+ * reaches them, the same call Konnekt makes for its splash. The top shade is the
+ * `brand-kommands` token; the other two have no token, and `theme.test.ts` holds all
+ * six to the brand SVGs instead.
+ */
+export const MARK_SHADES: Record<Theme, { top: string; left: string; right: string }> = {
+  dark: { top: '#fb923c', left: '#f97316', right: '#ea580c' },
+  light: { top: '#f97316', left: '#ea580c', right: '#c2410c' },
+}
+
+/** The theme `applyTheme` last put on the root element; dark when none has been. */
+export function currentTheme(root: HTMLElement = document.documentElement): Theme {
+  return root.getAttribute('data-theme') === 'light' ? 'light' : 'dark'
+}
+
+/**
  * How translucent an elevated surface is.
  *
  * Not invented here — it is `color.surface.bg-elevated.alpha` in the shared token

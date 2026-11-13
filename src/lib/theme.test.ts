@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
 import {
+  MARK_SHADES,
   PRODUCT_ACCENT,
   accentFor,
   applyProductAccent,
   applyTheme,
+  currentTheme,
   hueOf,
   productSkin,
   rgbChannels,
@@ -197,4 +199,27 @@ test("the product accent is the suite's brand-kommands token", () => {
     color: { brand: Record<string, { dark: { hex: string } }> }
   }
   expect(PRODUCT_ACCENT).toBe(source.color.brand['brand-kommands']!.dark.hex)
+})
+
+test("the mark's shades are the brand files' fills", () => {
+  // The splash draws the mark from these, so they are held to the files it is drawn
+  // from rather than to a second copy of the colour table.
+  for (const theme of ['dark', 'light'] as const) {
+    const svg = readFileSync(`docs/brand/mark-on-${theme}.svg`, 'utf8')
+    const fills = new Set([...svg.matchAll(/fill="(#[0-9a-f]{6})"/g)].map((m) => m[1]))
+    expect(fills).toEqual(new Set(Object.values(MARK_SHADES[theme])))
+  }
+  const source = JSON.parse(readFileSync('tokens.source.json', 'utf8')) as {
+    color: { brand: Record<string, { dark: { hex: string }; light: { hex: string } }> }
+  }
+  const token = source.color.brand['brand-kommands']!
+  expect(MARK_SHADES.dark.top).toBe(token.dark.hex)
+  expect(MARK_SHADES.light.top).toBe(token.light.hex)
+})
+
+test('the current theme is read back off the root, dark by default', () => {
+  const root = document.createElement('html')
+  expect(currentTheme(root)).toBe('dark')
+  applyTheme('light', root)
+  expect(currentTheme(root)).toBe('light')
 })

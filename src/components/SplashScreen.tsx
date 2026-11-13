@@ -1,62 +1,114 @@
 import { useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
+import { currentTheme, MARK_SHADES } from '../lib/theme'
+import { reducedMotion } from '../lib/useMotion'
+import {
+  extrude,
+  FACE_ORIGIN,
+  MARK,
+  type Point,
+  RESTING_FRAME,
+  SPLASH_MS,
+  splashClock,
+  splashFrame,
+} from '../lib/splashMark'
+
+// A point list stringifies as `x,y,x,y`, which SVG's points attribute reads.
+const pts = (p: readonly Point[]) => p.join(' ')
 
 /**
- * How long the overlay stays mounted, in milliseconds.
+ * The mark builds itself over the canvas, then the overlay fades and this unmounts.
  *
- * Must match the `splash-overlay-fade` duration in `src/styles/index.css`. The two
- * are separate numbers because CSS drives the animation and JS drives the unmount,
- * and there is no cheap way for one to read the other — Konnekt's splash carries the
- * same pair. Unmounting *late* is harmless: the keyframe ends at `opacity: 0` with
- * `forwards`, so an over-long timer holds an invisible element. Unmounting *early*
- * cuts the fade off mid-way, which is the direction to keep an eye on if either
- * number changes.
+ * The prompt shows alone, flashes twice and goes, the left face fills in where it was,
+ * the face extrudes back into the block, and the brackets close in. The timeline is
+ * `lib/splashMark.ts`, run on its clock, which waits out the dashboard's first render
+ * before starting. Konnekt's splash works the same way with its own mark.
  *
- * Deliberately off-token. `--duration-fast` and `--duration-panel` name UI transition
- * roles — a hover, a panel slide — and a one-second startup title is neither. Konnekt
- * makes the same call, in the same words, for its flash ring.
- */
-const SPLASH_MS = 1000
-
-/** Whether the viewer has asked for less motion. Absent `matchMedia` reads as "no". */
-function prefersReducedMotion(): boolean {
-  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
-}
-
-/**
- * The product's name, once, over the canvas, then gone.
+ * Each frame is committed inside its own animation frame callback with `flushSync`.
+ * Left to React's scheduler it would render in a task queued behind whatever the
+ * dashboard has queued, and paint a frame late whenever that work ran long.
  *
- * Modelled on Konnekt's `SplashScreen` so the two products open the same way — the
- * accent-coloured display face, the same one-second fade — with the accent itself
- * being what tells them apart (ember here, green there; see `src/lib/theme.ts`).
+ * The prompt is drawn in the canvas colour rather than masked, which is the same on
+ * the solid overlay and lets it be cut only where its face has filled in.
  *
- * `aria-hidden` and `pointer-events: none`, so it is decoration in both trees: it
- * never takes focus, never announces itself, and never swallows a click aimed at the
- * app underneath. That matters more here than it does in Konnekt, because this
- * overlay covers a page that is already interactive rather than an app still starting.
- *
- * Which is also why reduced motion skips it entirely rather than showing it without
- * the animation. There is no startup work to mask, so the honest answer to "less
- * motion" is to go straight to the app.
- *
- * Styled by class rather than by utility. The two rules it needs — a fullscreen
- * overlay and a clamped display size well above the 20px top of the shared type scale
- * — are a one-off decorative sequence rather than anything the token layer names, and
- * `src/styles/index.css` is where this repo already keeps hand-written CSS.
+ * `aria-hidden` and `pointer-events: none` (index.css): decoration in both trees. Under
+ * reduced motion the finished mark shows still and fades, as Konnekt's does.
  */
 export function SplashScreen() {
-  const [done, setDone] = useState(prefersReducedMotion)
+  const [still] = useState(reducedMotion)
+  const [shades] = useState(() => MARK_SHADES[currentTheme()])
+  const [ms, setMs] = useState(0)
+  const [fading, setFading] = useState(false)
+  const [done, setDone] = useState(false)
 
   useEffect(() => {
-    if (done) return
-    const timer = setTimeout(() => setDone(true), SPLASH_MS)
-    return () => clearTimeout(timer)
-  }, [done])
+    const finish = () => setDone(true)
+    if (still) {
+      const end = setTimeout(finish, SPLASH_MS.still)
+      return () => clearTimeout(end)
+    }
+    let raf = 0
+    let end: ReturnType<typeof setTimeout> | undefined
+    const clock = splashClock()
+    const tick = (now: number) => {
+      const elapsed = clock(now)
+      if (elapsed >= SPLASH_MS.fadeStart) {
+        setFading(true)
+        end = setTimeout(finish, SPLASH_MS.fade)
+        return
+      }
+      if (elapsed >= 0) flushSync(() => setMs(elapsed))
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => {
+      clearTimeout(end)
+      cancelAnimationFrame(raf)
+    }
+  }, [still])
 
   if (done) return null
 
+  const frame = still ? RESTING_FRAME : splashFrame(ms)
+  const block = extrude(frame.depth)
+  const shift = frame.bracketShift
+
   return (
-    <div className="splash-overlay" aria-hidden="true">
-      <span className="splash-word">Kommands</span>
+    <div
+      className={
+        still
+          ? 'splash-overlay splash-still'
+          : fading
+            ? 'splash-overlay splash-fading'
+            : 'splash-overlay'
+      }
+      aria-hidden="true"
+    >
+      <svg className="splash-mark" viewBox="0 0 24 24">
+        <defs>
+          <clipPath id="splash-face">
+            <circle cx={FACE_ORIGIN[0]} cy={FACE_ORIGIN[1]} r={frame.faceRadius} />
+          </clipPath>
+        </defs>
+        <polygon points={pts(MARK.prompt)} fill={shades.left} opacity={frame.promptOpacity} />
+        {frame.depth > 0 ? (
+          <g data-part="extrusion">
+            <polygon points={pts(block.base)} fill={shades.left} />
+            <polygon points={pts(block.right)} fill={shades.right} />
+            <polygon points={pts(block.top)} fill={shades.top} />
+          </g>
+        ) : null}
+        {frame.faceRadius > 0 ? (
+          <g clipPath="url(#splash-face)" data-part="face">
+            <polygon points={pts(MARK.left)} fill={shades.left} />
+            <polygon points={pts(MARK.prompt)} className="fill-canvas" />
+          </g>
+        ) : null}
+        <g opacity={frame.bracketOpacity} fill={shades.top} data-part="brackets">
+          <polygon points={pts(MARK.bracketLeft)} transform={`translate(${-shift} 0)`} />
+          <polygon points={pts(MARK.bracketRight)} transform={`translate(${shift} 0)`} />
+        </g>
+      </svg>
     </div>
   )
 }

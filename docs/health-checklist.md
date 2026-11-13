@@ -612,13 +612,14 @@ it should be stable between runs.
   `constraints` rather than in the status line, which must not learn which command it
   is showing.
 
-**P3 — The splash's display size is off-scale and unenforced**
+**P3 — The splash mark's size is off-scale and unenforced**
 
-- `tokens.source.json` stops at `--text-xl` (20px), which is correct for a dense tool
-  UI and leaves nothing to size a title card with. One place still reaches past it:
-  `.splash-word` in `src/styles/index.css` carries a literal `clamp(48px, 9vw, 112px)`.
-  That is a genuine one-off — a title card is not a UI step and no scale should name
-  its size — but it sits in `src/styles/`, which the `no literal hex or px in
+- The startup splash draws the mark rather than the product name since the launch
+  animation replaced the wordmark flash, so `.splash-word` and its
+  `clamp(48px, 9vw, 112px)` are gone. Its successor is `.splash-mark` in
+  `src/styles/index.css`, sized `clamp(120px, 22vmin, 220px)` to match Konnekt's splash.
+  That is a genuine one-off, since a launch mark is not a UI step and no scale should
+  name its size, but it sits in `src/styles/`, which the `no literal hex or px in
 components` grep does not cover, so nothing would catch it drifting. It is deliberate
   and documented in place; it is not enforced.
   The half of this item that was about `Dashboard.tsx` is **closed**: it used
