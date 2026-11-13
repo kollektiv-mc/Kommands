@@ -128,6 +128,7 @@ Each fact lives in exactly one file. This file links; it does not restate.
 | `docs/roadmap.md`            | Now / Next / Later                                                 |
 | `docs/health-checklist.md`   | The quality yardstick, and what is currently open against it       |
 | `docs/suite.md`              | The suite this repo belongs to — shared agent tooling and tracking |
+| `docs/brand/README.md`       | The Kommands mark, its construction, colours and icon files        |
 
 `docs/minecraft-versions.md` is the file that prevents syntax bugs. Read it
 before writing or changing any serializer.
