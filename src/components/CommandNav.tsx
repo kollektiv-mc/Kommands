@@ -59,6 +59,7 @@ export function CommandNav({
   catalogue,
   activeId,
   focusFilter = false,
+  fill = false,
   onPick,
 }: {
   catalogue: Catalogue
@@ -66,6 +67,8 @@ export function CommandNav({
   activeId?: string
   /** Focus the filter on mount, for the switcher that opens to type into. */
   focusFilter?: boolean
+  /** Take the width it is given, for the list that is the whole sheet, rather than a menu's. */
+  fill?: boolean
   /** Called when a command is chosen, so a switcher can close behind it. */
   onPick?: () => void
 }) {
@@ -116,7 +119,10 @@ export function CommandNav({
   )
 
   return (
-    <nav aria-label="Commands" className="flex max-h-96 min-h-0 w-72 flex-col">
+    <nav
+      aria-label="Commands"
+      className={`flex max-h-96 min-h-0 flex-col ${fill ? 'w-full' : 'w-72'}`}
+    >
       <div className="flex flex-col gap-1.5 p-3">
         <label className={LABEL} htmlFor="command-filter">
           {`${all.length} commands`}
