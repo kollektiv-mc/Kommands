@@ -143,48 +143,30 @@ body {
 }
 
 /* ── Startup splash ──────────────────────────────────────────────────────────
-   The opening sequence, matching Konnekt's so both products start the same way.
-   See src/components/SplashScreen.tsx, which owns the mount and holds the
-   duration below as SPLASH_MS.
+   The mark is drawn frame by frame in src/components/SplashScreen.tsx; this
+   only holds the overlay over the app and fades it once the mark has come to
+   rest, as an opacity animation the compositor runs even while the app below
+   is busy. The fade's length is SPLASH_MS.fade, and the still variant's is
+   SPLASH_MS.still with the mark held for the first half, in
+   src/lib/splashMark.ts. Konnekt's style.css holds the same three rules.
 
    Two deliberate departures from the token layer, both of the kind Konnekt
-   already names in its own style.css: the 1s timing is a one-off decorative
-   sequence rather than a UI transition role, so it reuses neither
-   --duration-fast nor --duration-panel; and the display size is a clamp well
-   above the shared type scale's 20px ceiling, which is a scale for a dense UI
-   and has nothing to say about a title card.
-
-   The text-shadow is the sanctioned shadow exception and the only one in this
-   file: docs/design-tokens.md permits an accent-tinted glow inside a keyframe,
-   composed through --accent-rgb, and forbids drop shadows everywhere else. */
+   already names: the timings are a one-off decorative sequence rather than a UI
+   transition role, so they reuse neither --duration-fast nor --duration-panel;
+   and the mark's size is a clamp of its own, matching Konnekt's splash mark. */
 @keyframes splash-overlay-fade {
-  0%,
-  75% {
-    opacity: 1;
-  }
-  100% {
+  to {
     opacity: 0;
   }
 }
 
-@keyframes splash-word-in {
-  0% {
-    opacity: 0;
-    transform: scale(0.97);
-    text-shadow: none;
-  }
-  25% {
+@keyframes splash-overlay-fade-still {
+  0%,
+  50% {
     opacity: 1;
-    transform: scale(1);
-    text-shadow: 0 0 32px rgb(var(--accent-rgb) / 0.5);
-  }
-  75% {
-    opacity: 1;
-    text-shadow: 0 0 24px rgb(var(--accent-rgb) / 0.35);
   }
   100% {
-    opacity: 1;
-    text-shadow: 0 0 16px rgb(var(--accent-rgb) / 0.2);
+    opacity: 0;
   }
 }
 
@@ -199,30 +181,20 @@ body {
   /* Decoration in every sense: aria-hidden in the markup, inert to the pointer
      here. The page underneath is already interactive. */
   pointer-events: none;
-  animation: splash-overlay-fade 1s ease forwards;
 }
 
-.splash-word {
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: clamp(48px, 9vw, 112px);
-  letter-spacing: -0.02em;
-  color: var(--accent);
-  animation: splash-word-in 1s ease forwards;
+.splash-overlay.splash-fading {
+  animation: splash-overlay-fade 0.25s ease forwards;
 }
 
-/* The component skips the overlay entirely under reduced motion, so this is a
-   backstop rather than the mechanism: it covers the case where the query flips
-   after mount, which no re-render would otherwise reach. */
-@media (prefers-reduced-motion: reduce) {
-  .splash-overlay,
-  .splash-word {
-    animation: none;
-  }
+.splash-overlay.splash-still {
+  animation: splash-overlay-fade-still 0.6s ease forwards;
+}
 
-  .splash-overlay {
-    opacity: 0;
-  }
+.splash-mark {
+  width: clamp(120px, 22vmin, 220px);
+  height: clamp(120px, 22vmin, 220px);
+  overflow: visible;
 }
 
 /* ── Floating panels ─────────────────────────────────────────────────────────
