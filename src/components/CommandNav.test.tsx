@@ -103,6 +103,10 @@ test('a generator is pinned from here, with its label taken along', async () => 
   // And the control now reads as on, rather than only looking different.
   const pinned = screen.getByRole('button', { name: 'Unpin /give' })
   expect(pinned.getAttribute('aria-pressed')).toBe('true')
+  // And looks it: the glyph fills, coloured on itself so the button's tone cannot win.
+  const glyph = pinned.querySelector('svg')
+  expect(glyph?.getAttribute('fill')).toBe('currentColor')
+  expect(glyph?.classList.contains('text-accent')).toBe(true)
 })
 
 test('pinning a generator does not disturb which command is open', async () => {

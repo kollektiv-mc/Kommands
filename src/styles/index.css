@@ -242,6 +242,11 @@ body {
   }
 }
 
+/* The space between a popover and its trigger, read by ui/Popover.tsx to place it. */
+.popover {
+  --popover-gap: calc(var(--spacing) * 1);
+}
+
 .popover-enter {
   transform-origin: top center;
   animation: popover-in var(--duration-fast) var(--ease-standard);

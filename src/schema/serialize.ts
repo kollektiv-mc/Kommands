@@ -110,8 +110,8 @@ export interface SerializeReport {
 /**
  * The command text, its segments, and which empty arguments had to be written.
  *
- * One walk for all three. The form says "written as 0 because a later value is set"
- * beside exactly the fields the output filled, and the panel draws exactly the text
+ * One walk for all three. The form marks exactly the fields the output filled as
+ * required, and the panel draws exactly the text
  * that is copied, because both are by-products of producing that text rather than
  * second readings of the tree.
  */

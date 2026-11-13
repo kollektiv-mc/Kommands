@@ -542,10 +542,10 @@ test('a Repeat stops offering + add at its max', async () => {
   expect(screen.queryByRole('button', { name: 'Add a step' })).toBeNull()
 })
 
-test('a field the output had to fill says so, and says why', () => {
+test('a field the output had to fill is marked required', () => {
   // `/effect give … 60 _ true`: the amplifier is empty, but hideParticles after it is
   // set, so the output writes the amplifier the game assumes rather than letting
-  // `true` slide into its slot. The field is where that is explained.
+  // `true` slide into its slot. Its pill says so, with no sentence beside it.
   const effect = withDefaults(commands['vanilla:effect']!)
   const { setChoice, setArg } = useCommandStore.getState()
   setChoice('/1', 1)
@@ -561,10 +561,11 @@ test('a field the output had to fill says so, and says why', () => {
   expect(container.querySelector('code')?.textContent).toBe(
     '/effect give @p minecraft:speed 60 0 true',
   )
-  expect(screen.getByText('Written as 0 because a later value is set.')).toBeDefined()
+  expect(screen.getAllByText('required')).toHaveLength(1)
+  expect(screen.queryByText(/because a later value/)).toBeNull()
 })
 
-test('a forced field with no known default is flagged rather than guessed', () => {
+test('a forced field with no default is required, not guessed', () => {
   // The duration has no single default (30 seconds, or one tick for instant effects
   // and saturation), so a set amplifier leaves it as a visible gap.
   const effect = withDefaults(commands['vanilla:effect']!)
@@ -581,7 +582,8 @@ test('a forced field with no known default is flagged rather than guessed', () =
   expect(container.querySelector('code')?.textContent).toBe(
     '/effect give @p minecraft:speed <seconds> 2',
   )
-  expect(screen.getByText('Needed because a later value is set.')).toBeDefined()
+  expect(screen.getAllByText('required')).toHaveLength(1)
+  expect(screen.queryByText(/because a later value/)).toBeNull()
 })
 
 test('a position is a field per axis, and "Here" fills them with ~', async () => {

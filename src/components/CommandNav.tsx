@@ -197,11 +197,16 @@ export function CommandNav({
                       aria-pressed={isPinned}
                       className={
                         isPinned
-                          ? 'text-accent'
+                          ? ''
                           : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'
                       }
                     >
-                      <Icon name="pin" size="sm" />
+                      <Icon
+                        name="pin"
+                        size="sm"
+                        filled={isPinned}
+                        className={isPinned ? 'text-accent' : ''}
+                      />
                     </IconButton>
                   </li>
                 )

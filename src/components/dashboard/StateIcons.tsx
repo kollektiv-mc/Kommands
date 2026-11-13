@@ -20,16 +20,16 @@ export function StateIcons({
   return (
     <span className="text-accent duration-fast flex shrink-0 items-center gap-0.5 opacity-30 transition-opacity group-hover:opacity-100">
       {linked && <Mark name="link" label="Linked" />}
-      {pinned && <Mark name="pin" label="Pinned" />}
+      {pinned && <Mark name="pin" label="Pinned" filled />}
       {warning && <Warning note={warning} small />}
     </span>
   )
 }
 
-function Mark({ name, label }: { name: IconName; label: string }) {
+function Mark({ name, label, filled }: { name: IconName; label: string; filled?: boolean }) {
   return (
     <span title={label}>
-      <Icon name={name} size="xs" />
+      <Icon name={name} size="xs" filled={filled} />
       <span className="sr-only">{label}</span>
     </span>
   )
