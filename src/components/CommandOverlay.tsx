@@ -49,7 +49,7 @@ export function CommandOverlay({
    * like the animation missing.
    *
    * Falls back to the rect captured at open, and then to nothing, which `flipOut`
-   * renders as a plain scale-down.
+   * renders as a scale-down where the panel stands.
    */
   const collapseTo = useCallback(() => {
     if (originKey === undefined) return null
@@ -65,7 +65,7 @@ export function CommandOverlay({
 
   useLayoutEffect(() => {
     if (!panel.current) return
-    return flipIn(panel.current, originFor(originKey))
+    return flipIn(panel.current, originFor(originKey), backdrop.current)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per mount, like the open it animates
   }, [])
 

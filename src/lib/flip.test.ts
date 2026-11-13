@@ -191,3 +191,31 @@ test('the backdrop fades with the panel', () => {
   expect(backdrop.style.opacity).toBe('0')
   expect(backdrop.style.transition).toContain('opacity')
 })
+
+test('an exit with no origin shrinks where it stands', () => {
+  vi.useFakeTimers()
+  stubReducedMotion(false)
+  const panel = panelOf({ top: 0, left: 0, width: 600, height: 400 })
+  const done = vi.fn()
+
+  // Most opens have no tile to return to (a new command, Ctrl K, a link), and the
+  // exit used to cut for all of them while the entrance animated.
+  flipOut(panel, null, null, done)
+
+  expect(panel.style.transform).toBe('scale(0.93)')
+  expect(panel.style.opacity).toBe('0')
+  expect(done).not.toHaveBeenCalled()
+  vi.advanceTimersByTime(200)
+  expect(done).toHaveBeenCalledOnce()
+  vi.useRealTimers()
+})
+
+test('the backdrop fades in with the panel', () => {
+  stubReducedMotion(false)
+  const backdrop = document.createElement('div')
+  flipIn(panelOf({ top: 0, left: 0, width: 600, height: 400 }), null, backdrop)
+
+  // Released to its own opacity, on a transition from the zero it was set to.
+  expect(backdrop.style.opacity).toBe('')
+  expect(backdrop.style.transition).toContain('opacity')
+})

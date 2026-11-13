@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EMPTY_VALUE } from './serialize'
-import { busiestSizes, tilesFor } from './tiles'
+import { busiestSizes, tilesFor, tileStates } from './tiles'
 import type { CommandDefinition, Node } from './types'
 
 const arg = (name: string, type = 'entity_selector'): Node => ({
@@ -75,5 +75,27 @@ describe('busiestSizes', () => {
   it('leaves a wide tile out, since it takes a band below', () => {
     const def = define({ kind: 'sequence', nodes: [arg('who'), arg('msg', 'text_component')] })
     expect(busiestSizes(def)).toEqual([2])
+  })
+})
+
+describe('tileStates', () => {
+  it('walks every branch of every choice', () => {
+    const keys = tileStates(branching).map((state) => state.map((t) => t.key))
+    expect(keys).toHaveLength(2)
+    expect(keys[0]).toHaveLength(3)
+    expect(keys[1]).toHaveLength(4)
+  })
+
+  it('starts from the state the editor opens in', () => {
+    const [first] = tileStates(branching)
+    expect(first?.map((t) => t.key)).toEqual(tilesFor(branching, EMPTY_VALUE).map((e) => e.key))
+  })
+
+  it('walks an optional choice left empty too', () => {
+    const def = define({
+      kind: 'sequence',
+      nodes: [arg('who'), { kind: 'choice', optional: true, nodes: [arg('one')] }],
+    })
+    expect(tileStates(def).map((state) => state.length)).toEqual([2, 3])
   })
 })

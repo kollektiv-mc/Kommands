@@ -83,11 +83,7 @@ export function PatternEditor({ value, onChange, ctx }: PatternEditorProps) {
         >
           + block
         </button>
-        {weighted && (
-          <span className="text-text-muted text-1xs">
-            chances are relative, so they need not total 100
-          </span>
-        )}
+        {weighted && <span className="text-text-muted text-1xs">chances are relative</span>}
       </div>
     </div>
   )

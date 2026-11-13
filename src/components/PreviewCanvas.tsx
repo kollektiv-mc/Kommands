@@ -44,11 +44,14 @@ export function PreviewCanvas({
       {/* Fills its tile: the preview is the one tile given the height the fields beside
           it take, so it grows with the command rather than holding a fixed ratio. */}
       <div className="bg-canvas relative min-h-40 w-full flex-1 overflow-hidden rounded-md">
-        <PreviewBoundary>
-          <Suspense fallback={<Placeholder>Loading the preview…</Placeholder>}>
-            <PreviewStage module={module} values={values} registry={registry} report={report} />
-          </Suspense>
-        </PreviewBoundary>
+        {/* Out of flow, so the canvas, which takes this box's size, never gives it one. */}
+        <div className="absolute inset-0">
+          <PreviewBoundary>
+            <Suspense fallback={<Placeholder>Loading the preview…</Placeholder>}>
+              <PreviewStage module={module} values={values} registry={registry} report={report} />
+            </Suspense>
+          </PreviewBoundary>
+        </div>
         {status.message !== undefined && <Placeholder>{status.message}</Placeholder>}
       </div>
 
