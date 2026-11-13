@@ -282,9 +282,11 @@ glides the sheet to its content's size, `useSlidingMark` slides a list's highlig
 between options, and `ui/Swap.tsx` crossfades a line of text when it changes. All of
 it stands down under reduced motion.
 
-Every animation here runs on `transform` and `opacity` only, which the compositor
-animates without the main thread. A size is never tweened: the element takes its new
-size at once, and what moves around it slides. That rule and pausing the dashboard's
+The tiles and the sheet animate `transform` and `opacity` only, which the compositor
+runs without the main thread: an element takes its new size at once, and what moves
+around it slides. Two small exceptions tween a size, both on boxes whose change lays
+out little: a sliding mark's width and height (an empty, absolutely placed element)
+and `AnimatedHeight`'s `max-height` on a swapped branch. That rule and pausing the dashboard's
 dot grid under the editor took a choice change from about two thirds of frames
 dropped to under a tenth, measured with the CPU slowed fourfold.
 

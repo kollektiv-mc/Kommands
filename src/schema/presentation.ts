@@ -83,7 +83,6 @@ export type ChoiceControl = 'segmented' | 'stack' | 'listbox'
  * one editor tile: what does not fit across it stacks, and `/execute`'s thirteen
  * clauses, or `on`'s eight relations, go in a list.
  */
-
 export function choiceControl(labels: readonly string[]): ChoiceControl {
   // Every segment is as wide as the longest, so a row fits when count times the widest
   // label does: about 34 characters' worth across one editor tile, padding included.

@@ -405,13 +405,6 @@ body {
    layout did every time a choice added fields. Stacked when the form itself is narrow,
    measured against the form rather than the window, because the editor sits inside a
    panel whose width the window does not decide. */
-/* The query container for rows sits on the tile that holds them (a chain's steps),
-   not on the whole form: a size container has no width of its own content, and the
-   form's width is what sizes the sheet. */
-.arg-tile-fill {
-  container-type: inline-size;
-}
-
 .arg-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -495,7 +488,12 @@ body {
   padding-top: 0;
 }
 
+/* A tile that holds an editor of its own (a chain's steps, the preview) draws no
+   padding of its own, and is the query container for the rows inside it rather than
+   the whole form: a size container has no width of its own content, and the form's
+   width is what sizes the sheet. */
 .arg-tile-fill {
+  container-type: inline-size;
   padding: 0;
   overflow: hidden;
 }
@@ -510,6 +508,12 @@ body {
   .tile-cell {
     grid-column: auto !important;
     grid-row: auto !important;
+  }
+
+  /* One column has no track width to size the sheet by, and a tile that is a size
+     container (a chain) has none of its own, so on a phone the sheet takes the room. */
+  .sheet-content {
+    width: var(--sheet-max-w, 100%);
   }
 }
 

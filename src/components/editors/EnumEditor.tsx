@@ -8,8 +8,7 @@ import type { ChoiceControl } from '../../schema/presentation'
  * A closed set of words: a gamemode, an anchor, a mirror.
  *
  * A few short values are a segmented control, side by side or stacked, and a longer
- * set a listbox, by the same
- * rule a Choice uses (`choiceControl`), so a row reads the same whichever kind of node
+ * set a listbox, by the same rule a Choice uses (`choiceControl`), so a row reads the same whichever kind of node
  * produced it. An optional one leads with "Default", stored as `''`: the argument is
  * left out and the game's own value applies, which the segment names when one is
  * authored.

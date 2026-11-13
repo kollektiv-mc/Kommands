@@ -219,35 +219,6 @@ function TileView({
     nested: false,
   }
   switch (entry.kind) {
-    case 'argument':
-      return (
-        <RowLayout.Provider value="tile">
-          <ArgumentView
-            {...props}
-            node={entry.node}
-            ui={scope.ui}
-            forced={scope.forced.get(entry.key)}
-          />
-        </RowLayout.Provider>
-      )
-    case 'choice':
-      return (
-        <RowLayout.Provider value="tile">
-          <ChoicePicker {...props} node={entry.node} />
-        </RowLayout.Provider>
-      )
-    case 'flags':
-      return (
-        <RowLayout.Provider value="tile">
-          <FlagsView {...props} node={entry.node} />
-        </RowLayout.Provider>
-      )
-    case 'ref':
-      return (
-        <RowLayout.Provider value="tile">
-          <RefPicker {...props} node={entry.node} />
-        </RowLayout.Provider>
-      )
     case 'chain':
       return (
         <div className="arg-tile arg-tile-fill">
@@ -257,6 +228,24 @@ function TileView({
     case 'preview':
       return <div className="arg-tile arg-tile-fill">{preview}</div>
   }
+  return (
+    <RowLayout.Provider value="tile">
+      {entry.kind === 'argument' ? (
+        <ArgumentView
+          {...props}
+          node={entry.node}
+          ui={scope.ui}
+          forced={scope.forced.get(entry.key)}
+        />
+      ) : entry.kind === 'choice' ? (
+        <ChoicePicker {...props} node={entry.node} />
+      ) : entry.kind === 'flags' ? (
+        <FlagsView {...props} node={entry.node} />
+      ) : (
+        <RefPicker {...props} node={entry.node} />
+      )}
+    </RowLayout.Provider>
+  )
 }
 
 interface NodeViewProps {
@@ -284,10 +273,6 @@ interface NodeViewProps {
 
 type ChoiceNode = Extract<Node, { kind: 'choice' }>
 
-/** One tile of the editor grid: the name above, the control under it. Its hover wash
- * is in the stylesheet, and its colour transition is the shared one. */
-const TILE = 'arg-tile'
-
 /** One row of the form: the name column and the control column. */
 const ROW =
   'arg-row rounded-lg px-3 py-2 transition-colors duration-fast ease-standard hover:bg-hover motion-reduce:transition-none'
@@ -305,7 +290,7 @@ function Row({ field, children }: { field: Path; children: ReactNode }) {
   const layout = useContext(RowLayout)
   return (
     <div
-      className={`${layout === 'tile' ? TILE : ROW} ${lit ? 'arg-row-lit' : ''}`}
+      className={`${layout === 'tile' ? 'arg-tile' : ROW} ${lit ? 'arg-row-lit' : ''}`}
       onPointerEnter={() => hover(field)}
       onPointerLeave={() => hover(null)}
     >
@@ -447,12 +432,12 @@ function ChoiceView(props: NodeViewProps & { node: Extract<Node, { kind: 'choice
   )
 }
 
-/** The row, or the tile, that picks a Choice's branch. */
 /** The tile that picks the command a `@any` Ref embeds. */
 function RefPicker(props: NodeViewProps & { node: Extract<Node, { kind: 'ref' }> }) {
   return <RefView {...props} pickerOnly />
 }
 
+/** The row, or the tile, that picks a Choice's branch. */
 function ChoicePicker(props: NodeViewProps & { node: Extract<Node, { kind: 'choice' }> }) {
   const { node, path, value, actions, scope, literals, inClause } = props
   const labelId = useId()

@@ -21,8 +21,9 @@ function place(cell: HTMLDivElement | null, at: Placement | undefined) {
  *
  * The column count comes from the command's busiest state and holds while choices add
  * and remove tiles; where each tile sits is decided per state, and a tile that needs the
- * full width (a message) takes a band below the columns. Tiles enter, leave and move with the shared motion (`useMotion`), keyed by path, so a choice that swaps the
- * tiles under it reads as the tiles rearranging rather than the form being replaced.
+ * full width (a message) takes a band below the columns. Tiles enter, leave and move
+ * with the shared motion (`useMotion`), keyed by path, so a choice that swaps the tiles
+ * under it reads as the tiles rearranging rather than the form being replaced.
  */
 export function TileGrid({ tiles, busiest }: { tiles: readonly Tile[]; busiest: TileSize[] }) {
   const [grid] = useMotion<HTMLDivElement>()
