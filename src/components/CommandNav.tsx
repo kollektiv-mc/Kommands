@@ -58,13 +58,23 @@ function matches(definition: CommandDefinition, needle: string): boolean {
 export function CommandNav({
   catalogue,
   activeId,
+  focusFilter = false,
+  onPick,
 }: {
   catalogue: Catalogue
   /** The command on screen, if any. Absent on the picker's own index route. */
   activeId?: string
+  /** Focus the filter on mount, for the switcher that opens to type into. */
+  focusFilter?: boolean
+  /** Called when a command is chosen, so a switcher can close behind it. */
+  onPick?: () => void
 }) {
   const [filter, setFilter] = useState('')
   const search = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (focusFilter) search.current?.focus()
+  }, [focusFilter])
 
   // `/` jumps to the filter, the way it does on most sites with a search box. Not while
   // anything that takes text has focus, where `/` is a character someone is typing (a
@@ -106,10 +116,7 @@ export function CommandNav({
   )
 
   return (
-    <nav
-      aria-label="Commands"
-      className="border-r-hairline border-border-subtle flex min-h-0 w-58 shrink-0 flex-col"
-    >
+    <nav aria-label="Commands" className="flex max-h-96 min-h-0 w-72 flex-col">
       <div className="flex flex-col gap-1.5 p-3">
         <label className={LABEL} htmlFor="command-filter">
           {`${all.length} commands`}
@@ -166,6 +173,7 @@ export function CommandNav({
                       to="/c/$commandId"
                       params={{ commandId: command.id }}
                       aria-current={command.id === activeId ? 'page' : undefined}
+                      onClick={onPick}
                       className={
                         `${FOCUS} min-w-0 flex-1 truncate rounded-md px-2 py-1.5 font-mono text-xs ` +
                         (command.id === activeId

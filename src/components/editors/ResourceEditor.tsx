@@ -14,7 +14,7 @@ export function ResourceEditor(props: EditorProps<string>) {
   const entries = registry === undefined ? [] : ctx.registries.entries(registry)
   if (entries.length === 0) return <TextEditor {...props} />
   return (
-    <div className="w-full max-w-md">
+    <div className="w-full">
       <RegistryPicker
         id={id}
         describedBy={describedBy}

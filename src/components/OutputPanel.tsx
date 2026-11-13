@@ -4,6 +4,7 @@ import { outputStatus, statusMessage, type OutputStatus } from '../schema/output
 import { useLit, useOutputHover } from '../stores/useOutputHover'
 import { Icon } from './ui/Icon'
 import { IconButton } from './ui/IconButton'
+import { Swap } from './ui/Swap'
 import { FOCUS, WARNING } from './editors/fieldStyles'
 
 /**
@@ -147,8 +148,8 @@ function StatusLine({ status, versionId }: { status: OutputStatus; versionId: st
   return (
     <div className="text-1xs flex items-center gap-2 px-1">
       <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT[status.kind]}`} />
-      <output className="text-text-secondary min-w-0 flex-1 truncate">
-        {statusMessage(status)}
+      <output className="text-text-secondary flex min-w-0 flex-1">
+        <Swap text={statusMessage(status)} />
       </output>
       {'length' in status && (
         <span className="text-text-muted border-r-hairline border-border-hover pr-2 font-mono tabular-nums">
@@ -186,7 +187,7 @@ function CopyButton({ text }: { text: string }) {
       className={`${FOCUS} bg-accent text-canvas hover:bg-accent/85 duration-fast ml-1 inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none`}
     >
       <Icon name={state === 'copied' ? 'check' : 'copy'} size="sm" />
-      {state === 'copied' ? 'Copied' : state === 'failed' ? 'Could not copy' : 'Copy'}
+      <Swap text={state === 'copied' ? 'Copied' : state === 'failed' ? 'Could not copy' : 'Copy'} />
     </button>
   )
 }

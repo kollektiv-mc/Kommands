@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect } from 'react'
 import { getRouteApi } from '@tanstack/react-router'
 import { CommandWorkbench } from './CommandWorkbench'
 import { SaveCommandBar } from './SaveCommandBar'
-import { aliasNames } from '../schema/serialize'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import { canResume, structureState } from '../schema/saved'
 import { useCommandStore } from '../stores/useCommandStore'
@@ -91,13 +90,8 @@ export function CommandEditor() {
     return <p className="text-warning text-xs">{`${commandId} is not a command in 1.21.1.`}</p>
   }
 
-  // `max-w-5xl`, raised from `2xl`. The cap is a readable-measure limit and still is
-  // one — a form has no business running the width of a 1600px window — but 2xl was
-  // chosen when this column started immediately after the navbar and was the only thing
-  // on the page. It is now inset by a sixth of the width (see `EditorLayout`), and the
-  // output panel beside it carries the command on the left with its controls on the
-  // right, so at 672px the command had a third of a column to live in and the three
-  // top-level `/give` fields sat shoulder to shoulder.
+  // The command is named once, in the sheet's header (`CommandSwitcher`); no heading
+  // or summary repeats it here, so the output and the fields are the whole sheet.
   return (
     <div className="flex flex-col gap-4">
       {saved && !resumes && (
@@ -111,23 +105,6 @@ export function CommandEditor() {
           <code className="text-text-secondary text-1xs font-mono break-all">{saved.preview}</code>
         </section>
       )}
-      {/*
-        A heading rather than a card. The command's name is the page's title, and a box
-        around it made it one more panel competing with the output below.
-      */}
-      <header className="flex flex-col gap-1 px-3">
-        <h1 className="text-text-primary font-mono text-lg font-semibold tracking-tight">
-          {definition.label}
-        </h1>
-        {definition.ui?.summary && (
-          <p className="text-text-secondary text-xs leading-relaxed">{definition.ui.summary}</p>
-        )}
-        {definition.aliases && definition.aliases.length > 0 && (
-          <p className="text-text-muted text-1xs font-mono">
-            {`also ${aliasNames(definition).join(', ')}`}
-          </p>
-        )}
-      </header>
       <CommandWorkbench
         definition={definition}
         version={v1_21_1}

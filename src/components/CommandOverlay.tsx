@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { flipIn, flipOut } from '../lib/flip'
+import { useSheetSize } from '../lib/useSheetSize'
 import { originOf, useUiStore } from '../stores/useUiStore'
 
 /**
- * The editor, as a panel over the dashboard.
+ * The editor, as a sheet centred over the dimmed dashboard.
+ *
+ * As big as the command it holds and no bigger: a command of three fields gets a small
+ * sheet and a command with a preview a wide one. When the command or its choices change
+ * what the sheet holds, the sheet glides to its new size (`useSheetSize`).
  *
  * Owns the whole open/close gesture: the entrance that grows out of the tile, the
  * exit that shrinks back into it, the dim behind, and the three ways out.
@@ -17,15 +22,18 @@ import { originOf, useUiStore } from '../stores/useUiStore'
 export function CommandOverlay({
   originKey,
   label,
+  header,
   children,
 }: {
   /** The saved command this was opened from, if any. Keys the rect to grow from. */
   originKey?: string
   /** Names the dialog for a screen reader. The command's label, when there is one. */
   label?: string
+  /** The header band's own content, beside the Editor mark: the command switcher. */
+  header?: ReactNode
   children: ReactNode
 }) {
-  const panel = useRef<HTMLDivElement>(null)
+  const { stage, sheet: panel, content } = useSheetSize<HTMLDivElement>()
   const backdrop = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
   const navigate = useNavigate()
@@ -53,7 +61,7 @@ export function CommandOverlay({
     if (closing.current) return
     closing.current = true
     flipOut(panel.current, collapseTo(), backdrop.current, () => void navigate({ to: '/' }))
-  }, [collapseTo, navigate])
+  }, [collapseTo, navigate, panel])
 
   useLayoutEffect(() => {
     if (!panel.current) return
@@ -63,7 +71,8 @@ export function CommandOverlay({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
+      // Something inside (the command switcher, a list) already took this Escape.
+      if (event.key !== 'Escape' || event.defaultPrevented) return
       // One guard: a search field with something in it takes Escape for itself. The
       // command nav has one, and clearing a filter should not also close the editor.
       const target = event.target as HTMLElement | null
@@ -90,54 +99,61 @@ export function CommandOverlay({
         onClick={close}
         className="bg-overlay/70 absolute inset-0"
       />
+      {/*
+        The stage centres the sheet and lets presses through to the dim around it.
+        `absolute`, not `fixed`, so the app header stays visible and clickable.
+      */}
       <div
-        ref={panel}
-        role="dialog"
-        aria-modal="true"
-        aria-label={label ?? 'Command editor'}
-        /*
-          Opaque, and that is the fix rather than a preference. `bg-elevated` is
-          `rgba(…, 0.82)` — the shared token source makes it translucent on purpose,
-          because that is what lets a panel read as sitting *above* the canvas rather
-          than replacing it. A maximized view is the case where that stops working:
-          `kollektiv/design/README.md` § Why there are two elevated surfaces names it
-          exactly — "a layer that floats over arbitrary content cannot afford that:
-          text and controls beneath it show through and the layer becomes unreadable
-          over anything busy." Under this panel is a grid of command tiles, which is
-          about as busy as this app gets, and their text was legible through the
-          editor.
-
-          `bg-canvas` under a `bg-surface` layer, which is Konnekt's maximized
-          `TileWrapper` verbatim — the same two-line recipe, so the two products'
-          maximized panels are the same surface rather than merely similar ones. Not
-          `bg-overlay`, despite the name: the shared source defines that as the opaque
-          colour an *elevated* panel resolves to, and this is a maximized tile rather
-          than a floating one. The gradient is a token composition rather than a
-          literal, so the hex grep stays silent and a retheme still reaches it.
-        */
-        className="border-hairline border-border-subtle bg-canvas rounded-panel absolute inset-2 flex flex-col overflow-hidden bg-[linear-gradient(var(--bg-surface),var(--bg-surface))] sm:inset-3"
+        ref={stage}
+        className="pointer-events-none absolute inset-0 flex items-center justify-center p-2 sm:p-3"
       >
-        <div className="border-b-hairline border-border-subtle flex shrink-0 items-center gap-2 px-3 py-2">
-          {/*
-            The panel's own name, not the command's. The command is named once, as the
-            page's heading, and saying it here as well was the first of two titles that
-            said the same thing. The dialog is still announced by the command's name.
-          */}
-          <span className="font-title text-text-secondary text-xs">Commands</span>
-          <span className="flex-1" />
-          <button
-            type="button"
-            onClick={close}
-            aria-label="close editor"
-            className="text-text-faint hover:text-text-primary hover:bg-hover flex h-6 w-6 items-center justify-center rounded"
-          >
-            {/* A glyph, not an icon component: this app has no icon library, and one
-                would cost more of the entry budget than the whole overlay. U+00D7,
-                which renders as a cross rather than as emoji. */}
-            <span aria-hidden="true">×</span>
-          </button>
+        <div
+          ref={panel}
+          role="dialog"
+          aria-modal="true"
+          aria-label={label ?? 'Command editor'}
+          /*
+            Opaque, and that is the fix rather than a preference: `bg-elevated` is
+            translucent on purpose, and a layer over a grid of command tiles cannot afford
+            that, since their text read through it. `bg-canvas` under a `bg-surface`
+            layer is Konnekt's maximized `TileWrapper` recipe, so the two products'
+            panels are the same surface. The size is the content's, written by
+            `useSheetSize` so a change of size can glide.
+          */
+          className="sheet border-hairline border-border-subtle bg-canvas rounded-panel pointer-events-auto relative overflow-hidden bg-[linear-gradient(var(--bg-surface),var(--bg-surface))]"
+        >
+          <div ref={content} className="sheet-content flex flex-col">
+            {/*
+              The band that says where you are: the editor, not the dashboard. The
+              accent wash and the Editor mark are what the dashboard's panels do not
+              have.
+            */}
+            <div className="border-b-hairline border-accent/30 bg-accent/10 flex shrink-0 items-center gap-3 px-3 py-2">
+              <span className="bg-accent text-canvas text-2xs rounded-sm px-1.5 py-0.5 font-bold tracking-wider uppercase">
+                Editor
+              </span>
+              {header}
+              <span className="flex-1" />
+              <kbd
+                aria-hidden="true"
+                className="border-hairline border-border-hover text-text-faint text-1xs hidden rounded-sm px-1 font-mono sm:inline"
+              >
+                Esc
+              </kbd>
+              <button
+                type="button"
+                onClick={close}
+                aria-label="close editor"
+                className="text-text-faint hover:text-text-primary hover:bg-hover flex h-6 w-6 items-center justify-center rounded"
+              >
+                {/* A glyph, not an icon component: U+00D7, which renders as a cross
+                    rather than as emoji. */}
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <div className="sheet-body min-h-0 overflow-auto">{children}</div>
+          </div>
         </div>
-        <div className="min-h-0 flex-1">{children}</div>
       </div>
     </>
   )
