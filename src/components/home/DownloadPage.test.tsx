@@ -29,6 +29,13 @@ test('Windows is the first download and points at the snapshot installer', async
   expect(windows.className).toContain('primary')
 })
 
+test('macOS points at the snapshot DMG', async () => {
+  await renderWithRouter(<DownloadPage />, '/download')
+  expect(screen.getByRole('link', { name: 'macOS' }).getAttribute('href')).toBe(
+    `${SNAPSHOT}/download/snapshot/kommands-darwin-universal.dmg`,
+  )
+})
+
 test('Linux opens in place into its two builds', async () => {
   const user = userEvent.setup()
   await renderWithRouter(<DownloadPage />, '/download')
