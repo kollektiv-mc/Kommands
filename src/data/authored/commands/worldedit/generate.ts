@@ -74,6 +74,9 @@ export const generate: CommandDefinition = {
     inputs: ['expression', 'pattern', '-h', '-r', '-o', '-c'],
   },
   ui: {
+    // The pattern's rows and the expression need more than a standard column, and the
+    // preview reads better large.
+    width: 'wide',
     summary:
       'Fills the selection with a shape, placing a block wherever the expression is true. ' +
       'x, y and z run from -1 to 1 across the selection unless an origin mode says otherwise.',

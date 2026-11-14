@@ -450,7 +450,18 @@ body {
 }
 
 .tile-grid-wide {
-  --tile-w: calc(var(--spacing) * 124 + var(--tile-gap));
+  /* Twice a standard column and its gap, and no wider than the room shares out
+     (`--sheet-max-w`, less the sheet's padding and a gap per column), down to a
+     standard column: two wide columns are wider than a small window, which would
+     otherwise scroll sideways. */
+  --tile-share: calc(
+    (var(--sheet-max-w, 100vw) - var(--spacing) * 8) / var(--tile-cols, 1) - var(--tile-gap)
+  );
+  --tile-w: clamp(
+    calc(var(--spacing) * 62),
+    var(--tile-share),
+    calc(var(--spacing) * 124 + var(--tile-gap))
+  );
 }
 
 .tile-cell {

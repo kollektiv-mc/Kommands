@@ -208,12 +208,14 @@ const EMPTY_COLUMN_COST = 6
 export function planColumns(
   busiest: readonly TileSize[],
   states: readonly (readonly LayoutTile[])[],
+  /** What the definition asks for (`ui.width`); 'wide' widens every column. */
+  asked: ColumnWidth = 'standard',
 ): ColumnPlan {
   const cols = chooseColumns(busiest)
   // A lone field is not given twice the width: `/op` is one selector, and the sheet's
   // own floor (its header and the command line) already leaves it room.
   const roomy = states.some((tiles) => tiles.some((t) => t.wide === true || t.size === 'fill'))
-  const width: ColumnWidth = cols === 1 && roomy ? 'wide' : 'standard'
+  const width: ColumnWidth = asked === 'wide' || (cols === 1 && roomy) ? 'wide' : 'standard'
   const keys: string[] = []
   const index = new Map<string, number>()
   let fills = 0

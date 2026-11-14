@@ -164,7 +164,12 @@ export function CommandRenderer({
     [definition, value, catalogue],
   )
   const plan = useMemo(
-    () => planColumns(busiestSizes(definition), tileStates(definition, catalogue)),
+    () =>
+      planColumns(
+        busiestSizes(definition),
+        tileStates(definition, catalogue),
+        definition.ui?.width,
+      ),
     [definition, catalogue],
   )
   const tiles = entries.map((entry) => ({
