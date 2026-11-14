@@ -1,4 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import {
   BoxGeometry,
@@ -8,19 +16,18 @@ import {
   DoubleSide,
   EdgesGeometry,
   GridHelper,
-  MOUSE,
   Plane,
   Vector3,
   type Color,
+  type Group,
+  type Mesh,
   type Object3D,
   type PerspectiveCamera,
 } from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
+import type { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 import type { VoxelField } from '../../../previews/worldedit/shape/voxels'
 import { cssToken, tokenColor, tokenCssColor } from '../../../previews/worldedit/shape/color'
 import { useShapeEditorStore, type ViewOptions } from '../../../stores/useShapeEditorStore'
-import { find } from '../../../worldedit/stack/edit'
 import type { Layer, Op, ReferenceLayer, ShapeLayer } from '../../../worldedit/stack/layers'
 import { HOME, blockTexture, faceGeometry, outlineGeometry } from './blockMesh'
 import {
@@ -33,8 +40,9 @@ import {
   type Cut,
 } from './faces'
 import { ghostOf, ghostOpacity } from './ghosts'
-import { snapToBlocks, transformOf } from './gizmo'
+import { Gizmo } from './Gizmo'
 import type { ReferenceVoxels } from './useReferenceVoxels'
+import { ViewControls } from './ViewControls'
 
 /**
  * The shape editor's 3D view: the blocks the command places, inside the selection box,
@@ -69,6 +77,8 @@ export interface StageProps {
   homeKey: number
   /** The gap between the tiles, which the camera is framed on. */
   opening: RefObject<HTMLElement | null>
+  /** A right-click on a layer: that layer's menu. */
+  onMenu: (id: string, at: { x: number; y: number }) => void
 }
 
 export default function ViewportStage(props: StageProps) {
@@ -91,13 +101,18 @@ export default function ViewportStage(props: StageProps) {
   )
 }
 
-function Scene({ field, pattern, layers, references, size, homeKey, opening }: StageProps) {
+function Scene({ field, pattern, layers, references, size, homeKey, opening, onMenu }: StageProps) {
   const view = useShapeEditorStore((s) => s.view)
   const selected = useShapeEditorStore((s) => s.selected)
   const editing = useShapeEditorStore((s) => s.edit.on)
   const colours = useColours()
-  const orbit = useRef<OrbitControls | null>(null)
-  // Each drawn layer's object, by id: what the gizmo takes hold of.
+  const gizmo = useRef<TransformControls | null>(null)
+  const holdGizmo = useCallback((c: TransformControls | null) => {
+    gizmo.current = c
+  }, [])
+  const blocks = useRef<Mesh | null>(null)
+  const world = useRef<Group>(null)
+  // Each drawn layer's object, by id: what the gizmo takes hold of and Find frames.
   const objects = useMemo(() => new Map<string, Object3D>(), [])
   const cut = useCut(view.cutaway)
   const clip = useMemo(() => clipFor(cut), [cut])
@@ -110,15 +125,32 @@ function Scene({ field, pattern, layers, references, size, homeKey, opening }: S
       <directionalLight position={[4, 6, 3]} intensity={1.6} />
       <directionalLight position={[-4, -2, -3]} intensity={0.4} />
       <Frame homeKey={homeKey} opening={opening} />
-      <Controls homeKey={homeKey} orbit={orbit} />
-      {view.show === 'blocks' && field !== null && field.count > 0 && (
-        <Blocks field={field} pattern={pattern} view={view} cut={cut} solid={colours.solid} />
-      )}
-      <LayerTree
-        layers={layers}
-        context={{ selected, editing, view, clip, colours, references, size, objects }}
+      <ViewControls
+        homeKey={homeKey}
+        gizmo={gizmo}
+        blocks={blocks}
+        world={world}
+        objects={objects}
+        onMenu={onMenu}
+        pivotColour={colours.op.add}
       />
-      <Gizmo layers={layers} objects={objects} orbit={orbit} size={size} />
+      {view.show === 'blocks' && field !== null && field.count > 0 && (
+        <Blocks
+          field={field}
+          pattern={pattern}
+          view={view}
+          cut={cut}
+          solid={colours.solid}
+          mesh={blocks}
+        />
+      )}
+      <group ref={world}>
+        <LayerTree
+          layers={layers}
+          context={{ selected, editing, view, clip, colours, references, size, objects }}
+        />
+      </group>
+      <Gizmo layers={layers} objects={objects} onControls={holdGizmo} size={size} />
       {view.bounds && <SelectionBox half={ground} colour={colours.line} />}
       {view.grid && <Grid half={ground} colour={colours.line} />}
       {view.axes && <Axes half={ground} />}
@@ -219,46 +251,6 @@ function Frame({ homeKey, opening }: { homeKey: number; opening: RefObject<HTMLE
   return null
 }
 
-/**
- * Left drag orbits, right drag zooms, middle drag pans.
- *
- * Three's orbit controls rather than a hand-written camera for now; the editor's own
- * rule, that each works about the point under the cursor, comes with the gizmo.
- */
-function Controls({
-  homeKey,
-  orbit: controls,
-}: {
-  homeKey: number
-  orbit: RefObject<OrbitControls | null>
-}) {
-  const { camera, gl } = useThree()
-
-  useEffect(() => {
-    const c = new OrbitControls(camera, gl.domElement)
-    c.mouseButtons = { LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.PAN, RIGHT: MOUSE.DOLLY }
-    c.enableDamping = false
-    c.minDistance = 0.4
-    c.maxDistance = 20
-    controls.current = c
-    return () => {
-      c.dispose()
-      controls.current = null
-    }
-  }, [camera, gl, controls])
-
-  useEffect(() => {
-    const c = controls.current
-    if (!c) return
-    camera.position.copy(HOME)
-    ;(camera as PerspectiveCamera).lookAt(0, 0, 0)
-    c.target.set(0, 0, 0)
-    c.update()
-  }, [homeKey, camera, controls])
-
-  return null
-}
-
 /** The block texture, made once for this canvas and let go with it. */
 function useBlockTexture(): CanvasTexture | null {
   const texture = useMemo(() => blockTexture(), [])
@@ -289,12 +281,15 @@ function Blocks({
   view,
   cut,
   solid,
+  mesh,
 }: {
   field: VoxelField
   pattern: string
   view: ViewOptions
   cut: Cut | null
   solid: Color
+  /** The solid blocks, which a press on the view grabs; empty while drawn as lines. */
+  mesh: RefObject<Mesh | null>
 }) {
   const shown = useMemo(() => cutAway(field.filled, field.size, cut), [field, cut])
   const wire = view.shading === 'wire'
@@ -310,7 +305,7 @@ function Blocks({
   }
   const coloured = view.shading === 'coloured'
   return (
-    <mesh geometry={geometry}>
+    <mesh ref={mesh} geometry={geometry} userData={{ solid: !view.xray }}>
       <meshLambertMaterial
         key={`${view.shading}-${view.xray}`}
         map={texture}
@@ -322,87 +317,6 @@ function Blocks({
       />
     </mesh>
   )
-}
-
-/**
- * Edit mode's move, rotate and scale gizmo, on the selected layer.
- *
- * Three's transform controls, in the layer's own space. A drag writes the layer's
- * transform back into the document as it goes, as one undo step, and holds the camera
- * still while it lasts. Snap rounds moves to the chosen step, or to the preview's block
- * centres; turns and scales always snap to their steps while Snap is on.
- */
-function Gizmo({
-  layers,
-  objects,
-  orbit,
-  size,
-}: {
-  layers: readonly Layer[]
-  objects: ReadonlyMap<string, Object3D>
-  orbit: RefObject<OrbitControls | null>
-  size: number
-}) {
-  const { camera, gl, scene } = useThree()
-  const edit = useShapeEditorStore((s) => s.edit)
-  const selected = useShapeEditorStore((s) => s.selected)
-  const gizmo = useRef<TransformControls | null>(null)
-  const step = useRef(stepOf(size))
-  useEffect(() => {
-    step.current = stepOf(size)
-  }, [size])
-
-  useEffect(() => {
-    const c = new TransformControls(camera, gl.domElement)
-    c.setSpace('local')
-    c.setSize(0.8)
-    const helper = c.getHelper()
-    scene.add(helper)
-    const onDragging = (event: { value: unknown }) => {
-      const dragging = event.value === true
-      if (orbit.current) orbit.current.enabled = !dragging
-      const store = useShapeEditorStore.getState()
-      store.setDragging(dragging)
-      if (!dragging) store.settle()
-    }
-    const onChange = () => {
-      const store = useShapeEditorStore.getState()
-      const o = c.object
-      if (store.selected === null || o === undefined) return
-      if (store.edit.snap && store.edit.snapTo === 'blocks' && c.mode === 'translate')
-        snapToBlocks(o, step.current)
-      const placed = transformOf(o)
-      store.change(store.selected, (l) => ({ ...l, ...placed }), 'gizmo')
-    }
-    c.addEventListener('dragging-changed', onDragging)
-    c.addEventListener('objectChange', onChange)
-    gizmo.current = c
-    return () => {
-      c.removeEventListener('dragging-changed', onDragging)
-      c.removeEventListener('objectChange', onChange)
-      c.detach()
-      scene.remove(helper)
-      c.dispose()
-      gizmo.current = null
-    }
-  }, [camera, gl, scene, orbit])
-
-  // After the layers have drawn, so the selected layer's object is there to hold.
-  useEffect(() => {
-    const controls = gizmo.current
-    if (controls === null) return
-    const o = selected === null ? undefined : objects.get(selected)
-    const layer = selected === null ? null : find(layers, selected)?.layer
-    if (!edit.on || o === undefined || layer === null || layer === undefined) controls.detach()
-    else if (controls.object !== o) controls.attach(o)
-    controls.setMode(edit.mode)
-    const snap = edit.snap
-    controls.setTranslationSnap(snap && edit.snapTo === 'grid' ? edit.move : null)
-    controls.setRotationSnap(snap ? edit.turn * DEG : null)
-    controls.setScaleSnap(snap ? edit.scale : null)
-  }, [edit, selected, layers, objects])
-
-  return null
 }
 
 interface TreeContext {
@@ -483,8 +397,14 @@ function ShapeGhost({ layer, context }: { layer: ShapeLayer; context: TreeContex
   const colour = context.colours.op[layer.op]
   return (
     <>
-      {ghost.solid !== null && opacity.solid > 0 && (
-        <mesh geometry={ghost.solid} renderOrder={2}>
+      {/* Drawn or not, the body is what a click on the view picks the shape by. */}
+      {ghost.solid !== null && (
+        <mesh
+          geometry={ghost.solid}
+          renderOrder={2}
+          visible={opacity.solid > 0}
+          userData={{ pick: layer.id }}
+        >
           <meshBasicMaterial
             color={colour}
             transparent
@@ -547,7 +467,7 @@ function ReferenceBlocks({ layer, context }: { layer: ReferenceLayer; context: T
             />
           </lineSegments>
         ) : (
-          <mesh geometry={geometry} renderOrder={1}>
+          <mesh geometry={geometry} renderOrder={1} userData={{ pick: layer.id, solid: true }}>
             <meshLambertMaterial
               key={context.view.shading}
               map={texture}

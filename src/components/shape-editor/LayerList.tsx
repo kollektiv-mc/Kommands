@@ -5,7 +5,6 @@ import { KIND_LABELS, type Layer } from '../../worldedit/stack/layers'
 import { Icon } from '../ui/Icon'
 import { Tooltip } from '../ui/Tooltip'
 import { FOCUS } from '../editors/fieldStyles'
-import { ContextMenu, type MenuAction } from './ContextMenu'
 import { Glyph } from './glyphs'
 import { OP_GLYPH, OP_LABEL, OP_TONE } from './styles'
 
@@ -25,11 +24,11 @@ const kindOf = (layer: Layer): string =>
     : KIND_LABELS[layer.kind]
 
 export function LayerList({
-  onFind,
+  onMenu,
   onListMenu,
 }: {
-  /** Frame the layer in the viewport. */
-  onFind: (id: string) => void
+  /** A right-click on a row: that layer's menu. */
+  onMenu: (id: string, at: { x: number; y: number }) => void
   /** A right-click on the list outside any row. */
   onListMenu: (at: { x: number; y: number }) => void
 }) {
@@ -40,7 +39,6 @@ export function LayerList({
     const view = isolate === null ? null : isolated(layers, isolate)
     return view === null ? null : new Set([...eachLayer(view)].map((l) => l.id))
   }, [layers, isolate])
-  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   const drag = useDrop(layers)
 
   return (
@@ -63,39 +61,13 @@ export function LayerList({
               idle={idle}
               shown={shown}
               drag={drag}
-              onMenu={(id, x, y) => setMenu({ id, x, y })}
+              onMenu={(id, x, y) => onMenu(id, { x, y })}
             />
           ))}
         </ul>
       )}
-      {menu && <RowMenu {...menu} onFind={onFind} onClose={() => setMenu(null)} />}
     </div>
   )
-}
-
-function RowMenu({
-  id,
-  x,
-  y,
-  onFind,
-  onClose,
-}: {
-  id: string
-  x: number
-  y: number
-  onFind: (id: string) => void
-  onClose: () => void
-}) {
-  const store = useShapeEditorStore.getState()
-  const layer = find(store.layers, id)?.layer
-  if (!layer) return null
-  const actions: MenuAction[] = [
-    { label: layer.visible ? 'Hide' : 'Unhide', onSelect: () => store.toggleVisible(id) },
-    { label: 'Find', onSelect: () => onFind(id) },
-    { label: 'Duplicate', onSelect: () => store.duplicateLayer(id) },
-    { label: 'Delete', onSelect: () => store.removeLayer(id) },
-  ]
-  return <ContextMenu at={{ x, y }} actions={actions} onClose={onClose} />
 }
 
 interface Drag {

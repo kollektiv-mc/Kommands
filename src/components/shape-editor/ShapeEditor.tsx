@@ -17,6 +17,7 @@ import { CommandBar } from './CommandBar'
 import { ContextMenu } from './ContextMenu'
 import { Inspector } from './Inspector'
 import { LayerList } from './LayerList'
+import { LayerMenu } from './LayerMenu'
 import { Palette } from './Palette'
 import { BUTTON, PANEL, PANEL_HEAD, PRIMARY } from './styles'
 import { TemplatesDialog } from './TemplatesDialog'
@@ -58,6 +59,13 @@ export function ShapeEditor({
   )
   const [templates, setTemplates] = useState(false)
   const [listMenu, setListMenu] = useState<{ x: number; y: number } | null>(null)
+  const [layerMenu, setLayerMenu] = useState<{ id: string; at: { x: number; y: number } } | null>(
+    null,
+  )
+  const openLayerMenu = useCallback(
+    (id: string, at: { x: number; y: number }) => setLayerMenu({ id, at }),
+    [],
+  )
   const [clearing, setClearing] = useState(false)
   const closeTemplates = useCallback(() => setTemplates(false), [])
   const cancelClear = useCallback(() => setClearing(false), [])
@@ -141,9 +149,14 @@ export function ShapeEditor({
               </span>
             </div>
             <Palette onAdd={add} />
-            <LayerList onFind={() => {}} onListMenu={setListMenu} />
+            <LayerList onMenu={openLayerMenu} onListMenu={setListMenu} />
           </aside>
-          <Viewport opening={parts.opening} stage={parts.stage} expression={command.expression} />
+          <Viewport
+            opening={parts.opening}
+            stage={parts.stage}
+            expression={command.expression}
+            onMenu={openLayerMenu}
+          />
           <aside
             ref={parts.right}
             aria-label="Inspector"
@@ -156,6 +169,7 @@ export function ShapeEditor({
         <CommandBar ref={parts.bottom} command={command} />
       </div>
 
+      {layerMenu && <LayerMenu {...layerMenu} onClose={() => setLayerMenu(null)} />}
       {listMenu && (
         <ContextMenu
           at={listMenu}
@@ -233,6 +247,8 @@ function useEditorKeys() {
       } else if ((key === 'delete' || key === 'backspace') && selected !== null) {
         event.preventDefault()
         store.removeLayer(selected)
+      } else if (key === 'f') {
+        store.findLayer(selected)
       } else if (key === 's') {
         event.preventDefault()
         store.setIsolate(store.isolate !== null ? null : selected)
