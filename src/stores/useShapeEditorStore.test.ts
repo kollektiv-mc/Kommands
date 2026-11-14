@@ -69,6 +69,35 @@ describe('the shape editor store', () => {
     expect(store().layers[0]?.type).toBe('group')
   })
 
+  test('a template into an empty list brings its blocks, unfolded', () => {
+    const planet = TEMPLATES[0]!
+    store().applyTemplate(planet)
+    const [group] = store().layers
+    expect(store().pattern).toBe(planet.pattern)
+    expect(group?.type === 'group' && group.open).toBe(true)
+    expect(store().selected).toBe(group?.id)
+  })
+
+  test('a template joins at the top, folded, and keeps the blocks', () => {
+    const a = shape('sphere')
+    store().add(a)
+    store().applyTemplate(TEMPLATES[0]!)
+    const [group] = store().layers
+    expect(names()).toEqual(['Ringed planet', a.name])
+    expect(group?.type === 'group' && group.open).toBe(false)
+    expect(store().pattern).toBe('stone')
+  })
+
+  test('clearing removes every layer as one undo step', () => {
+    store().add(shape('sphere'))
+    store().add(shape('box'))
+    store().clear()
+    expect(store().layers).toEqual([])
+    expect(store().selected).toBeNull()
+    store().undo()
+    expect(store().layers).toHaveLength(2)
+  })
+
   test('selecting outside the isolated layer ends isolation', () => {
     const a = shape('sphere')
     const m = modifier('mirror')

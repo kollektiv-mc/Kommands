@@ -9,7 +9,7 @@ describe('opening the editor on the sheet', () => {
     const snapshot = openSnapshot({ expression: ' y<0 ', pattern: { entries: [] }, '-h': true })
     expect(snapshot.layers).toHaveLength(1)
     expect(snapshot.layers[0]).toMatchObject({ kind: 'formula', params: { source: 'y<0' } })
-    expect([snapshot.pattern, snapshot.hollow, snapshot.round]).toEqual(['', true, false])
+    expect([snapshot.pattern, snapshot.hollow, snapshot.round]).toEqual(['stone', true, false])
   })
 
   test('nothing typed opens an empty stack', () => {
