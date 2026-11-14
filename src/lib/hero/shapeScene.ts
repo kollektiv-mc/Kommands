@@ -59,6 +59,21 @@ export function renderExpr(node: HTMLElement, v: HeroShape, st: ShapeState, hot:
 
 type HandlePoints = Partial<Record<Handle, [number, number]>>
 
+/** Where the canvas's box (its parent) sits inside it, in backing-store pixels. */
+function boxIn(cv: HTMLCanvasElement, d: number, w: number, h: number) {
+  const box = cv.parentElement?.getBoundingClientRect()
+  const r = cv.getBoundingClientRect()
+  if (!box?.width || !r.width) return [0, 0, w, h] as const
+  return [(box.left - r.left) * d, (box.top - r.top) * d, box.width * d, box.height * d] as const
+}
+
+/** How far the canvas starts before the box it bleeds out of, in CSS pixels. */
+function bleed(cv: HTMLCanvasElement): [number, number] {
+  const box = cv.parentElement?.getBoundingClientRect()
+  const r = cv.getBoundingClientRect()
+  return box ? [box.left - r.left, box.top - r.top] : [0, 0]
+}
+
 /** Draw the structure, its ground grid and its gizmos; return where the gizmos' tips are. */
 export function drawShape(cv: HTMLCanvasElement, v: HeroShape, st: ShapeState, pal: Palette) {
   const { w, h, d } = fitCanvas(cv)
@@ -67,12 +82,15 @@ export function drawShape(cv: HTMLCanvasElement, v: HeroShape, st: ShapeState, p
   g.clearRect(0, 0, w, h)
   const N = v.n
   const k = N / 15
+  // The canvas bleeds past its box so the ground grid can fade out over the next
+  // section rather than at the box's edge; the structure is laid out in the box.
+  const [bx, by, bw, bh] = boxIn(cv, d, w, h)
   const view = {
     yaw: v.yaw,
     pitch: 0.5,
-    s: Math.min(w / (21 * k), h / (23 * k)),
-    cx: w * 0.46,
-    cy: h * 0.78,
+    s: Math.min(bw / (21 * k), bh / (23 * k)),
+    cx: bx + bw * 0.46,
+    cy: by + bh * 0.78,
   }
   const P = projector(view)
   const G = Math.round(9 * k)
@@ -175,9 +193,13 @@ export interface Scene {
 export async function playShape(x: Scene) {
   const { v, st, cv, cur, c } = x
   const expr = find(x.host, '.hp[data-param="expr"] .hp-vt')
+  // Points are the canvas's; the cursor sits in the box the canvas bleeds out of.
+  // Both are measured at every move, so a scroll or a resize never leaves it aiming
+  // where a button used to be.
   const place = (pt: readonly [number, number], ms: number) => {
+    const [ox, oy] = bleed(cv)
     cur.style.transition = `opacity 300ms, transform ${ms}ms ${EASE}`
-    cur.style.transform = `translate(${pt[0] - 3}px, ${pt[1] - 2}px)`
+    cur.style.transform = `translate(${pt[0] - ox - 3}px, ${pt[1] - oy - 2}px)`
   }
   let hd = drawShape(cv, v, st, x.pal)
   const vb = cv.getBoundingClientRect()
@@ -203,7 +225,8 @@ export async function playShape(x: Scene) {
     }
     const at = (e: HTMLElement): [number, number] => {
       const r = e.getBoundingClientRect()
-      return [r.left - vb.left + r.width / 2, r.top - vb.top + r.height / 2]
+      const o = cv.getBoundingClientRect()
+      return [r.left - o.left + r.width / 2, r.top - o.top + r.height / 2]
     }
     tools.classList.add('in')
     await c.wait(800)

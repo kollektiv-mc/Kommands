@@ -291,7 +291,7 @@ function showShape(s: Stage) {
 /** Reduced motion: the finished command, held. */
 function settle(s: Stage) {
   s.cmd.classList.remove('measure')
-  if (s.h.tiles) s.cmd.classList.add('tiles')
+  if (s.h.tiles) s.cmd.classList.add('tiles', 'rest')
   s.viz?.classList.add('in')
   showShape(s)
   let n = 0
@@ -352,6 +352,9 @@ async function growTiles(s: Stage) {
   cmd.classList.add('tiles')
   await c.wait(1250)
   for (const e of args) unpin(e)
+  // The reveal is over: let every revealed box take its own size from here, so one
+  // measured before the web font arrived, or before a resize, never crops its content.
+  cmd.classList.add('rest')
   await c.wait(450)
 }
 
@@ -382,6 +385,8 @@ export function startHero(
   let shapeIndex = -1
   const run = async () => {
     try {
+      // Every size the loop measures is the web font's, so it waits for it.
+      if ('fonts' in document) await document.fonts.ready
       for (let i = 0; ; i = (i + 1) % sequence.length) {
         const h = sequence[i]
         if (!h) return

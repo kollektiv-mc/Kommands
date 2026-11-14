@@ -45,7 +45,7 @@ test('reduced motion shows the Konnekt scene finished and holds it', async () =>
   expect(started).toEqual([0])
   const v = KONNEKT_VARIANTS[0]
   const pick = SCENE_COMMANDS[v.pick]
-  expect(text('.kn-cmd.linked')).toContain(pick.name)
+  expect(text('.kn-cmd.linked b')).toContain(pick.name)
   expect(text('.kn-console div').slice(-2)).toEqual([`> ${pick.command.slice(1)}`, pick.response])
   expect(host.querySelector('.kn-cmd.linked')?.closest('.sc-win')?.className).toContain('front')
 })

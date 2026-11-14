@@ -1,8 +1,7 @@
-import { useEffect, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { DotGrid } from '../dashboard/DotGrid'
 import { BrandMark } from './BrandMark'
-import { markSiteSeen } from '../../lib/siteEntry'
 import { SITE } from '../../data/home/site'
 import '../../styles/site.css'
 
@@ -26,7 +25,6 @@ export function DownloadIcon() {
  * the page scrolling as a page, which the app never does.
  */
 export function SitePage({ children }: { children: ReactNode }) {
-  useEffect(markSiteSeen, [])
   return (
     <div className="site">
       <div className="site-dots">
@@ -68,7 +66,9 @@ export function SiteHeader({ side }: { side: 'github' | 'dashboard' }) {
 export function SiteFooter() {
   return (
     <footer className="site-foot">
-      <span>Kommands · Konnekt</span>
+      <span>
+        Kommands · <a href={SITE.konnekt}>Konnekt</a>
+      </span>
       <span>Not affiliated with Mojang or Microsoft</span>
     </footer>
   )

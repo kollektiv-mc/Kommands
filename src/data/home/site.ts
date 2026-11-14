@@ -15,6 +15,8 @@ const SNAPSHOT_FILE = `${REPOSITORY}/releases/download/snapshot`
 
 export const SITE = {
   repository: REPOSITORY,
+  /** Konnekt's own site, which the footer names. */
+  konnekt: 'https://konnekt.pages.dev',
   version: __APP_VERSION__,
   downloads: {
     windows: `${SNAPSHOT_FILE}/kommands-windows-amd64-installer.exe`,
