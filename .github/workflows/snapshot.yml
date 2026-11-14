@@ -16,7 +16,7 @@ on:
   schedule:
     # Nightly. The check job below exits early when main has not moved since
     # the last snapshot, so an idle week costs one short job a day rather than
-    # three platform builds.
+    # four platform builds.
     - cron: '0 4 * * *'
   workflow_dispatch:
 
@@ -187,6 +187,92 @@ jobs:
           path: dist-release/kommands-windows-amd64-installer.exe
           if-no-files-found: error
 
+  # macOS ships a DMG holding a universal .app, unsigned in the Developer ID
+  # sense: notarising needs a paid Apple account (docs/distribution.md). It is
+  # still ad-hoc signed, because Apple silicon refuses to launch an arm64 binary
+  # with no signature at all and reports the download as "damaged". Ad-hoc
+  # signed, it opens once the user allows it under System Settings > Privacy &
+  # Security > Open Anyway, which the release notes say. The bundle registers
+  # kommands:// through build/darwin/Info.plist's CFBundleURLTypes.
+  build-macos:
+    needs: check
+    if: needs.check.outputs.build == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      # Info.plist takes CFBundleShortVersionString from wails.json's
+      # productVersion, and macOS reads that as numbers. Same stamp as the
+      # Windows job; the full version reaches the binary through -X.
+      - name: Stamp the bundle version
+        env:
+          FULL_VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          node - <<'EOF'
+          const fs = require('node:fs')
+          const full = process.env.FULL_VERSION
+          const core = full.replace(/^v/, '').replace(/[-+].*$/, '')
+          if (!/^\d+\.\d+\.\d+$/.test(core)) {
+            console.log(`::error::cannot derive a numeric bundle version from '${full}'.`)
+            process.exit(1)
+          }
+          const config = JSON.parse(fs.readFileSync('wails.json', 'utf8'))
+          config.info.productVersion = core
+          fs.writeFileSync('wails.json', JSON.stringify(config, null, 2) + '\n')
+          EOF
+
+      - name: Build
+        env:
+          SNAPSHOT_VERSION: ${{ needs.check.outputs.version }}
+        run: wails build -platform darwin/universal -ldflags "-X main.Version=$SNAPSHOT_VERSION"
+
+      - name: Assert the version stamp landed
+        env:
+          SNAPSHOT_VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          STAMPED="$(./build/bin/kommands.app/Contents/MacOS/kommands -version)"
+          if [ "$STAMPED" != "$SNAPSHOT_VERSION" ]; then
+            echo "::error::the binary reports '$STAMPED' but this build is $SNAPSHOT_VERSION. -ldflags -X did not reach main.Version."
+            exit 1
+          fi
+          echo "::notice::binary reports $STAMPED"
+
+      # The whole bundle, after lipo has assembled the universal binary: a
+      # signature on the binary alone leaves the bundle invalid.
+      - name: Ad-hoc sign
+        run: |
+          codesign --force --deep --sign - build/bin/kommands.app
+          codesign --verify --deep --strict --verbose=2 build/bin/kommands.app
+
+      - name: Package DMG
+        run: |
+          mkdir -p dist-release
+          hdiutil create -volname Kommands -srcfolder build/bin/kommands.app \
+            -ov -format UDZO dist-release/kommands-darwin-universal.dmg
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kommands-darwin-universal
+          path: dist-release/kommands-darwin-universal.dmg
+          if-no-files-found: error
+
   build-linux:
     needs: check
     if: needs.check.outputs.build == 'true'
@@ -287,7 +373,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [check, build-windows, build-linux, package-rpm]
+    needs: [check, build-windows, build-macos, build-linux, package-rpm]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -368,7 +454,12 @@ jobs:
 
           Kommands does not update itself, so this will not replace itself with
           the next snapshot. The Windows installer and the RPM both upgrade a
-          previous snapshot in place; the bare Linux binary does not.
+          previous snapshot in place; the bare Linux binary does not, and the
+          macOS app is replaced by dragging the new one into Applications.
+
+          Nothing here carries a code-signing certificate. On macOS, open System
+          Settings, Privacy & Security, and choose Open Anyway beside Kommands
+          after the first launch is refused.
 
           Version \`$SNAPSHOT_VERSION\`, commit $SHA. Built by GitHub Actions
           from that commit, with a signed build provenance attestation:

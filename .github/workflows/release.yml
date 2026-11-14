@@ -195,6 +195,93 @@ jobs:
           path: dist-release/kommands-windows-amd64-installer.exe
           if-no-files-found: error
 
+  # macOS ships a DMG holding a universal .app, unsigned in the Developer ID
+  # sense: notarising needs a paid Apple account (docs/distribution.md). It is
+  # still ad-hoc signed, because Apple silicon refuses to launch an arm64 binary
+  # with no signature at all and reports the download as "damaged". Ad-hoc
+  # signed, it opens once the user allows it under System Settings > Privacy &
+  # Security > Open Anyway, which the release notes say. The bundle registers
+  # kommands:// through build/darwin/Info.plist's CFBundleURLTypes.
+  build-macos:
+    needs: resolve
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      # Info.plist takes CFBundleShortVersionString from wails.json's
+      # productVersion, and macOS reads that as numbers. Same stamp as the
+      # Windows job; the full version reaches the binary through -X.
+      - name: Stamp the bundle version
+        env:
+          FULL_VERSION: ${{ needs.resolve.outputs.tag }}
+        run: |
+          node - <<'EOF'
+          const fs = require('node:fs')
+          const full = process.env.FULL_VERSION
+          const core = full.replace(/^v/, '').replace(/[-+].*$/, '')
+          if (!/^\d+\.\d+\.\d+$/.test(core)) {
+            console.log(`::error::cannot derive a numeric bundle version from '${full}'.`)
+            process.exit(1)
+          }
+          const config = JSON.parse(fs.readFileSync('wails.json', 'utf8'))
+          config.info.productVersion = core
+          fs.writeFileSync('wails.json', JSON.stringify(config, null, 2) + '\n')
+          EOF
+
+      - name: Build
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: wails build -platform darwin/universal -ldflags "-X main.Version=$TAG"
+
+      - name: Assert the version stamp landed
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          STAMPED="$(./build/bin/kommands.app/Contents/MacOS/kommands -version)"
+          if [ "$STAMPED" != "$TAG" ]; then
+            echo "::error::the binary reports '$STAMPED' but this build is $TAG. -ldflags -X did not reach main.Version."
+            exit 1
+          fi
+          echo "::notice::binary reports $STAMPED"
+
+      # The whole bundle, after lipo has assembled the universal binary: a
+      # signature on the binary alone leaves the bundle invalid.
+      - name: Ad-hoc sign
+        run: |
+          codesign --force --deep --sign - build/bin/kommands.app
+          codesign --verify --deep --strict --verbose=2 build/bin/kommands.app
+
+      - name: Package DMG
+        run: |
+          mkdir -p dist-release
+          hdiutil create -volname Kommands -srcfolder build/bin/kommands.app \
+            -ov -format UDZO dist-release/kommands-darwin-universal.dmg
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kommands-darwin-universal
+          path: dist-release/kommands-darwin-universal.dmg
+          if-no-files-found: error
+
   build-linux:
     needs: resolve
     runs-on: ubuntu-latest
@@ -317,7 +404,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [resolve, build-windows, build-linux, package-rpm]
+    needs: [resolve, build-windows, build-macos, build-linux, package-rpm]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -427,14 +514,18 @@ jobs:
           esac
 
           cat >> notes.md <<EOF
-          Windows and Linux builds are attached below. macOS builds from source.
+          Windows, macOS and Linux builds are attached below.
 
           The Windows download is an installer rather than a loose .exe, and the
           Linux RPM is worth preferring over the bare binary, for the same
           reason: both register the \`kommands://\` URL scheme, and a loose
-          binary registers nothing. The binaries carry no code-signing
-          certificate, so Windows SmartScreen warns on first launch: choose
-          More info, then Run anyway.
+          binary registers nothing. The macOS DMG holds the app; drag it into
+          Applications.
+
+          The builds carry no code-signing certificate. Windows SmartScreen
+          warns on first launch: choose More info, then Run anyway. macOS
+          refuses the first launch: open System Settings, Privacy & Security,
+          and choose Open Anyway beside Kommands.
 
           Kommands does not update itself. It never opens a socket to a
           Minecraft server and has no backend of any kind; what it saves stays
