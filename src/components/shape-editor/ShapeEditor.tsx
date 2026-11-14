@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react'
 import {
   closeEditor,
   openEditor,
@@ -16,9 +24,12 @@ import { CommandBar } from './CommandBar'
 import { ContextMenu } from './ContextMenu'
 import { Inspector } from './Inspector'
 import { LayerList } from './LayerList'
+import { LayerMenu } from './LayerMenu'
 import { Palette } from './Palette'
 import { BUTTON, PANEL, PANEL_HEAD, PRIMARY } from './styles'
 import { TemplatesDialog } from './TemplatesDialog'
+import { TileHandles } from './TileHandles'
+import { DEFAULT_SIZES, type Measured, type TileSizes } from './tileSizes'
 import { Viewport } from './Viewport'
 
 /**
@@ -57,10 +68,33 @@ export function ShapeEditor({
   )
   const [templates, setTemplates] = useState(false)
   const [listMenu, setListMenu] = useState<{ x: number; y: number } | null>(null)
+  const [layerMenu, setLayerMenu] = useState<{ id: string; at: { x: number; y: number } } | null>(
+    null,
+  )
+  const openLayerMenu = useCallback(
+    (id: string, at: { x: number; y: number }) => setLayerMenu({ id, at }),
+    [],
+  )
   const closeTemplates = useCallback(() => setTemplates(false), [])
 
   useEditorKeys()
   const parts = useParts()
+  const [sizes, setSizes] = useState<TileSizes>(DEFAULT_SIZES)
+  useTileSizes(parts.root, sizes)
+  const measure = useCallback((): Measured | null => {
+    const [l, r, v, f] = [parts.left, parts.right, parts.opening, parts.bottom].map(
+      (p) => p.current,
+    )
+    const box = f?.querySelector<HTMLElement>('[data-command-box]')
+    if (!l || !r || !v || !box) return null
+    return {
+      left: l.offsetWidth,
+      right: r.offsetWidth,
+      viewWidth: v.offsetWidth,
+      viewHeight: v.offsetHeight,
+      command: box.offsetHeight,
+    }
+  }, [parts.left, parts.right, parts.opening, parts.bottom])
   const leaving = useRef(false)
   useLayoutEffect(() => {
     const ready = parts.ready()
@@ -128,7 +162,7 @@ export function ShapeEditor({
           </div>
         </header>
 
-        <main className="mx-2.5 grid min-h-0 grid-cols-1 gap-2.5 md:grid-cols-[calc(var(--spacing)*53)_minmax(0,1fr)_calc(var(--spacing)*61)] xl:grid-cols-[calc(var(--spacing)*59)_minmax(0,1fr)_calc(var(--spacing)*75)]">
+        <main className="mx-2.5 grid min-h-0 grid-cols-1 gap-2.5 md:grid-cols-[var(--tile-left,calc(var(--spacing)*53))_minmax(0,1fr)_var(--tile-right,calc(var(--spacing)*61))] xl:grid-cols-[var(--tile-left,calc(var(--spacing)*59))_minmax(0,1fr)_var(--tile-right,calc(var(--spacing)*75))]">
           <aside ref={parts.left} aria-label="Shapes" className={`${PANEL} pointer-events-auto`}>
             <div className={PANEL_HEAD}>
               Shapes
@@ -137,9 +171,15 @@ export function ShapeEditor({
               </span>
             </div>
             <Palette onAdd={add} />
-            <LayerList onFind={() => {}} onListMenu={setListMenu} />
+            <LayerList onMenu={openLayerMenu} onListMenu={setListMenu} />
           </aside>
-          <Viewport opening={parts.opening} stage={parts.stage} expression={command.expression} />
+          <Viewport
+            opening={parts.opening}
+            stage={parts.stage}
+            expression={command.expression}
+            onMenu={openLayerMenu}
+            handles={<TileHandles sizes={sizes} measure={measure} onResize={setSizes} />}
+          />
           <aside
             ref={parts.right}
             aria-label="Inspector"
@@ -152,6 +192,7 @@ export function ShapeEditor({
         <CommandBar ref={parts.bottom} command={command} />
       </div>
 
+      {layerMenu && <LayerMenu {...layerMenu} onClose={() => setLayerMenu(null)} />}
       {listMenu && (
         <ContextMenu
           at={listMenu}
@@ -179,11 +220,32 @@ function countShapes(layers: ReturnType<typeof useShapeEditorStore.getState>['la
 }
 
 /**
+ * The dragged tile sizes, as custom properties on the editor that its grid and the
+ * command box read; a size left at its default is no property, so the layout's own
+ * width for the window applies.
+ */
+function useTileSizes(root: RefObject<HTMLElement | null>, sizes: TileSizes) {
+  useLayoutEffect(() => {
+    const el = root.current
+    if (!el) return
+    const set = (name: string, px: number | null) =>
+      px === null ? el.style.removeProperty(name) : el.style.setProperty(name, `${px}px`)
+    set('--tile-left', sizes.left)
+    set('--tile-right', sizes.right)
+    set('--command-height', sizes.command)
+  }, [root, sizes])
+}
+
+/** W, E and R: the gizmo each picks, which also enters Edit. */
+const GIZMO_KEYS = { w: 'translate', e: 'rotate', r: 'scale' } as const
+
+/**
  * The editor's keys, while it is open.
  *
  * Undo and redo always, as in the command editor (`CommandWorkbench` explains why).
- * The rest only when no field has the keyboard, so typing an `s` into a name does not
- * isolate anything.
+ * The rest only when no field or dialog has the keyboard, so typing an `s` into a name
+ * does not isolate anything. Enter enters Edit; Escape leaves it, and in View lets go of the
+ * selection.
  */
 function useEditorKeys() {
   useEffect(() => {
@@ -197,18 +259,34 @@ function useEditorKeys() {
         else store.undo()
         return
       }
-      const typing = (event.target as Element | null)?.closest?.('input, textarea, select')
-      if (typing) return
+      const target = event.target as Element | null
+      // Nor inside a dialog over the editor, where Delete on a button is not the layer's.
+      if (target?.closest?.('input, textarea, select, [role="dialog"]')) return
       const { selected } = store
       if (mod && key === 'd' && selected !== null) {
         event.preventDefault()
         store.duplicateLayer(selected)
+      } else if (mod || event.altKey) {
+        return
       } else if ((key === 'delete' || key === 'backspace') && selected !== null) {
         event.preventDefault()
         store.removeLayer(selected)
-      } else if (key === 's' && !mod) {
+      } else if (key === 'f') {
+        store.findLayer(selected)
+      } else if (key === 's') {
         event.preventDefault()
         store.setIsolate(store.isolate !== null ? null : selected)
+      } else if (key === 'enter') {
+        // A focused button or menu item keeps Enter for itself.
+        if (target?.closest?.('button, a, [role="option"], [role^="menuitem"]')) return
+        event.preventDefault()
+        store.setEdit({ on: true })
+      } else if (key in GIZMO_KEYS) {
+        store.setEdit({ on: true, mode: GIZMO_KEYS[key as keyof typeof GIZMO_KEYS] })
+      } else if (key === 'escape') {
+        if (store.dragging) return
+        if (store.edit.on) store.setEdit({ on: false })
+        else store.select(null)
       }
     }
     // Escape closes the editor's own menus and nothing else: marked as taken before the
