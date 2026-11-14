@@ -18,11 +18,8 @@ export const SITE = {
   version: __APP_VERSION__,
   downloads: {
     windows: `${SNAPSHOT_FILE}/kommands-windows-amd64-installer.exe`,
-    /**
-     * The release workflows build no macOS app yet, so this opens the release rather
-     * than a file that does not exist (docs/home-page.md § Open).
-     */
-    macos: SNAPSHOT,
+    /** Unsigned, ad-hoc signed: docs/distribution.md § Releases (#159). */
+    macos: `${SNAPSHOT_FILE}/kommands-darwin-universal.dmg`,
     /** The RPM's file name carries the build's version, so it is reached from the release. */
     linuxRpm: SNAPSHOT,
     linuxBinary: `${SNAPSHOT_FILE}/kommands-linux-amd64`,

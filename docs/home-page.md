@@ -105,7 +105,9 @@ frogipogi and ceramichello.
 
 ## Open
 
-- **macOS.** The page offers a macOS download; the release workflows build none today.
+- **macOS.** Unsigned until there is a paid Developer ID
+  ([#159](https://github.com/kollektiv-mc/Kommands/issues/159)); the tile links the DMG the
+  release workflows build once that lands.
 - **The hosted app's URL**, which **Open Dashboard** on a separately hosted page would need.
 - **Konnekt's Scheduler** has no way today to pick a command linked from Kommands; the
   Konnekt scene shows one.
