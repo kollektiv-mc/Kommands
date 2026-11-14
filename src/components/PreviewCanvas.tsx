@@ -1,7 +1,15 @@
-import { Component, lazy, Suspense, useCallback, useState, type ReactNode } from 'react'
+import {
+  Component,
+  lazy,
+  Suspense,
+  useCallback,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import type { RegistryLookup } from '../data/versions/types'
 import type { PreviewModule, PreviewStatus } from '../previews/types'
-import { LABEL, WARNING } from './editors/fieldStyles'
+import { FOCUS, LABEL, WARNING } from './editors/fieldStyles'
 
 /**
  * The panel a preview lives in.
@@ -21,12 +29,36 @@ export function PreviewCanvas({
   module,
   values,
   registry,
+  editor,
 }: {
   module: PreviewModule
   values: Readonly<Record<string, unknown>>
   registry: RegistryLookup
+  /**
+   * The module's full-screen editor, when it has one. While it is open the canvas
+   * here is not mounted, since there is only ever one on screen, and `box` is what the
+   * editor opens out of and closes back into.
+   */
+  editor?: {
+    open: boolean
+    onOpen: () => void
+    /** Fetch the editor's code ahead of the click, when the pointer or focus arrives. */
+    warm: () => void
+    /** What the canvas showed when the editor opened, held in its place meanwhile. */
+    picture: string | null
+    box: RefObject<HTMLDivElement | null>
+  }
 }) {
   const [status, setStatus] = useState<PreviewStatus>({})
+  // What the canvas said before the editor opened is stale once it closes: the stage
+  // mounts afresh and reports again, so the old sentence is cleared rather than shown
+  // over the new picture until then.
+  const open = editor?.open === true
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    setStatus({})
+  }
 
   // Stable, so a module may report from an effect without the callback's identity
   // being a reason to run that effect again.
@@ -36,23 +68,42 @@ export function PreviewCanvas({
 
   return (
     <div className="flex h-full flex-col gap-1 p-2">
-      <div className="flex items-center gap-2">
+      <div className="flex min-h-6 items-center gap-2">
         <span className={LABEL}>Preview</span>
         {status.cap !== undefined && <span className="text-text-faint text-2xs">{status.cap}</span>}
+        {editor !== undefined && (
+          <button
+            type="button"
+            onClick={editor.onOpen}
+            onPointerEnter={editor.warm}
+            onFocus={editor.warm}
+            className={`border-hairline border-border-hover text-text-primary hover:bg-hover duration-fast ml-auto inline-flex h-6 items-center rounded-md px-2 text-xs font-medium whitespace-nowrap transition-colors motion-reduce:transition-none ${FOCUS}`}
+          >
+            Open editor
+          </button>
+        )}
       </div>
 
       {/* Fills its tile: the preview is the one tile given the height the fields beside
           it take, so it grows with the command rather than holding a fixed ratio. */}
-      <div className="bg-canvas relative min-h-40 w-full flex-1 overflow-hidden rounded-md">
+      <div
+        ref={editor?.box}
+        className="bg-canvas relative min-h-40 w-full flex-1 overflow-hidden rounded-md"
+      >
         {/* Out of flow, so the canvas, which takes this box's size, never gives it one. */}
-        <div className="absolute inset-0">
-          <PreviewBoundary>
-            <Suspense fallback={<Placeholder>Loading the preview…</Placeholder>}>
-              <PreviewStage module={module} values={values} registry={registry} report={report} />
-            </Suspense>
-          </PreviewBoundary>
-        </div>
-        {status.message !== undefined && <Placeholder>{status.message}</Placeholder>}
+        {!open && (
+          <div className="absolute inset-0">
+            <PreviewBoundary>
+              <Suspense fallback={<Placeholder>Loading the preview…</Placeholder>}>
+                <PreviewStage module={module} values={values} registry={registry} report={report} />
+              </Suspense>
+            </PreviewBoundary>
+          </div>
+        )}
+        {open && editor.picture !== null && (
+          <img alt="" src={editor.picture} className="absolute inset-0 size-full object-cover" />
+        )}
+        {!open && status.message !== undefined && <Placeholder>{status.message}</Placeholder>}
       </div>
 
       {(status.diagnostics ?? []).map((d, i) => (

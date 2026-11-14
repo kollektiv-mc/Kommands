@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useBlocker, useNavigate } from '@tanstack/react-router'
 import { flipIn, flipOut } from '../lib/flip'
+import { FullscreenLayer } from '../lib/fullscreenLayer'
 import { useSheetSize } from '../lib/useSheetSize'
 import { originOf, useUiStore } from '../stores/useUiStore'
 
@@ -48,6 +49,8 @@ export function CommandOverlay({
     settle,
   } = useSheetSize<HTMLDivElement>()
   const backdrop = useRef<HTMLDivElement>(null)
+  // State rather than a ref, so the content below learns the element once it exists.
+  const [layer, setLayer] = useState<HTMLDivElement | null>(null)
   const closing = useRef(false)
   const navigate = useNavigate()
   const originFor = useUiStore((s) => s.originFor)
@@ -199,13 +202,19 @@ export function CommandOverlay({
             <div className="rounded-b-panel min-h-0 flex-1 overflow-hidden">
               <div ref={frame} className="relative">
                 <div ref={content} className="sheet-content overflow-auto">
-                  {children}
+                  <FullscreenLayer.Provider value={layer}>{children}</FullscreenLayer.Provider>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+      {/*
+        Where a full-screen editor opened from the sheet is drawn: the same area as the
+        dim, over the sheet (and over its pinned output, which is raised), and still
+        below the app header.
+      */}
+      <div ref={setLayer} className="pointer-events-none absolute inset-0 z-20" />
     </>
   )
 }

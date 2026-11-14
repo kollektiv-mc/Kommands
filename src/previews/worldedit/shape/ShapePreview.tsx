@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Object3D, type Color, type InstancedMesh } from 'three'
 import { tokenColor } from './color'
+import { expressionSource } from '../../../schema/argument-types/we-expression'
 import type { Diagnostic } from '../../../schema/types'
 import type { PreviewProps } from '../../types'
 import { DEFAULT_SIZE, shapeVoxels, type VoxelField } from './voxels'
@@ -31,7 +32,7 @@ const DEBOUNCE_MS = 150
 const ORIGIN_FLAGS = ['-r', '-o', '-c'] as const
 
 export default function ShapePreview({ values, report }: PreviewProps) {
-  const source = typeof values['expression'] === 'string' ? values['expression'] : ''
+  const source = expressionSource(values['expression'])
   const hollow = values['-h'] === true
   const origin = ORIGIN_FLAGS.find((flag) => values[flag] === true)
 

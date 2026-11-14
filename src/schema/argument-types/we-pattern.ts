@@ -67,6 +67,25 @@ export function serializePattern(value: PatternValue): string {
     .join(',')
 }
 
+/**
+ * A pattern read back from its text, the inverse of `serializePattern` for the list
+ * shape this type covers. An entry it cannot split into a weight and a block keeps its
+ * whole text as the block, which is the same free-text bargain the field makes.
+ */
+export function parsePattern(text: string): PatternValue {
+  const entries = text
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part !== '')
+    .map((part): PatternEntry => {
+      const weighted = /^([0-9]+(?:\.[0-9]*)?)%(.+)$/.exec(part)
+      return weighted
+        ? { block: weighted[2]!, weight: Number(weighted[1]) }
+        : { block: part, weight: '' }
+    })
+  return { entries }
+}
+
 export function validatePattern(value: PatternValue, ctx: SerializeContext): Diagnostic[] {
   const entries = filled(value)
   const out: Diagnostic[] = []

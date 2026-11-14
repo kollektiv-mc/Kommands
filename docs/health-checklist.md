@@ -196,14 +196,19 @@ belongs here.
       against something rather than against expectations. The printer round-trips the
       whole of that same corpus, so cases written to specify the language also specify
       it. The compiler is checked against `reference.ts`, a second and deliberately
-      naive implementation that shares nothing with it — 200 seeded graphs and 7 named
-      ones, bit-exact at 265 points each, because the reference mirrors the emitted
+      naive implementation that shares nothing with it — 200 seeded graphs and 17 named
+      ones (one per modifier and one for the affine node among them), bit-exact at 265
+      points each, because the reference mirrors the emitted
       arithmetic operator for operator rather than comparing within a tolerance that
       would hide a boundary error. `simplify.ts` is checked the same way, before and
       after, which is the only thing that catches a rewrite rule that is quietly wrong.
       The named graphs are not decoration: dropping the coordinate frame from the
       compiler's memo key — the exact bug its sharing design is about — leaves all 200
       generated graphs passing, and only the fixture written for it fails.
+      The shape editor's layer stack is held to the same standard one level up:
+      `src/worldedit/stack/lower.ts` is checked against `oracle.ts`, which reads a stack
+      straight off the editor's rules, on 300 generated stacks. Composing Euler turns in
+      the wrong order, or putting a modifier's pivot on the wrong side, fails it.
       Verify: `pnpm test`.
 
 ## 3. Scalable / future-proof
@@ -439,6 +444,14 @@ it should be stable between runs.
   `expression/compile.ts`). Each is a judgement call: fix it, or give it a directive
   with a reason. Raise `failBelow` as they close; it ends at 100 and the override
   comes out.
+
+**P3: The shape editor has no token for three of its colours**
+
+- The prototype colours the z axis blue, and gives modifier and reference rows their
+  own tint. No role token exists for any of them, so `shape-editor/scrub.ts` draws z in
+  `text-text-secondary` and the layer list shows modifiers and references in neutral
+  tones. The fix is three role tokens in kollektiv's `design/tokens.json` (an axis set,
+  and the two layer kinds), synced here and regenerated, never a literal here.
 
 **P3 — The scrollbar cannot be verified in this repo's own tooling**
 

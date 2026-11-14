@@ -617,3 +617,41 @@ body {
     animation: none;
   }
 }
+
+/* ── Shape editor ────────────────────────────────────────────────────────────
+   The //generate editor's two hand-written pieces: a tooltip that fades in, and
+   the small spinner beside "Evaluating". Both still under reduced motion. */
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.tooltip-enter {
+  animation: tooltip-in var(--duration-fast) var(--ease-standard);
+}
+
+@keyframes spinner-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  width: calc(var(--spacing) * 2.5);
+  height: calc(var(--spacing) * 2.5);
+  border: var(--border-thick) solid var(--border-hover);
+  border-top-color: var(--accent);
+  border-radius: var(--radius-pill);
+  animation: spinner-turn calc(var(--duration-panel) * 2.5) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tooltip-enter,
+  .spinner {
+    animation: none;
+  }
+}

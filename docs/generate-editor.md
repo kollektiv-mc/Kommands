@@ -255,15 +255,28 @@ above with an interface. Only the interface changed.
 
 - A **shape** (sphere, box, cylinder, torus, triangle, cone, gyroid, formula, half) carries
   an operation, **Add**, **Cut** or **Overlap**: union, subtract or intersect with
-  everything below it.
+  everything above it. A Cut at the top of a list has nothing to cut from, and the list
+  marks it as doing nothing.
 - A **group** is one layer to its parent, which is how the stack branches: in A ∪ (B − C),
   C cuts only B because B and C share a group. Nesting is the only branching there is, so
   the document is a tree and maps onto `CsgTree` directly.
 - A **modifier** (mirror, distort, array, radial, bend, taper, revolve) acts on every layer
-  below it in its own list. The prototype lowers modifiers to raw expression nodes;
-  building it properly means modifier nodes in `src/worldedit/csg/`.
+  below it in its own list. Each is a node in `src/worldedit/csg/` that changes its
+  child's frame, as a transform does but not linearly: `mirror`, `wave` and `twist`
+  (Distort's two kinds), `array`, `radial`, `bend`, `taper` and `revolve`. Like a
+  primitive, each acts at the origin along an axis, so a modifier moved or turned in the
+  editor is that node between a transform and its inverse.
 - A **reference** is another `//generate` command drawn as a ghost beside this one, for a
   build that needs one command per material. It is never part of the command.
+
+The document is `src/worldedit/stack/`: plain data (`layers.ts`) so it can be saved in a
+command, sent to a worker and compared for undo, with edits as functions from one stack
+to the next (`edit.ts`). `lower.ts` turns it into a `CsgTree`, building each run of
+same-op shapes below a modifier once rather than once per shape, composing a turned
+placement into one `affine` node, and folding scale into a primitive's size where its
+formula allows. `oracle.ts` says what a stack means straight from these rules, shape by
+shape through every modifier above it, and the lowering is tested against it on 300
+generated stacks, so each of those shortcuts is checked rather than trusted.
 
 **Why a stack and not a graph.** Everything a graph adds over a tree is sharing and
 wiring. Sharing is already found by the compiler, which keys it on the emitted text
@@ -300,16 +313,23 @@ second class of layer that the viewport can only describe rather than show.
 The prototype is the reference for building it; these are the decisions it records, so
 that they are not reopened by accident.
 
-- **Placement.** `//generate` is a small tile in the command sheet with a button that opens
-  this editor full screen; **Done** returns to the sheet.
-- **Opening.** The tile's preview grows to fill the window, scaled evenly and cropped rather
-  than squeezed. The header, palette, command bar and inspector then slide in over it from
-  their own edges, and the live view takes its place. Done runs it backwards.
-- **Layout.** The view fills the whole window, behind everything. The header is an opaque
+- **Placement.** The sheet's preview of `//generate` has an Open editor button that opens
+  this editor full screen; **Done** returns to the sheet. The editor is the shape preview
+  module's `editor` (`docs/adding-a-preview.md` § A full-screen editor), so the sheet never
+  names the command. Done writes the expression, the pattern and `-h` as one undo step,
+  and the layers are saved inside the expression's value (`we-expression.ts`), so the
+  editor opens a saved command where it left off. A command typed by hand opens as one
+  Formula layer holding its text.
+- **Opening.** The tile's preview grows to fill the area below the app header, scaled
+  evenly and cropped rather than squeezed. The header, palette, command bar and inspector
+  then slide in over it from their own edges, and the live view takes its place. Done runs
+  it backwards (`src/lib/editorMotion.ts`).
+- **Layout.** The view fills the whole editor, behind everything. The header is an opaque
   bar, and the palette with the layer list, the inspector and the command bar are opaque
   tiles floating over the view. One gutter separates the header, the tiles and the window
-  edge. The opening between the tiles holds the view's controls and frames the camera, so
-  the build is centred between the tiles; the gaps pass the pointer through to the view.
+  edge. The opening between the tiles holds the view's controls and frames the camera
+  (taken when the camera is reset), so the build is centred between the tiles; the gaps
+  pass the pointer through to the view.
   Tiles resize from the gaps between them.
 - **View and Edit modes**, on Esc and Enter. Only Edit shows the move, turn and scale gizmo,
   with a Snap split button.
@@ -322,8 +342,9 @@ that they are not reopened by accident.
   a to-scale Player.
 - **Ground.** `x`, `y` and `z` run −1..1 across block _centres_, so the outer blocks reach
   half a block past that. The selection box, grid, floor and player sit on the blocks'
-  outer faces, and every template is lowered until its bottom layer is filled at 32³, 64³
-  and 128³.
+  outer faces, and every template's lowest parts reach below −1, so its bottom layer is
+  filled at 32³, 64³ and 128³. The templates are data in `src/data/authored/generate/`,
+  one file each, with that offset written into their coordinates.
 - **Command bar.** Hollow (`-h`) and Round numbers above the Blocks field; the field opens
   a block mix (one row per block, its chance at the right) and its swatches stack in a
   fixed width. The command box reports whether the command fits in chat (256) or a command
@@ -358,6 +379,15 @@ discovery halfway through.
    so `abs(y)<1` leaves the bottom layer empty in game. Switching to `<=` is not the fix: it
    puts single-block bumps on every sphere. A shape meant to touch the edge has to reach
    past it.
+
+   **Decided: an authoring rule, not a compile-time nudge.** Shrinking the coordinates
+   by a hair before every comparison would fill the edge layer, and it is `<=` again by
+   another route: a sphere of radius 1 grows a block at each pole, and every face that sits
+   exactly on a block centre anywhere in the volume moves a layer. What the editor does
+   instead is draw the truth: the selection box, grid and floor sit on the blocks' outer
+   faces, half a block past ±1, so a shape dragged down onto the floor already reaches
+   past the edge. And every template's grounded parts reach below −1, which a test checks
+   at 32³, 64³ and 128³ rather than a table of measured offsets.
 
 Also out of scope, and recorded above rather than here because it is a decision rather
 than a limit: **world masking**, and with it the world-reading functions `query`,
