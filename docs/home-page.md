@@ -2,11 +2,10 @@
 
 What the web build opens on, and the page the standalone app is downloaded from. Both
 were settled in a prototype reviewed in November 2026; this file records what it decided.
-Nothing here is built yet.
+Both pages are built (`src/components/home/`), except the download page's scenes.
 
-Today `/` is the dashboard ([#51](https://github.com/kollektiv-mc/Kommands/issues/51)).
-The home page takes `/` in the web build, and **Open Dashboard** leads to the dashboard
-from it. Which route the dashboard moves to is the first decision of the build.
+The dashboard moved from `/` to `/dashboard` to make room. Which build opens on which
+page is in [`distribution.md`](distribution.md#one-install-two-surfaces).
 
 ---
 
@@ -106,7 +105,6 @@ frogipogi and ceramichello.
 
 ## Open
 
-- **Where the dashboard moves** once `/` is the home page.
 - **macOS.** The page offers a macOS download; the release workflows build none today.
 - **The hosted app's URL**, which **Open Dashboard** on a separately hosted page would need.
 - **Konnekt's Scheduler** has no way today to pick a command linked from Kommands; the
