@@ -47,6 +47,23 @@ describe('two transforms of a kind become one', () => {
       shape((add) =>
         add({
           kind: 'translate',
+          offset: [0.25, 0, 0],
+          child: add({
+            kind: 'translate',
+            offset: [0.5, 0.5, 0],
+            child: add({ kind: 'sphere', radius: 1 }),
+          }),
+        }),
+      ),
+    ).toBe('translate([0.75 0.5 0],sphere(1))')
+  })
+
+  test('but not when the sum prints longer than the two parts', () => {
+    // 0.1 + 0.2 is 0.30000000000000004, which would put float noise in the command.
+    expect(
+      shape((add) =>
+        add({
+          kind: 'translate',
           offset: [0.1, 0, 0],
           child: add({
             kind: 'translate',
@@ -55,7 +72,7 @@ describe('two transforms of a kind become one', () => {
           }),
         }),
       ),
-    ).toBe('translate([0.30000000000000004 0.5 0],sphere(1))')
+    ).toBe('translate([0.1 0 0],translate([0.2 0.5 0],sphere(1)))')
   })
 
   test('scales multiply, and rotations about one axis add', () => {

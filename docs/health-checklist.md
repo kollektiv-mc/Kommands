@@ -196,8 +196,9 @@ belongs here.
       against something rather than against expectations. The printer round-trips the
       whole of that same corpus, so cases written to specify the language also specify
       it. The compiler is checked against `reference.ts`, a second and deliberately
-      naive implementation that shares nothing with it — 200 seeded graphs and 7 named
-      ones, bit-exact at 265 points each, because the reference mirrors the emitted
+      naive implementation that shares nothing with it — 200 seeded graphs and 17 named
+      ones (one per modifier and one for the affine node among them), bit-exact at 265
+      points each, because the reference mirrors the emitted
       arithmetic operator for operator rather than comparing within a tolerance that
       would hide a boundary error. `simplify.ts` is checked the same way, before and
       after, which is the only thing that catches a rewrite rule that is quietly wrong.
