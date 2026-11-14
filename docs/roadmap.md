@@ -63,6 +63,12 @@ is a declared value shape per argument type; see [`persistence.md`](persistence.
   version, world and online player list it already knows. Shares the persistence
   encoding rather than paralleling it. [#43](https://github.com/kollektiv-mc/Kommands/issues/43)
 
+### Alongside: a home page
+
+The web build opens on a home page, and the standalone app gets a page to be downloaded
+from. Nothing in the order above waits on it or blocks it. The reviewed design is in
+[`home-page.md`](home-page.md).
+
 ### Alongside: the command page, rebuilt
 
 Not a step in the order above, and nothing in it waits on this or blocks it. The page
