@@ -1,7 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { DEFAULT_VIEW, useShapeEditorStore } from '../../stores/useShapeEditorStore'
+import { DEFAULT_EDIT, DEFAULT_VIEW, useShapeEditorStore } from '../../stores/useShapeEditorStore'
 import { group, reference, shape } from '../../worldedit/stack/make'
 import type { StageProps } from './viewport/ViewportStage'
 import { ShapeEditor } from './ShapeEditor'
@@ -24,6 +24,7 @@ beforeEach(() => {
   stage.props = null
   store().load({ layers: [], pattern: 'stone', hollow: false, round: false })
   store().setView(DEFAULT_VIEW)
+  store().setEdit(DEFAULT_EDIT)
 })
 
 describe('the view', () => {
@@ -66,5 +67,60 @@ describe('the view', () => {
       state: 'ready',
       pattern: 'copper_block',
     })
+  })
+})
+
+describe('Edit mode', () => {
+  const pressed = (group: string, name: RegExp) =>
+    within(screen.getByRole('group', { name: group }))
+      .getByRole('button', { name })
+      .getAttribute('aria-pressed')
+
+  test('Enter edits, W E R pick the gizmo, Escape steps back', async () => {
+    const user = userEvent.setup()
+    const a = shape('sphere', { name: 'A' })
+    store().load({ layers: [a], pattern: 'stone', hollow: false, round: false })
+    store().select(a.id)
+    render(<ShapeEditor onDone={vi.fn()} />)
+    expect(screen.queryByRole('group', { name: 'Gizmo' })).toBeNull()
+    await user.keyboard('{Enter}')
+    expect(pressed('Mode', /^Edit/)).toBe('true')
+    await user.keyboard('e')
+    expect(pressed('Gizmo', /^Rotate/)).toBe('true')
+    await user.keyboard('r')
+    expect(store().edit.mode).toBe('scale')
+    await user.keyboard('{Escape}')
+    expect(pressed('Mode', /^View/)).toBe('true')
+    expect(store().selected).toBe(a.id)
+    await user.keyboard('{Escape}')
+    expect(store().selected).toBeNull()
+  })
+
+  test('Enter on a focused button presses only the button', async () => {
+    const user = userEvent.setup()
+    render(<ShapeEditor onDone={vi.fn()} />)
+    within(screen.getByRole('group', { name: 'Mode' }))
+      .getByRole('button', { name: /^View/ })
+      .focus()
+    await user.keyboard('{Enter}')
+    expect(store().edit.on).toBe(false)
+  })
+
+  test('the Snap menu sets the steps and turns Snap on', async () => {
+    const user = userEvent.setup()
+    act(() => store().setEdit({ on: true, snap: false }))
+    render(<ShapeEditor onDone={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Snap settings' }))
+    const rotate = screen.getByRole('group', { name: 'Rotate' })
+    await user.click(within(rotate).getByRole('button', { name: '45°' }))
+    expect(store().edit).toMatchObject({ turn: 45, snap: true })
+    await user.click(screen.getByRole('button', { name: 'Blocks' }))
+    const move = screen.getByRole('group', { name: 'Move' })
+    expect(within(move).getByRole('button', { name: '0.05' })).toHaveProperty('disabled', true)
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('group', { name: 'Rotate' })).toBeNull()
+    expect(store().edit.on).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'Snap' }))
+    expect(store().edit.snap).toBe(false)
   })
 })
