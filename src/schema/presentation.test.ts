@@ -68,6 +68,11 @@ describe('choiceLabel', () => {
     expect(choiceLabel(choice(true, lit('force'), lit('normal')), false)).toBe('Continue with')
     expect(choiceLabel(choice(false, lit('as')), true)).toBe('Clause')
   })
+
+  test('a choice between commands is called Command', () => {
+    const between = choice(false, seq(lit('//replace'), arg('mask')), seq(lit('/brush')))
+    expect(choiceLabel(between, false)).toBe('Command')
+  })
 })
 
 describe('choiceControl', () => {

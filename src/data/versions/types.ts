@@ -39,6 +39,18 @@ export interface RegistryLookup {
   entries(registry: string): readonly string[]
   /** Whether an id exists in this version. Used by validators, which warn. */
   has(registry: string, id: string): boolean
+  /**
+   * A block's state properties and their defaults, from the version's `blocks.json`,
+   * by bare id. Undefined for an unknown block, and absent on a lookup built without
+   * the block data.
+   */
+  blockStates?(block: string): BlockStates | undefined
+}
+
+/** One block's state properties: every value each can take, and the one it defaults to. */
+export interface BlockStates {
+  properties: Readonly<Record<string, readonly string[]>>
+  defaults: Readonly<Record<string, string>>
 }
 
 export interface VersionDefinition {
