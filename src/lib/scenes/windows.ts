@@ -19,6 +19,7 @@ import {
   type SceneCommandKey,
 } from '../../data/home/scenes'
 import { editIcon, gearIcon, linkIcon, markIcon, pinIcon, searchIcon } from './icons'
+import { currentTheme } from '../theme'
 
 const text = (tag: 'b' | 'span' | 'small' | 'div' | 'i', className: string, value: string) =>
   el(tag, className, value)
@@ -278,10 +279,12 @@ function konnektTiles(
 
 /** A command linked from Kommands, as a button on Konnekt's Commands tile. */
 export function linkedButton(key: SceneCommandKey, fresh = false): HTMLElement {
+  const c = SCENE_COMMANDS[key]
   return el(
     'div',
     fresh ? 'kn-cmd linked fresh' : 'kn-cmd linked',
-    el('b', '', linkIcon(), SCENE_COMMANDS[key].name),
+    el('b', '', text('span', '', c.name), linkIcon()),
+    text('small', '', c.command),
   )
 }
 
@@ -306,7 +309,7 @@ export function konnektWindow(
     ...SERVERS.map((s) => text('div', s === server ? 'on' : '', s)),
   )
   const tileList = el('div', 'kn-tiles', ...KONNEKT_TILES.map((t) => text('div', '', t)))
-  return el(
+  const kn = el(
     'div',
     'kn',
     el('div', 'kn-title', 'Konnekt', text('span', 'kn-controls', '⚙ – ▢ ×')),
@@ -322,4 +325,12 @@ export function konnektWindow(
       grid,
     ),
   )
+  // Konnekt wears its own default theme, not the page's: the shared tokens with no skin
+  // and its green accent. The outer element takes the dark defaults, accent included,
+  // and the window itself the page's theme, which in light leaves that accent as
+  // Konnekt's own light theme does (the token source gives the accent no light value).
+  kn.dataset.theme = currentTheme()
+  const skin = el('div', 'kn-skin', kn)
+  skin.dataset.theme = 'dark'
+  return skin
 }

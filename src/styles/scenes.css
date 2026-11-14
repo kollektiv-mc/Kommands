@@ -836,13 +836,31 @@
 
 /* ── Konnekt ───────────────────────────────────────────────────────────── */
 
+/* Konnekt in its default theme (windows.ts: konnektWindow). The data-theme attributes
+   re-apply the shared token sheet under it, so none of Kommands' skin reaches it, and
+   it draws its own frame in its own border colour. */
+.sc-win:has(> .kn-skin) {
+  border: 0;
+}
+
+.kn-skin {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
 .kn {
-  --kn-accent: var(--brand-konnekt);
+  --kn-accent: var(--accent);
 
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-hover);
+  border-radius: inherit;
+  color: var(--text-primary);
   background: var(--bg-base);
 }
 
@@ -1032,7 +1050,7 @@
   display: grid;
   flex: 1;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-auto-rows: 56px;
+  grid-auto-rows: minmax(56px, auto);
   align-content: start;
   gap: 6px;
   padding: 8px;
@@ -1042,11 +1060,13 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  gap: 2px;
   min-width: 0;
   padding: 8px;
   border: 1px solid var(--border-subtle);
   border-radius: 5px;
   font-size: 11.5px;
+  color: var(--text-secondary);
   transition:
     transform 160ms,
     background 200ms;
@@ -1056,20 +1076,31 @@
   font-weight: 400;
 }
 
+/* As Konnekt draws one: the label, a faint link glyph, and the command beneath. At
+   this size the glyph sits in the corner, so the label keeps the button's width. */
 .kn-cmd.linked {
-  border-color: rgb(var(--brand-kommands-rgb) / 0.45);
+  position: relative;
 }
 
 .kn-cmd.linked b {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-weight: 500;
+  padding-right: 8px;
+  line-height: 1.2;
 }
 
 .kn-cmd.linked svg {
-  flex: none;
-  color: var(--brand-kommands);
+  position: absolute;
+  top: 7px;
+  right: 6px;
+  color: var(--text-faint);
+}
+
+.kn-cmd small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-site-mono);
+  font-size: 9px;
+  color: var(--text-faint);
 }
 
 .kn-cmd.fresh {
@@ -1322,7 +1353,7 @@
 }
 
 .kn-field.on {
-  border-color: var(--brand-kommands);
+  border-color: var(--kn-accent);
 }
 
 .kn-field.set {
@@ -1332,7 +1363,7 @@
 .kn-field.set > svg {
   flex: none;
   margin-left: 0;
-  color: var(--brand-kommands);
+  color: var(--text-faint);
 }
 
 .kn-menu {
@@ -1389,7 +1420,7 @@
 
 .kn-menu svg {
   flex: none;
-  color: var(--brand-kommands);
+  color: var(--text-faint);
 }
 
 .kn-menu small {
@@ -1404,8 +1435,8 @@
 }
 
 .kn-menu .hot {
-  background: rgb(var(--brand-kommands-rgb) / 0.14);
-  color: var(--brand-kommands);
+  background: var(--hover-surface);
+  color: var(--text-primary);
 }
 
 @media (max-width: 53.75rem) {
