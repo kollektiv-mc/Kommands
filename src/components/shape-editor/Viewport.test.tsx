@@ -124,3 +124,36 @@ describe('Edit mode', () => {
     expect(store().edit.snap).toBe(false)
   })
 })
+
+describe('Find', () => {
+  test('F asks the view to frame the selected layer', async () => {
+    const user = userEvent.setup()
+    const a = shape('sphere', { name: 'A' })
+    store().load({ layers: [a], pattern: 'stone', hollow: false, round: false })
+    store().select(a.id)
+    const before = store().finding.n
+    render(<ShapeEditor onDone={vi.fn()} />)
+    await user.keyboard('f')
+    expect(store().finding).toEqual({ id: a.id, n: before + 1 })
+  })
+
+  test('a row menu Find frames that layer', async () => {
+    const user = userEvent.setup()
+    const a = shape('sphere', { name: 'A' })
+    store().load({ layers: [a], pattern: 'stone', hollow: false, round: false })
+    render(<ShapeEditor onDone={vi.fn()} />)
+    const [item] = screen.getAllByRole('treeitem')
+    await user.pointer({ keys: '[MouseRight]', target: item!.querySelector('[data-row]')! })
+    await user.click(screen.getByRole('menuitem', { name: 'Find' }))
+    expect(store().finding.id).toBe(a.id)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  test('a right-click in the view opens that layer menu', () => {
+    const a = shape('sphere', { name: 'A' })
+    store().load({ layers: [a], pattern: 'stone', hollow: false, round: false })
+    render(<ShapeEditor onDone={vi.fn()} />)
+    act(() => stage.props?.onMenu(a.id, { x: 10, y: 10 }))
+    expect(screen.getByRole('menuitem', { name: 'Hide' })).toBeTruthy()
+  })
+})

@@ -35,8 +35,11 @@ export function Viewport({
   expression,
   opening,
   stage,
+  onMenu,
 }: {
   expression: string
+  /** A right-click on a layer in the view: that layer's menu. */
+  onMenu: (id: string, at: { x: number; y: number }) => void
   opening: RefObject<HTMLElement | null>
   /** Where the canvas goes: the editor's full area, under everything else. */
   stage: HTMLElement | null
@@ -80,6 +83,7 @@ export function Viewport({
                 size={size}
                 homeKey={home}
                 opening={opening}
+                onMenu={onMenu}
               />
             </Suspense>
           </StageBoundary>,

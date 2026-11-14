@@ -97,6 +97,8 @@ interface ShapeEditorState extends ShapeSnapshot {
   edit: EditOptions
   /** A gizmo drag is under way, which Escape leaves alone. */
   dragging: boolean
+  /** The last Find: which layer the view frames, or the whole selection; `n` counts asks. */
+  finding: { id: string | null; n: number }
 
   load: (snapshot: ShapeSnapshot) => void
   select: (id: string | null) => void
@@ -104,6 +106,8 @@ interface ShapeEditorState extends ShapeSnapshot {
   setView: (change: Partial<ViewOptions>) => void
   setEdit: (change: Partial<EditOptions>) => void
   setDragging: (dragging: boolean) => void
+  /** Frame a layer in the view, or the whole selection for null. */
+  findLayer: (id: string | null) => void
 
   /** Add a layer where the palette puts it, and select it. */
   add: (layer: Layer) => void
@@ -170,6 +174,7 @@ export const useShapeEditorStore = create<ShapeEditorState>((set, get) => {
     view: DEFAULT_VIEW,
     edit: DEFAULT_EDIT,
     dragging: false,
+    finding: { id: null, n: 0 },
 
     load: (snapshot) =>
       set({ ...snapshot, selected: null, isolate: null, history: emptyHistory<ShapeSnapshot>() }),
@@ -183,6 +188,7 @@ export const useShapeEditorStore = create<ShapeEditorState>((set, get) => {
     setView: (change) => set((s) => ({ view: { ...s.view, ...change } })),
     setEdit: (change) => set((s) => ({ edit: { ...s.edit, ...change } })),
     setDragging: (dragging) => set({ dragging }),
+    findLayer: (id) => set((s) => ({ finding: { id, n: s.finding.n + 1 } })),
 
     add: (layer) => {
       const { layers, selected } = get()
