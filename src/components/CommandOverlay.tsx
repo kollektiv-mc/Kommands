@@ -50,6 +50,10 @@ export function CommandOverlay({
     settle,
   } = useSheetSize<HTMLDivElement>()
   const backdrop = useRef<HTMLDivElement>(null)
+  const body = useRef<HTMLDivElement>(null)
+  /** Shows the tile the editor grew out of again; it stays hidden while it is open. */
+  const reveal = useRef<(() => void) | null>(null)
+  const openedFrom = useRef(originKey)
   // State rather than a ref, so the content below learns the element once it exists.
   const [layer, setLayer] = useState<HTMLDivElement | null>(null)
   const closing = useRef(false)
@@ -77,13 +81,16 @@ export function CommandOverlay({
     if (closing.current) return
     closing.current = true
     const home = () => void navigate({ to: '/dashboard' })
+    // Ends an open still playing, so the close measures the sheet where it stands.
+    reveal.current?.()
+    reveal.current = null
     const tile = originElement(originKey)
-    const sheet = panel.current
-    if (tile && sheet && stage.current) {
-      if (morphOut({ panel: sheet, tile, host: stage.current }, backdrop.current, home)) return
+    if (tile && panel.current && body.current) {
+      const parts = { panel: panel.current, body: body.current, tile }
+      if (morphOut(parts, backdrop.current, home)) return
     }
     flipOut(panel.current, collapseTo(), backdrop.current, home)
-  }, [collapseTo, navigate, panel, stage, originKey])
+  }, [collapseTo, navigate, panel, originKey])
 
   // Another command, or the list: the one on screen fades out before the route changes,
   // and the new one is placed and faded in once the sheet has resized to it.
@@ -106,13 +113,22 @@ export function CommandOverlay({
     // even when a tile for the same command is on the dashboard underneath.
     const origin = originFor(originKey)
     const tile = origin === null ? null : originElement(originKey)
-    const grown =
-      tile && stage.current
-        ? morphIn({ panel: panel.current, tile, host: stage.current }, backdrop.current)
+    reveal.current =
+      tile && body.current
+        ? morphIn({ panel: panel.current, body: body.current, tile }, backdrop.current)
         : null
-    return grown ?? flipIn(panel.current, origin, backdrop.current)
+    if (!reveal.current) return flipIn(panel.current, origin, backdrop.current)
+    // The tile shows again when the editor goes, whichever way it goes.
+    return () => reveal.current?.()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per mount, like the open it animates
   }, [])
+
+  // Moved on to another command: the editor no longer stands for the tile it grew from.
+  useEffect(() => {
+    if (originKey === openedFrom.current) return
+    reveal.current?.()
+    reveal.current = null
+  }, [originKey])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -171,7 +187,7 @@ export function CommandOverlay({
             aria-hidden="true"
             className="border-hairline border-border-subtle bg-canvas rounded-panel absolute inset-0 bg-[linear-gradient(var(--bg-surface),var(--bg-surface))]"
           />
-          <div className="relative flex h-full flex-col">
+          <div ref={body} className="relative flex h-full flex-col">
             {/*
               The band that says where you are: the editor, not the dashboard. The
               accent wash and the Editor mark are what the dashboard's panels do not
