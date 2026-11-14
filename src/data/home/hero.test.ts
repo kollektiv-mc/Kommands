@@ -150,9 +150,23 @@ test('a shape with an object reads alone, added and cut', () => {
   const shape = HERO_SHAPES.find((s) => s.object)
   if (!shape) throw new Error('no shape with an object')
   const at = (obj: number) => exprText(shape, { ...shape.init, obj })
-  expect(at(0)).not.toContain('…')
+  expect(at(0)).not.toMatch(/^…$/)
   expect(at(1)).toMatch(/^…\|\|/)
   expect(at(2)).toMatch(/^…&&!\(.*\)$/)
+})
+
+// The layout reserves the expression a structure ends on, so one typed much longer
+// spills past its tile and snaps back when it folds.
+test('every expression the hero shows fits on one line of its tile', () => {
+  for (const v of HERO_SHAPES) {
+    const states: ShapeState[] = v.object ? [0, 1, 2].map((obj) => ({ ...v.init, obj })) : []
+    const end: ShapeState = { ...v.init, obj: v.object ? 2 : 0 }
+    for (const [param, to] of v.drags) end[param] = to
+    for (const state of [v.init, ...states, end]) {
+      const text = exprText(v, state)
+      expect(text.length, `${v.block}: ${text}`).toBeLessThanOrEqual(40)
+    }
+  }
 })
 
 test('a dragged number shows with two decimals', () => {

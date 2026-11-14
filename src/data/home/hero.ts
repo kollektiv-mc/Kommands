@@ -163,18 +163,28 @@ const RESIZE: HeroShape[] = [
 
 /**
  * The expression of a structure with an object: alone, added to it, or cut from it.
- * `pre` is the statements before the shape; a shape that is an "or" of parts is
- * bracketed before an object is cut from it, because `&&` binds tighter than `||`.
+ * `pre` is the statements before the shape, and the shape is `shown` followed by
+ * `rest`. Alone, only `shown` is visible and the rest folds, so a long structure types
+ * no more than the expression it ends on (the layout reserves the end, so anything
+ * longer would spill and then snap back). A shape that is an "or" of parts is bracketed
+ * before an object is cut from it, because `&&` binds tighter than `||`.
  */
 function withObject(
   pre: string,
-  base: string,
+  shown: string,
+  rest: string,
   object: (s: ShapeState) => readonly ExprPiece[],
 ): HeroShape['expr'] {
+  const base = shown + rest
   const cutFrom = base.includes('||') ? `(${base})` : base
+  const alone: ExprPiece[] = [
+    ...(pre ? [{ fold: pre }] : []),
+    shown,
+    ...(rest ? [{ fold: rest }] : []),
+  ]
   return (s: ShapeState) =>
     s.obj === 0
-      ? [pre + base]
+      ? alone
       : s.obj === 1
         ? [{ fold: pre + base }, '||', ...object(s)]
         : [{ fold: pre + cutFrom }, '&&!(', ...object(s), ')']
@@ -228,7 +238,8 @@ const CUT: HeroShape[] = [
     object: { name: 'Cylinder', base: drum, field: arena },
     expr: withObject(
       'r=sqrt(x^2+z^2);',
-      'r<0.9&&y<0.1&&!(abs(sin(atan2(z,x)*5))<0.5&&(y+1)%0.55<0.38)',
+      'r<0.9&&y<0.1&&',
+      '!(abs(sin(atan2(z,x)*5))<0.5&&(y+1)%0.55<0.38)',
       () => ['x^2+z^2<', { param: 'R' }, '^2&&y>-0.85'],
     ),
     handles: { side: (s) => [s.R, 0.1, 0] },
@@ -244,7 +255,8 @@ const CUT: HeroShape[] = [
     object: { name: 'Box', base: keep, field: gate },
     expr: withObject(
       'd=(abs(x)-0.55)^2+(abs(z)-0.55)^2;m=max(abs(x),abs(z));',
-      'm<0.55&&y<0.15||m>0.43&&m<0.55&&y<0.3&&sin((x+z)*20)>0||d<0.0625&&y<0.45||y>0.4&&sqrt(d)<0.65*(0.85-y)',
+      'm<0.55&&y<0.15||',
+      'm>0.43&&m<0.55&&y<0.3&&sin((x+z)*20)>0||d<0.0625&&y<0.45||y>0.4&&sqrt(d)<0.65*(0.85-y)',
       () => ['abs(x)<0.16&&y<', { param: 'G' }],
     ),
     handles: { top: (s) => [0, s.G, 0.6] },
@@ -258,7 +270,7 @@ const CUT: HeroShape[] = [
     init: { R: 0.45, obj: 0 },
     field: combined(span, arch),
     object: { name: 'Cylinder', base: span, field: arch },
-    expr: withObject('', 'abs(z)<0.28&&(y<-0.3||abs(abs(x)-0.72)<0.16&&y<0.35)', () => [
+    expr: withObject('', 'abs(z)<0.28&&(y<-0.3||', 'abs(abs(x)-0.72)<0.16&&y<0.35)', () => [
       'x^2+(y+1.15)^2<',
       { param: 'R' },
       '^2',

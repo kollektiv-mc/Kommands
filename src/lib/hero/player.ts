@@ -93,13 +93,55 @@ async function foldRaw(raw: HTMLElement, wait: Clock['wait']) {
 
 // ── Layout ──────────────────────────────────────────────────────────────────
 
+/** Widths per part: as a tile, and as typed text once spaced out and coloured in. */
+interface PartWidths {
+  tiles: readonly number[]
+  text: readonly number[]
+}
+
+/**
+ * Where to cut a tiled command into rows: at least `min` rows, every row's typed text
+ * inside `room` so nothing wraps while it types or spaces out, and among those the cut
+ * whose widest row of tiles is narrowest. Returns the index each row after the first
+ * starts at, or null when some part is wider than `room` on its own.
+ */
+export function cutRows(
+  w: PartWidths,
+  gap: { tile: number; text: number },
+  room: number,
+  min: number,
+): number[] | null {
+  const n = w.tiles.length
+  const span = (of: readonly number[], g: number, a: number, b: number) =>
+    of.slice(a, b).reduce((t, v) => t + v, 0) + g * (b - a - 1)
+  const fits = (a: number, b: number) => span(w.text, gap.text, a, b) <= room
+  const best = (a: number, k: number): { max: number; cuts: number[] } | null => {
+    if (k === 1) return fits(a, n) ? { max: span(w.tiles, gap.tile, a, n), cuts: [] } : null
+    let pick: { max: number; cuts: number[] } | null = null
+    for (let c = a + 1; c <= n - k + 1; c++) {
+      const rest = fits(a, c) ? best(c, k - 1) : null
+      if (!rest) continue
+      const max = Math.max(span(w.tiles, gap.tile, a, c), rest.max)
+      if (!pick || max < pick.max) pick = { max, cuts: [c, ...rest.cuts] }
+    }
+    return pick
+  }
+  for (let k = Math.max(1, min); k <= n; k++) {
+    const pick = best(0, k)
+    if (pick) return pick.cuts
+  }
+  return null
+}
+
 const ends = new WeakMap<HTMLElement, [number, number]>()
 
 /**
  * Lay the command out in its final state (every part, final text, final classes), note
  * which line each part lands on, and fix those lines as rows. The typed size is then
  * fitted so the widest row fits on one line in the spaced, coloured state, and a tiled
- * command's tiles are shared out between its rows so none is left alone on the last.
+ * command's tiles are shared out between its rows so none is left alone on the last,
+ * as long as every row's text still fits: a part that wrapped would rewrap a letter at
+ * a time as the parts space out.
  */
 function layout(cmd: HTMLElement, h: HeroCommand, fast: boolean): HTMLElement[] {
   const parts = findAll(cmd, '.hp')
@@ -156,22 +198,31 @@ function layout(cmd: HTMLElement, h: HeroCommand, fast: boolean): HTMLElement[] 
   cmd.style.setProperty('--fs', `${fitted.toFixed(1)}px`)
 
   const rows = findAll(cmd, '.hero-row')
-  if (h.tiles && rows.length > 1 && rows[0]) {
+  if (h.tiles && rows[0]) {
+    const room = cmd.clientWidth * 0.97
+    const fontOf = () => parseFloat(getComputedStyle(cmd).fontSize)
     const gap = parseFloat(getComputedStyle(rows[0]).columnGap) || 0
-    const widths = parts.map((p) => ends.get(p)?.[0] ?? 0)
-    const span = (a: number, b: number) =>
-      widths.slice(a, b).reduce((t, v) => t + v, 0) + gap * (b - a - 1)
-    const best = (a: number, k: number): { max: number; cuts: number[] } => {
-      if (k === 1) return { max: span(a, parts.length), cuts: [] }
-      let pick: { max: number; cuts: number[] } | null = null
-      for (let c = a + 1; c <= parts.length - k + 1; c++) {
-        const rest = best(c, k - 1)
-        const max = Math.max(span(a, c), rest.max)
-        if (!pick || max < pick.max) pick = { max, cuts: [c, ...rest.cuts] }
-      }
-      return pick ?? { max: span(a, parts.length), cuts: [] }
+    const gapEm = gap / fontOf()
+    const tiles = parts.map((p) => ends.get(p)?.[0] ?? 0)
+    const plan = () =>
+      cutRows(
+        { tiles, text: parts.map((p) => p.getBoundingClientRect().width) },
+        { tile: gap, text: gapEm * fontOf() },
+        room,
+        rows.length,
+      )
+    let cuts = plan()
+    // A part wider than the column on its own: type smaller rather than let it wrap,
+    // down to a size that is still legible.
+    if (!cuts) {
+      const widest = Math.max(...parts.map((p) => p.getBoundingClientRect().width))
+      cmd.style.setProperty('--fs', `${Math.max(11, (fontOf() * room) / widest).toFixed(1)}px`)
+      cuts = plan()
     }
-    const stops = [...best(0, rows.length).cuts, parts.length]
+    // Still too wide: it gets a row to itself (every part does, when nothing else
+    // fits) and wraps there at a width that never changes, like a terminal line.
+    for (const p of parts) p.classList.toggle('wraps', p.getBoundingClientRect().width > room)
+    const stops = [...(cuts ?? parts.map((_, i) => i + 1).slice(0, -1)), parts.length]
     cmd.textContent = ''
     stops.forEach((stop, i) => {
       const row = el('div', 'hero-row')

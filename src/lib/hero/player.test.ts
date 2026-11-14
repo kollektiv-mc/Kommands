@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { startHero, takeTurns } from './player'
+import { cutRows, startHero, takeTurns } from './player'
 import { HERO_SEQUENCE, HERO_SHAPES } from '../../data/home/hero'
 import type { HeroCommand } from './types'
 
@@ -143,4 +143,16 @@ test('/execute plays its steps through to its exit', async () => {
   expect(host.hasAttribute('data-out')).toBe(true)
   expect(texts(host, '.hero-step-pill')).toEqual(['as', 'at', 'if', 'unless', 'run'])
   expect(animate).toHaveBeenCalled()
+})
+
+test('rows are cut so every row of typed text fits, then by the widest tile row', () => {
+  const gap = { tile: 10, text: 10 }
+  const tiles = [50, 200, 200, 50]
+  // Two rows by tiles alone would be [50 200] [200 50]; the text of the second is too wide.
+  expect(cutRows({ tiles, text: [40, 100, 300, 40] }, gap, 400, 2)).toEqual([2])
+  expect(cutRows({ tiles: [200, 50, 50, 200], text: [90, 90, 90, 90] }, gap, 400, 2)).toEqual([2])
+  // Nothing fits in two rows, so it takes three rather than wrap.
+  expect(cutRows({ tiles, text: [40, 300, 300, 300] }, gap, 400, 2)).toEqual([2, 3])
+  // A part wider than the room on its own cannot be placed.
+  expect(cutRows({ tiles, text: [40, 500, 40, 40] }, gap, 400, 1)).toBeNull()
 })
