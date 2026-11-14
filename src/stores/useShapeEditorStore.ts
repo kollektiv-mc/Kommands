@@ -47,7 +47,13 @@ interface ShapeEditorState extends ShapeSnapshot {
 
   /** Add a layer where the palette puts it, and select it. */
   add: (layer: Layer) => void
+  /**
+   * Add a template as one group at the top of the list, so nothing above it bends it.
+   * Into an empty list it also brings its blocks, and lands unfolded.
+   */
   applyTemplate: (template: TemplateSpec) => void
+  /** Remove every layer, as one undo step. */
+  clear: () => void
   /**
    * Change one layer. Calls with the same `tag` in a row are one undo step, so dragging
    * a value is one step rather than one per frame.
@@ -124,7 +130,20 @@ export const useShapeEditorStore = create<ShapeEditorState>((set, get) => {
     },
     applyTemplate: (template) => {
       const [outer] = templateLayers(template)
-      if (outer) get().add(outer)
+      if (!outer) return
+      const { layers } = get()
+      const empty = layers.length === 0
+      const placed = outer.type === 'group' ? { ...outer, open: empty } : outer
+      commit({
+        layers: insert(layers, placed, { parent: null, index: 0 }),
+        selected: placed.id,
+        ...(empty ? { pattern: template.pattern } : {}),
+      })
+    },
+    clear: () => {
+      if (get().layers.length === 0) return
+      commit({ layers: [], selected: null })
+      set({ isolate: null })
     },
     change: (id, edit, tag) => commit({ layers: update(get().layers, id, edit) }, tag),
     settle: () => set((s) => ({ history: { ...s.history, lastTag: null } })),
