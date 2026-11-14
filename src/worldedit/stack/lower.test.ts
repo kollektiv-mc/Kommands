@@ -143,6 +143,17 @@ describe('modifiers act on what is below them', () => {
     expect(command(layers)).toBe('(abs(x-0.25)-0.25)^2+y^2+z^2<0.09')
   })
 
+  test('a turn about y alone keeps the pivot it mixes', () => {
+    // A mirror in x turned about y: x and z both matter, and y does not.
+    for (const kind of ['mirror', 'array', 'radial'] as const) {
+      const layers = [
+        modifier(kind, { pos: [0.3, 0.2, 0.6], rot: [0, 60, 0] }),
+        shape('box', { params: { width: 0.4, height: 0.5, depth: 0.3 }, pos: [0.5, 0, 0.2] }),
+      ]
+      expect(disagreements(layers, seeded(BASE_SEED)), kind).toEqual([])
+    }
+  })
+
   test('a modifier that does nothing is not in the command', () => {
     const sphere = shape('sphere', { params: { radius: 1 } })
     for (const idle of [

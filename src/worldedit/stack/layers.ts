@@ -12,7 +12,9 @@
  * which are the expression's: −1..1 across the selection.
  */
 
-export type Vec3 = readonly [number, number, number]
+import type { Vec3 } from '../csg'
+
+export type { Vec3 }
 export type AxisName = 'x' | 'y' | 'z'
 export type Op = 'add' | 'cut' | 'overlap'
 

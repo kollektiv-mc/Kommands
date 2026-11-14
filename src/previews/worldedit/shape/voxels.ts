@@ -35,9 +35,9 @@ export type ShapeResult =
 export const MAX_SIZE = 64
 export const DEFAULT_SIZE = 32
 
-export function clampSize(size: number): number {
+export function clampSize(size: number, max = MAX_SIZE): number {
   if (!Number.isFinite(size)) return DEFAULT_SIZE
-  return Math.min(MAX_SIZE, Math.max(1, Math.trunc(size)))
+  return Math.min(max, Math.max(1, Math.trunc(size)))
 }
 
 /**
@@ -47,7 +47,13 @@ export function clampSize(size: number): number {
  * an empty field are all `ok: false` with a reason — the command is the product and it
  * generates either way, per `.claude/rules/previews.md`.
  */
-export function shapeVoxels(source: string, size: number, hollow: boolean): ShapeResult {
+export function shapeVoxels(
+  source: string,
+  size: number,
+  hollow: boolean,
+  /** The cap. The shape editor evaluates off the main thread, so it may go further. */
+  max = MAX_SIZE,
+): ShapeResult {
   if (source.trim() === '') {
     return { ok: false, reason: 'Enter an expression to see the shape.', diagnostics: [] }
   }
@@ -61,7 +67,7 @@ export function shapeVoxels(source: string, size: number, hollow: boolean): Shap
     }
   }
 
-  const span = clampSize(size)
+  const span = clampSize(size, max)
   // Hollow reads one layer beyond the region, so it has to be evaluated there too.
   const grid = evaluateGrid(compiled.expression, span, { pad: hollow ? 1 : 0 })
   if ('failure' in grid) {
