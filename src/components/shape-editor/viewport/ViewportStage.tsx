@@ -29,6 +29,7 @@ import type { VoxelField } from '../../../previews/worldedit/shape/voxels'
 import { cssToken, tokenColor, tokenCssColor } from '../../../previews/worldedit/shape/color'
 import { useShapeEditorStore, type ViewOptions } from '../../../stores/useShapeEditorStore'
 import type { Layer, Op, ReferenceLayer, ShapeLayer } from '../../../worldedit/stack/layers'
+import { pivotOf } from '../../../worldedit/stack/lower'
 import { HOME, blockTexture, faceGeometry, outlineGeometry } from './blockMesh'
 import {
   blockColour,
@@ -40,6 +41,7 @@ import {
   type Cut,
 } from './faces'
 import { ghostOf, ghostOpacity } from './ghosts'
+import { ModifierGuide } from './ModifierGuide'
 import { Gizmo } from './Gizmo'
 import type { ReferenceVoxels } from './useReferenceVoxels'
 import { ViewControls } from './ViewControls'
@@ -163,6 +165,7 @@ interface Colours {
   op: Record<Op, Color | undefined>
   line: Color | undefined
   reference: Color | undefined
+  modifier: Color | undefined
   figure: Color | undefined
   /** Solid shading's one colour: smooth stone, a neutral grey with a block's own grain. */
   solid: Color
@@ -178,9 +181,10 @@ function useColours(): Colours {
         overlap: tokenColor('--warning-rgb'),
       },
       line: tokenCssColor('--text-primary'),
-      // References and the figure have no colour of their own yet; see
+      // References, modifiers and the figure have no colour of their own yet; see
       // docs/health-checklist.md, Open backlog.
       reference: tokenCssColor('--text-secondary'),
+      modifier: tokenCssColor('--text-secondary'),
       figure: tokenCssColor('--text-muted'),
       solid: blockColour('smooth_stone'),
     }),
@@ -333,13 +337,13 @@ interface TreeContext {
 /**
  * The layers as the view draws them: each in its parent's frame, as the compiler
  * places it. Hidden layers and everything inside a hidden group are left out.
- * Modifiers draw nothing until Edit mode gives them guides.
+ * A modifier draws its guide.
  */
 function LayerTree({ layers, context }: { layers: readonly Layer[]; context: TreeContext }) {
   return (
     <>
       {layers.map((layer) =>
-        layer.visible && layer.type !== 'modifier' ? (
+        layer.visible ? (
           <group
             key={layer.id}
             ref={(o) => {
@@ -349,9 +353,11 @@ function LayerTree({ layers, context }: { layers: readonly Layer[]; context: Tre
                 if (context.objects.get(layer.id) === o) context.objects.delete(layer.id)
               }
             }}
-            position={layer.pos}
+            // A modifier sits where it works about, which is not always all of its
+            // position, and never scales.
+            position={layer.type === 'modifier' ? pivotOf(layer) : layer.pos}
             rotation={[layer.rot[0] * DEG, layer.rot[1] * DEG, layer.rot[2] * DEG]}
-            scale={layer.scl}
+            scale={layer.type === 'modifier' ? 1 : layer.scl}
           >
             {layer.type === 'group' ? (
               <>
@@ -364,6 +370,13 @@ function LayerTree({ layers, context }: { layers: readonly Layer[]; context: Tre
               </>
             ) : layer.type === 'reference' ? (
               <ReferenceBlocks layer={layer} context={context} />
+            ) : layer.type === 'modifier' ? (
+              <ModifierGuide
+                layer={layer}
+                selected={context.selected === layer.id}
+                colour={context.colours.modifier}
+                clip={context.clip}
+              />
             ) : (
               <ShapeGhost layer={layer} context={context} />
             )}

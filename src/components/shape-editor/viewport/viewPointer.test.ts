@@ -1,10 +1,12 @@
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, PerspectiveCamera, Vector3 } from 'three'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { useShapeEditorStore } from '../../../stores/useShapeEditorStore'
+import { modifier } from '../../../worldedit/stack/make'
+import { bendTip } from './guides'
 import { listenToPointer, type PointerOptions } from './viewPointer'
 
 /** A 100 by 100 canvas, looking down z at two boxes, the nearer one `front`. */
-function setUp(overrides: Partial<PointerOptions> = {}) {
+function setUp(overrides: Partial<PointerOptions> & { extras?: Mesh[] } = {}) {
   const canvas = document.createElement('div')
   canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect
   Object.defineProperty(canvas, 'clientHeight', { value: 100 })
@@ -22,6 +24,7 @@ function setUp(overrides: Partial<PointerOptions> = {}) {
   }
   box('front', 0.5)
   box('back', -0.5)
+  for (const extra of overrides.extras ?? []) world.add(extra)
   world.updateMatrixWorld()
   const dot = new Mesh()
   const onMenu = vi.fn()
@@ -139,4 +142,28 @@ describe('the view under the pointer', () => {
     click(50, 50)
     expect(store().selected).toBeNull()
   })
+})
+
+test('dragging a bend handle sets its angle, one undo step', () => {
+  const m = modifier('bend', { params: { axis: 'y', toward: 'x', side: '+', angle: 0 } })
+  store().load({ layers: [m], pattern: 'stone', hollow: false, round: false })
+  const handle = new Mesh(new BoxGeometry(0.2, 0.2, 0.2), new MeshBasicMaterial())
+  if (m.type !== 'modifier' || m.kind !== 'bend') throw new Error('not a bend')
+  handle.position.fromArray(bendTip(m.params))
+  handle.userData = { bend: m.id }
+  const { fire, camera } = setUp({ extras: [handle] })
+  // The tip is straight up at 1.2: press on it, then pull it over to the right.
+  const tip = handle.position.clone().project(camera)
+  const x = ((tip.x + 1) / 2) * 100
+  const y = ((1 - tip.y) / 2) * 100
+  fire('pointerdown', x, y)
+  fire('pointermove', x + 30, y + 10)
+  fire('pointermove', x + 35, y + 12)
+  fire('pointerup', x + 35, y + 12)
+  const bent = store().layers[0]!
+  expect(bent.type === 'modifier' && bent.kind === 'bend' && bent.params.angle).toBeGreaterThan(0)
+  expect(camera.position.toArray()).toEqual([0, 0, 4])
+  store().undo()
+  const back = store().layers[0]!
+  expect(back.type === 'modifier' && back.kind === 'bend' && back.params.angle).toBe(0)
 })
