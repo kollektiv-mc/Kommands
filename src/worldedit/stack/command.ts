@@ -57,3 +57,35 @@ export function stackCommand({ layers, pattern, hollow, round }: CommandInput): 
         : 'neither'
   return { text, expression, diagnostics: compiled.diagnostics, shared, fits }
 }
+
+/** A //generate command read back into what a Reference needs to draw it. */
+export type ReadCommand =
+  { ok: true; hollow: boolean; pattern: string; expression: string } | { ok: false; reason: string }
+
+/**
+ * Read a pasted //generate command: its flags, its blocks and its expression.
+ *
+ * WorldEdit registers the command as `/generate` with the aliases `/gen` and `/g`
+ * (`generate.ts`), typed with a second slash in chat. Flags come first, then one
+ * pattern word, then the expression, which may hold spaces. Only `-h` changes what is
+ * drawn; the origin flags move where it lands in the world, which a reference beside
+ * this build places by hand.
+ */
+export function readGenerate(text: string): ReadCommand {
+  const words = text.trim().split(/\s+/)
+  if (!/^\/{1,2}(generate|gen|g)$/i.test(words[0] ?? '')) {
+    return { ok: false, reason: 'Not a //generate command' }
+  }
+  let i = 1
+  const flags = new Set<string>()
+  while (/^-[a-z]+$/i.test(words[i] ?? '')) {
+    for (const flag of words[i]!.slice(1)) flags.add(flag.toLowerCase())
+    i++
+  }
+  const pattern = words[i] ?? ''
+  const expression = words.slice(i + 1).join(' ')
+  if (pattern === '' || expression === '') {
+    return { ok: false, reason: 'Needs blocks and an expression' }
+  }
+  return { ok: true, hollow: flags.has('h'), pattern, expression }
+}
