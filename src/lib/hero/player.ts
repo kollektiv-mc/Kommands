@@ -16,7 +16,7 @@
  * Under reduced motion each command is laid out in its finished state and held, and
  * the loop does not advance.
  */
-import type { HeroArg, HeroCommand, HeroPart, HeroShape, ShapeState } from './types'
+import type { HeroArg, HeroCommand, HeroPart, HeroShape, HeroSlot, ShapeState } from './types'
 import {
   ABORT,
   type Clock,
@@ -374,21 +374,36 @@ async function playCommand(host: HTMLElement, h: HeroCommand, v: HeroShape | nul
   await c.wait(500)
 }
 
+/**
+ * Which variation each slot plays next: the one after the last it played. A slot the
+ * loop meets twice is one array, so it keeps one count and never repeats itself.
+ */
+export function takeTurns(): (slot: HeroSlot) => HeroCommand | undefined {
+  const played = new Map<HeroSlot, number>()
+  return (slot) => {
+    const n = played.get(slot) ?? 0
+    played.set(slot, n + 1)
+    return slot[n % slot.length]
+  }
+}
+
 /** Play the loop into `host` until the returned function is called. */
 export function startHero(
   host: HTMLElement,
-  sequence: readonly HeroCommand[],
+  sequence: readonly HeroSlot[],
   shapes: readonly HeroShape[],
   reduced: boolean,
 ): () => void {
   const c = clock(reduced)
   let shapeIndex = -1
+  const next = takeTurns()
   const run = async () => {
     try {
       // Every size the loop measures is the web font's, so it waits for it.
       if ('fonts' in document) await document.fonts.ready
       for (let i = 0; ; i = (i + 1) % sequence.length) {
-        const h = sequence[i]
+        const slot = sequence[i]
+        const h = slot && next(slot)
         if (!h) return
         const v =
           h.viz === 'shape'

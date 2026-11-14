@@ -1,12 +1,16 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { startHero } from './player'
+import { startHero, takeTurns } from './player'
 import { HERO_SEQUENCE, HERO_SHAPES } from '../../data/home/hero'
 import type { HeroCommand } from './types'
 
+/** What a command starts with: its own word, or the Palette Editor's Command tile. */
+const head = (h: HeroCommand) => {
+  const part = h.parts[0]
+  return part?.kind === 'literal' ? part.text : (part?.value ?? '')
+}
+
 const command = (first: string): HeroCommand => {
-  const found = HERO_SEQUENCE.find(
-    (h) => h.parts[0]?.kind === 'literal' && h.parts[0].text === first,
-  )
+  const found = HERO_SEQUENCE.flat().find((h) => head(h) === first)
   if (!found) throw new Error(`no ${first} in the hero`)
   return found
 }
@@ -21,7 +25,7 @@ afterEach(() => {
 async function play(h: HeroCommand) {
   const host = document.createElement('div')
   document.body.append(host)
-  stop = startHero(host, [h], HERO_SHAPES, true)
+  stop = startHero(host, [[h]], HERO_SHAPES, true)
   for (let i = 0; i < 20; i++) await Promise.resolve()
   return host
 }
@@ -43,8 +47,8 @@ test('a //generate command names the block and the expression it builds', async 
   expect(host.hasAttribute('data-viz')).toBe(true)
   expect(texts(host, '.hp-vt')).toEqual([
     '//generate',
-    'stone_bricks',
-    'sqrt(x^2+z^2)<0.40&&y<0.10',
+    'cherry_planks',
+    '…<0.60*(1-0.45*t)*(1-0.6*(t*2.00%1))',
   ])
   expect(host.querySelector('canvas')).not.toBeNull()
 })
@@ -62,6 +66,40 @@ test('a command whose control holds only chips drops the control', async () => {
   const nbt = [...host.querySelectorAll('.hp')].find((p) => p.textContent?.includes('NBT'))
   expect(nbt?.querySelector('.hp-ctl')?.classList.contains('lo')).toBe(true)
   expect(texts(host, '.hp-add')).toEqual(['+ Add tag'])
+})
+
+test('every variation of every command lays out finished', async () => {
+  for (const h of HERO_SEQUENCE.flat()) {
+    const host = await play(h)
+    expect(host.querySelector('.wait'), head(h)).toBeNull()
+    stop()
+  }
+})
+
+test('the Palette Editor shows its command as a tile, and a pattern as its blocks', async () => {
+  const host = await play(command('//replace'))
+  expect(texts(host, '.hp-lab')).toEqual(['Command', 'Blocks to touch', 'Place'])
+  expect(texts(host, '.hp-chip')).toEqual([
+    'include stone, andesite',
+    'chance 40%',
+    'cobblestone 3',
+    'mossy_cobblestone 2',
+    'gravel 1',
+  ])
+  expect(texts(host, '.hp-add')).toEqual(['+ rule', '+ block'])
+})
+
+test('a slot plays its variations in turn, and a slot met twice shares the count', () => {
+  const next = takeTurns()
+  const palette = HERO_SEQUENCE.find((slot) => slot.some((h) => head(h) === '//replace'))
+  const give = HERO_SEQUENCE.find((slot) => slot.some((h) => head(h) === '/give'))
+  if (!palette || !give) throw new Error('no Palette Editor or /give slot')
+  const heads = [palette, give, palette, palette].map((slot) => {
+    const h = next(slot)
+    return h ? head(h) : ''
+  })
+  expect(heads).toEqual(['//replace', '/give', '/brush', '//set'])
+  expect(next(give)?.parts[1]).toMatchObject({ value: '@a', raw: '[team=blue]' })
 })
 
 test('stopping ends the loop without an error', async () => {
@@ -86,7 +124,7 @@ async function playThrough(h: HeroCommand) {
   Object.defineProperty(Element.prototype, 'animate', { value: animate, configurable: true })
   const host = document.createElement('div')
   document.body.append(host)
-  stop = startHero(host, [h], HERO_SHAPES, false)
+  stop = startHero(host, [[h]], HERO_SHAPES, false)
   for (let i = 0; i < 5000 && !host.hasAttribute('data-out'); i++) await Promise.resolve()
   stop()
   raf.mockRestore()

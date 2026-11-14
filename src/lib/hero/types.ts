@@ -92,3 +92,6 @@ export interface HeroCommand {
   viz?: 'shape' | 'chain'
   parts: readonly HeroPart[]
 }
+
+/** One stop of the loop: the variations it plays in turn, one each time it comes round. */
+export type HeroSlot = readonly HeroCommand[]

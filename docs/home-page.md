@@ -46,29 +46,39 @@ command that types itself in large monospace, then turns into its own editor:
 Motion rule: every change that alters a size pushes its neighbours with animation, on one
 curve (1.1s, `cubic-bezier(.45, 0, .2, 1)`). Nothing snaps.
 
-The commands, in a fixed order that shows `//generate` every third or fourth time
-(`/give`, `/effect`, `//generate`, `/execute`, `/playsound`, `//generate`, `/data`,
-`/particle`, `//generate`), each using as many of its arguments as it can:
+The loop is a fixed order of slots that shows `//generate` every third or fourth time
+(`/give`, `/effect`, `//generate`, `/execute`, Palette Editor, `//generate`, `/data`,
+`/playsound`, Palette Editor, `//generate`, `/particle`). A slot can hold several
+variations and plays the next one each time it comes round; the two Palette Editor slots
+share one count, so they never repeat each other. Each command uses as many of its
+arguments as it can:
 
-| Command                                                         | Tiles                                                                                                        |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `/give @p diamond_sword[enchantments={levels:{sharpness:5}}] 1` | Recipients, Item stack (an `enchantments` chip and **+ Add component**), Count                               |
-| `/effect give @a speed 30 1 true`                               | Targets, Effect (with its colour swatch), Seconds, Amplifier, Hide particles                                 |
-| `//generate <block> <expression>`                               | Blocks (with a swatch), Expression; a 3D preview beside it, see below                                        |
-| `/execute ...`                                                  | The step chain (`as`, `at`, `if`, `run`) as tiles on the right; a step slots in, another is edited           |
-| `/playsound block.note_block.bell master @a ~ ~ ~ 1 2 0.5`      | Sound, Source, Targets, Position, Volume, Pitch, Min volume                                                  |
-| `/data merge entity @n[type=zombie] {NoAI:1b,Silent:1b}`        | Target type, Target (`@n` with a **type zombie** dropdown under it), NBT (a dropdown per tag, **+ Add tag**) |
-| `/particle flame ~ ~1 ~ 0.3 0.5 0.3 0.02 40 force @a`           | Particle, Position, Delta, Speed, Count, Mode, Viewers                                                       |
+| Slot           | Variations                                                                                                                                                                                                                                                                                                                      | Tiles                                                                                                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/give`        | `@p diamond_sword[enchantments={levels:{sharpness:5}}] 1`; `@a[team=blue] bow[enchantments={levels:{power:5,flame:1}},unbreakable={}] 1`; `Snadrochka potion[potion_contents={potion:"minecraft:strong_swiftness"}] 3`; `@p trident[custom_name='"Stormcaller"',enchantments={levels:{loyalty:3,channeling:1}}] 1`              | Recipients (filters as dropdowns), Item stack (a chip per component and **+ Add component**), Count                                                                                 |
+| `/effect`      | `give @a speed 30 1 true`                                                                                                                                                                                                                                                                                                       | Targets, Effect (with its colour swatch), Seconds, Amplifier, Hide particles                                                                                                        |
+| `//generate`   | `<block> <expression>`                                                                                                                                                                                                                                                                                                          | Blocks (with a swatch), Expression; a 3D preview beside it, see below                                                                                                               |
+| `/execute`     | `as @a[team=red] at @s if block … unless entity … run effect …`; `as @a[tag=builder] store result score @s height if dimension minecraft:overworld run data get entity @s Pos[1]`; `as @a[gamemode=survival] at @s if items entity @s weapon.mainhand torch positioned over motion_blocking_no_leaves run setblock ~ ~ ~ torch` | The step chain as tiles on the right; a step slots in above `run`, then the first is edited                                                                                         |
+| Palette Editor | `//replace "stone,andesite %40" 3%cobblestone,2%mossy_cobblestone,1%gravel`; `/brush sphere -h 3%glass,1%tinted_glass 6`; `//set 4%stone_bricks,2%mossy_stone_bricks,1%cracked_stone_bricks`; `//smooth 4 "##dirt !podzol"`                                                                                                     | Command (the editor's own switch), Blocks to touch (include, exclude and chance chips, **+ rule**), Place (a chip per block and its chance, **+ block**), and the command's numbers |
+| `/data`        | `merge entity @n[type=zombie] {NoAI:1b,Silent:1b}`; `modify block ~ ~-1 ~ Items append value {Slot:4b,id:"minecraft:diamond",count:3}`; `modify storage kommands:shop stock append from entity crocodealer420 SelectedItem`                                                                                                     | Target type, Target or Position, Path, Mode, Source, and an NBT value as a dropdown per tag with **+ Add tag**                                                                      |
+| `/playsound`   | `block.note_block.bell master @a ~ ~ ~ 1 2 0.5`                                                                                                                                                                                                                                                                                 | Sound, Source, Targets, Position, Volume, Pitch, Min volume                                                                                                                         |
+| `/particle`    | `flame ~ ~1 ~ 0.3 0.5 0.3 0.02 40 force @a`                                                                                                                                                                                                                                                                                     | Particle, Position, Delta, Speed, Count, Mode, Viewers                                                                                                                              |
+
+The Palette Editor lines are what its own serializers write for WorldEdit 7.3.6, and
+`src/data/home/hero.test.ts` holds them to that. `//set` takes no mask.
 
 `/data`'s NBT as a list of tags with a dropdown each, and a selector's filters as
 dropdowns under its field, are not in the editor today. The hero shows them as the editor
 should have them.
 
-**`//generate`** cycles five shapes (a tower, a copper ring, a heart, a dome with a door, a
-twisted quartz tower). A cursor drags the shape's gizmo in a voxel preview and the
-expression updates with each drag; long expressions fold to `…` but the dragged numbers
-stay visible. Every variant names a block. Some variants add a second object and switch
-it from Add to Cut. Shapes are solid: the hero uses no flags.
+**`//generate`** cycles six structures, built up and cut away by turns: a cherry pagoda
+whose tiers multiply, a colosseum whose arena is cut from an arched drum, the heart, a
+keep with turrets and battlements whose gate is cut, a double helix that winds tighter,
+and a bridge between two towers whose arch is cut. A cursor drags the shape's gizmo in a
+voxel preview and the expression updates with each drag; long expressions fold to `…`
+but the dragged numbers stay visible. Every variant names a block. Shapes are solid: the
+hero uses no flags. Each expression is compiled by the editor's own WorldEdit expression
+port in the tests and must build exactly the voxels the preview draws.
 
 Below the hero: **Open Dashboard** (grey, secondary) and one line,
 `Java Edition 1.21.1 · WorldEdit · free, MIT`.
