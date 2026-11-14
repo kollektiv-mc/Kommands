@@ -4,6 +4,7 @@ import type { Object3D } from 'three'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 import { useShapeEditorStore } from '../../../stores/useShapeEditorStore'
 import { find } from '../../../worldedit/stack/edit'
+import { pivotAxes } from '../../../worldedit/stack/lower'
 import type { Layer } from '../../../worldedit/stack/layers'
 import { stepOf } from './faces'
 import { snapToBlocks, transformOf } from './gizmo'
@@ -84,6 +85,18 @@ export function Gizmo({
     if (!edit.on || o === undefined || layer === null || layer === undefined) controls.detach()
     else if (controls.object !== o) controls.attach(o)
     controls.setMode(edit.mode)
+    controls.showX = controls.showY = controls.showZ = true
+    if (layer?.type === 'modifier') {
+      // A modifier moves and turns but never scales. Unturned, it moves only along the
+      // axes its pivot uses, since the others change nothing.
+      if (edit.mode === 'scale') controls.setMode('translate')
+      if (edit.mode !== 'rotate' && !layer.rot.some((r) => r % 360 !== 0)) {
+        const used = pivotAxes(layer)
+        controls.showX = used.includes('x')
+        controls.showY = used.includes('y')
+        controls.showZ = used.includes('z')
+      }
+    }
     const snap = edit.snap
     controls.setTranslationSnap(snap && edit.snapTo === 'grid' ? edit.move : null)
     controls.setRotationSnap(snap ? edit.turn * DEG : null)

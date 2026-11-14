@@ -10,7 +10,9 @@ import {
   type Object3D,
 } from 'three'
 import { useShapeEditorStore } from '../../../stores/useShapeEditorStore'
+import { find } from '../../../worldedit/stack/edit'
 import { MIN_GAP, grabPoint, orbitAround, panBy, zoomToward } from './camera'
+import { bendAngleToward } from './guides'
 
 /** How far a press may wander and still be a click rather than a drag. */
 const CLICK = 4
@@ -55,7 +57,8 @@ export interface PointerOptions {
  *
  * A left click picks the shape under the pointer, and a second click on the same spot
  * the one behind it; a click on nothing lets go of the selection. A right click on a
- * shape selects it and opens its menu. A left press on Edit's gizmo is the gizmo's.
+ * shape selects it and opens its menu. A left press on Edit's gizmo is the gizmo's,
+ * and one on a selected Bend's handle drags its angle.
  * Returns what takes the listeners off again.
  */
 export function listenToPointer({
@@ -122,11 +125,56 @@ export function listenToPointer({
 
   let drag: Drag | null = null
   let last = { x: -99, y: -99, ids: [] as unknown[], i: 0 }
+  /** A selected Bend's handle being dragged: the modifier, its frame, and the plane it turns in. */
+  let bending: { id: string; frame: Object3D; plane: Plane; pointer: number } | null = null
+
+  /** A press on a Bend's handle starts dragging its angle. */
+  const startBend = (e: PointerEvent): boolean => {
+    const handles: Object3D[] = []
+    world()?.traverse((o) => {
+      if (typeof o.userData.bend === 'string') handles.push(o)
+    })
+    const hit = handles.length === 0 ? undefined : aim(e).intersectObjects(handles, false)[0]
+    const frame = hit?.object.parent
+    if (hit === undefined || frame === null || frame === undefined) return false
+    const id = hit.object.userData.bend as string
+    const layer = find(useShapeEditorStore.getState().layers, id)?.layer
+    if (layer?.type !== 'modifier' || layer.kind !== 'bend') return false
+    const { axis, toward } = layer.params
+    const third = (['x', 'y', 'z'] as const).find((a) => a !== axis && a !== toward) ?? 'z'
+    const normal = new Vector3(third === 'x' ? 1 : 0, third === 'y' ? 1 : 0, third === 'z' ? 1 : 0)
+    normal.transformDirection(frame.matrixWorld)
+    const through = frame.getWorldPosition(new Vector3())
+    bending = {
+      id,
+      frame,
+      plane: new Plane().setFromNormalAndCoplanarPoint(normal, through),
+      pointer: e.pointerId,
+    }
+    canvas.setPointerCapture(e.pointerId)
+    return true
+  }
+  const moveBend = (e: PointerEvent, b: NonNullable<typeof bending>) => {
+    const at = aim(e).ray.intersectPlane(b.plane, new Vector3())
+    if (at === null) return
+    const local = b.frame.worldToLocal(at)
+    const store = useShapeEditorStore.getState()
+    store.change(
+      b.id,
+      (l) => {
+        if (l.type !== 'modifier' || l.kind !== 'bend') return l
+        const angle = bendAngleToward(l.params, [local.x, local.y, local.z], store.edit.snap)
+        return angle === l.params.angle ? l : { ...l, params: { ...l.params, angle } }
+      },
+      'bend',
+    )
+  }
 
   const onDown = (e: PointerEvent) => {
     const mode = MODES[e.button]
     if (mode === undefined) return
     if (e.button === 0 && onGizmo()) return
+    if (e.button === 0 && startBend(e)) return
     if (e.button === 1) e.preventDefault()
     stopGlide()
     const pivot = grab(e, mode)
@@ -145,6 +193,10 @@ export function listenToPointer({
     }
   }
   const onMove = (e: PointerEvent) => {
+    if (bending !== null && e.pointerId === bending.pointer) {
+      moveBend(e, bending)
+      return
+    }
     if (drag === null || e.pointerId !== drag.pointer) return
     if (useShapeEditorStore.getState().dragging) return
     const dx = e.clientX - drag.x
@@ -172,6 +224,11 @@ export function listenToPointer({
     }
   }
   const onUp = (e: PointerEvent) => {
+    if (bending !== null && e.pointerId === bending.pointer) {
+      bending = null
+      useShapeEditorStore.getState().settle()
+      return
+    }
     if (drag === null || e.pointerId !== drag.pointer) return
     const ended = drag
     drag = null
@@ -197,6 +254,8 @@ export function listenToPointer({
     }
   }
   const onCancel = () => {
+    if (bending !== null) useShapeEditorStore.getState().settle()
+    bending = null
     drag = null
     hideDot()
   }
