@@ -10,6 +10,7 @@ import { useShapeEditorStore } from '../../stores/useShapeEditorStore'
 import { canRedo, canUndo } from '../../stores/commandHistory'
 import { stackCommand, type StackCommand } from '../../worldedit/stack/command'
 import { FOCUS } from '../editors/fieldStyles'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon } from '../ui/Icon'
 import { Tooltip } from '../ui/Tooltip'
 import { CommandBar } from './CommandBar'
@@ -57,7 +58,10 @@ export function ShapeEditor({
   )
   const [templates, setTemplates] = useState(false)
   const [listMenu, setListMenu] = useState<{ x: number; y: number } | null>(null)
+  const [clearing, setClearing] = useState(false)
   const closeTemplates = useCallback(() => setTemplates(false), [])
+  const cancelClear = useCallback(() => setClearing(false), [])
+  const shapeCount = countShapes(layers)
 
   useEditorKeys()
   const parts = useParts()
@@ -133,7 +137,7 @@ export function ShapeEditor({
             <div className={PANEL_HEAD}>
               Shapes
               <span className="bg-canvas text-text-muted text-2xs rounded-sm px-1.5 font-mono">
-                {countShapes(layers)}
+                {shapeCount}
               </span>
             </div>
             <Palette onAdd={add} />
@@ -156,7 +160,24 @@ export function ShapeEditor({
         <ContextMenu
           at={listMenu}
           onClose={() => setListMenu(null)}
-          actions={[{ label: 'Use Template', onSelect: () => setTemplates(true) }]}
+          actions={[
+            { label: 'Use Template', onSelect: () => setTemplates(true) },
+            ...(layers.length > 0
+              ? [{ label: 'Clear all', onSelect: () => setClearing(true) }]
+              : []),
+          ]}
+        />
+      )}
+      {clearing && (
+        <ConfirmDialog
+          title="Clear all shapes?"
+          body={`This removes ${shapeCount === 1 ? 'the 1 item' : `all ${shapeCount} items`} in the list. Undo brings them back.`}
+          action="Clear all"
+          onCancel={cancelClear}
+          onConfirm={() => {
+            setClearing(false)
+            useShapeEditorStore.getState().clear()
+          }}
         />
       )}
       {templates && (
