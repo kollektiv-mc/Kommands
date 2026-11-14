@@ -9,14 +9,15 @@ import type { CommandValue } from '../schema/serialize'
  * different snapshot, and the tag behaviour is copied from it deliberately: it is the
  * part that is easy to get subtly wrong and unpleasant to use when it is.
  *
- * What it snapshots is the whole `CommandValue`. That is affordable here in a way it
+ * Generic over the snapshot, because the //generate shape editor keeps its own layer
+ * document with the same rules. What the command editor snapshots is the whole `CommandValue`. That is affordable here in a way it
  * would not be in a graph editor: the tree is five records of primitives keyed by
  * path, so a snapshot is a shallow object of shallow objects, and the store already
  * replaces the tables it changes rather than mutating them. There is nothing to clone.
  */
-export interface HistoryState {
-  past: readonly CommandValue[]
-  future: readonly CommandValue[]
+export interface HistoryState<T = CommandValue> {
+  past: readonly T[]
+  future: readonly T[]
   /**
    * The tag of the most recent `record`, or null after a structural change.
    *
@@ -36,7 +37,7 @@ export interface HistoryState {
  */
 export const MAX_HISTORY = 50
 
-export function emptyHistory(): HistoryState {
+export function emptyHistory<T = CommandValue>(): HistoryState<T> {
   return { past: [], future: [], lastTag: null }
 }
 
@@ -52,11 +53,11 @@ export function emptyHistory(): HistoryState {
  * undo, and a redo stack that survived an edit would restore a tree that never
  * followed from the one on screen.
  */
-export function record(
-  state: HistoryState,
-  snapshot: CommandValue,
+export function record<T>(
+  state: HistoryState<T>,
+  snapshot: T,
   tag: string | null = null,
-): HistoryState {
+): HistoryState<T> {
   if (tag !== null && tag === state.lastTag) return state
   const past = [...state.past, snapshot]
   // Oldest first, so the cap drops the step furthest from what the user is doing.
@@ -70,10 +71,10 @@ export function record(
  * Null rather than an unchanged state when there is nothing to undo, so a caller
  * cannot quietly treat "nothing happened" as a step that happened.
  */
-export function undo(
-  state: HistoryState,
-  current: CommandValue,
-): { state: HistoryState; snapshot: CommandValue } | null {
+export function undo<T>(
+  state: HistoryState<T>,
+  current: T,
+): { state: HistoryState<T>; snapshot: T } | null {
   const snapshot = state.past[state.past.length - 1]
   if (snapshot === undefined) return null
   return {
@@ -83,10 +84,10 @@ export function undo(
 }
 
 /** Step forward one entry, handing `current` back to the undo stack. */
-export function redo(
-  state: HistoryState,
-  current: CommandValue,
-): { state: HistoryState; snapshot: CommandValue } | null {
+export function redo<T>(
+  state: HistoryState<T>,
+  current: T,
+): { state: HistoryState<T>; snapshot: T } | null {
   const snapshot = state.future[state.future.length - 1]
   if (snapshot === undefined) return null
   const past = [...state.past, current]
@@ -94,10 +95,10 @@ export function redo(
   return { state: { past, future: state.future.slice(0, -1), lastTag: null }, snapshot }
 }
 
-export function canUndo(state: HistoryState): boolean {
+export function canUndo<T>(state: HistoryState<T>): boolean {
   return state.past.length > 0
 }
 
-export function canRedo(state: HistoryState): boolean {
+export function canRedo<T>(state: HistoryState<T>): boolean {
   return state.future.length > 0
 }
