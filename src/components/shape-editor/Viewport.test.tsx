@@ -41,6 +41,20 @@ describe('the view', () => {
     expect(screen.queryByRole('group', { name: 'Show' })).toBeNull()
   })
 
+  test('holding Alt shows the keys in place of the count', async () => {
+    const user = userEvent.setup()
+    render(<ShapeEditor onDone={vi.fn()} />)
+    await user.keyboard('{Alt>}')
+    expect(within(screen.getByRole('list', { name: 'Keys' })).getByText('W E R')).toBeTruthy()
+    await user.keyboard('{/Alt}')
+    expect(screen.queryByRole('list', { name: 'Keys' })).toBeNull()
+    await user.keyboard('{Alt>}')
+    act(() => {
+      window.dispatchEvent(new Event('blur'))
+    })
+    expect(screen.queryByRole('list', { name: 'Keys' })).toBeNull()
+  })
+
   test('isolating a layer draws it alone', () => {
     const a = shape('sphere', { name: 'A' })
     const b = shape('box', { name: 'B' })

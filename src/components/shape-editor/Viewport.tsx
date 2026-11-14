@@ -8,6 +8,7 @@ import { FOCUS } from '../editors/fieldStyles'
 import { Listbox } from '../ui/Listbox'
 import { Tooltip } from '../ui/Tooltip'
 import { EditTools } from './EditTools'
+import { KeyHints, useAltHeld } from './KeyHints'
 import { SEG, SEG_BUTTON } from './styles'
 import { ViewMenu } from './ViewMenu'
 import { useReferenceVoxels } from './viewport/useReferenceVoxels'
@@ -68,6 +69,7 @@ export function Viewport({
   const commands = useMemo(() => referenceCommands(shown ?? layers), [shown, layers])
   const references = useReferenceVoxels(commands, size)
   const isolatedLayer = isolate === null ? null : find(layers, isolate)?.layer
+  const hints = useAltHeld()
 
   return (
     <section ref={opening} aria-label="Viewport" className="relative min-h-0">
@@ -144,12 +146,16 @@ export function Viewport({
         data-chrome
         className="pointer-events-none absolute inset-x-3 bottom-2.5 flex flex-wrap items-end justify-between gap-3"
       >
-        <span className="bg-canvas/80 text-text-secondary text-1xs rounded-sm px-2 py-1 font-mono tabular-nums">
-          {voxels.field
-            ? `${voxels.field.count.toLocaleString('en')} blocks · ${voxels.field.size}³`
-            : '–'}
-        </span>
-        {voxels.pending && (
+        {hints ? (
+          <KeyHints />
+        ) : (
+          <span className="bg-canvas/80 text-text-secondary text-1xs rounded-sm px-2 py-1 font-mono tabular-nums">
+            {voxels.field
+              ? `${voxels.field.count.toLocaleString('en')} blocks · ${voxels.field.size}³`
+              : '–'}
+          </span>
+        )}
+        {voxels.pending && !hints && (
           <output className="bg-canvas/80 text-text-secondary text-1xs flex items-center gap-1.5 rounded-sm px-2 py-1 font-mono">
             <span aria-hidden="true" className="spinner" />
             Evaluating
