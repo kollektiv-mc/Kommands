@@ -57,6 +57,14 @@ interface CommandState {
   setArg: (path: Path, value: unknown) => void
   setFlag: (path: Path, on: boolean) => void
   /**
+   * Several arguments and flags at once, as one undo step: what a full-screen editor
+   * hands back on Done is one edit, however many fields it touches.
+   */
+  setMany: (edits: {
+    args: Readonly<Record<Path, unknown>>
+    flags: Readonly<Record<Path, boolean>>
+  }) => void
+  /**
    * Pick a Choice's branch. `tag` names a gesture that also sets something else, as
    * `reorderRepeat`'s does, so the two land as one undo step.
    */
@@ -161,6 +169,18 @@ export const useCommandStore = create<CommandState>((set) => ({
       history: record(s.history, s.value),
       value: { ...s.value, flags: { ...s.value.flags, [path]: on } },
     })),
+  setMany: ({ args, flags }) =>
+    set((s) => {
+      if (Object.keys(args).length === 0 && Object.keys(flags).length === 0) return s
+      return {
+        history: record(s.history, s.value),
+        value: {
+          ...s.value,
+          args: { ...s.value.args, ...args },
+          flags: { ...s.value.flags, ...flags },
+        },
+      }
+    }),
   setChoice: (path, index, tag) =>
     set((s) => ({
       history: record(s.history, s.value, tag ?? null),

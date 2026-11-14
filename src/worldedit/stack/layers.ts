@@ -96,6 +96,8 @@ export type Layer = ShapeLayer | ModifierLayer | GroupLayer | ReferenceLayer
 export interface ShapeDocument {
   version: 1
   layers: readonly Layer[]
+  /** Round numbers, which changes the command's text and so is part of what was saved. */
+  round?: boolean
 }
 
 export const EMPTY_DOCUMENT: ShapeDocument = { version: 1, layers: [] }

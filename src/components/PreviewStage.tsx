@@ -33,7 +33,9 @@ export default function PreviewStage({
   const Content = useMemo(() => lazy(module.load), [module])
 
   return (
-    <Canvas camera={{ position: [2.6, 2.2, 2.6], fov: 45 }}>
+    // The drawing buffer is kept so a picture of it can be taken between frames: the
+    // shape editor opens out of that picture (`lib/editorMotion.ts`).
+    <Canvas camera={{ position: [2.6, 2.2, 2.6], fov: 45 }} gl={{ preserveDrawingBuffer: true }}>
       <ambientLight intensity={1.1} />
       <directionalLight position={[4, 6, 3]} intensity={1.6} />
       <directionalLight position={[-4, -2, -3]} intensity={0.4} />

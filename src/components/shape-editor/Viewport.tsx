@@ -1,4 +1,5 @@
-import { Component, lazy, Suspense, useState, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useState, type ReactNode, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import { useShapeEditorStore } from '../../stores/useShapeEditorStore'
 import { find } from '../../worldedit/stack/edit'
 import { FOCUS } from '../editors/fieldStyles'
@@ -11,12 +12,26 @@ const ViewportStage = lazy(() => import('./viewport/ViewportStage'))
 const SIZES = [16, 32, 48, 64, EDITOR_MAX_SIZE] as const
 
 /**
- * The viewport tile: the canvas, and the chrome floating over it.
+ * The opening onto the 3D view, and the view itself.
+ *
+ * The view fills the editor behind the tiles, so its canvas is portalled into `stage`,
+ * and this cell in the grid is only a hole in the tiles: transparent, letting the
+ * pointer through to the canvas, holding the view's controls. The camera is framed on
+ * it (`ViewportStage.tsx`), so the build sits centred between the tiles.
  *
  * Eager and free of 3D code, like `PreviewCanvas`: it has to be on screen, saying what
  * it is doing, before Three.js has arrived.
  */
-export function Viewport({ expression }: { expression: string }) {
+export function Viewport({
+  expression,
+  opening,
+  stage,
+}: {
+  expression: string
+  opening: RefObject<HTMLElement | null>
+  /** Where the canvas goes: the editor's full area, under everything else. */
+  stage: HTMLElement | null
+}) {
   const hollow = useShapeEditorStore((s) => s.hollow)
   const isolate = useShapeEditorStore((s) => s.isolate)
   const layers = useShapeEditorStore((s) => s.layers)
@@ -27,19 +42,21 @@ export function Viewport({ expression }: { expression: string }) {
   const isolated = isolate === null ? null : find(layers, isolate)?.layer
 
   return (
-    <section
-      aria-label="Viewport"
-      className="border-hairline border-border-subtle bg-canvas rounded-panel relative min-h-0 overflow-hidden"
-    >
-      <div className="absolute inset-0">
-        <StageBoundary>
-          <Suspense fallback={null}>
-            <ViewportStage field={voxels.field} homeKey={home} />
-          </Suspense>
-        </StageBoundary>
-      </div>
+    <section ref={opening} aria-label="Viewport" className="relative min-h-0">
+      {stage !== null &&
+        createPortal(
+          <StageBoundary>
+            <Suspense fallback={null}>
+              <ViewportStage field={voxels.field} homeKey={home} opening={opening} />
+            </Suspense>
+          </StageBoundary>,
+          stage,
+        )}
 
-      <div className="pointer-events-none absolute inset-x-2.5 top-2.5 flex flex-wrap gap-2 [&>*]:pointer-events-auto">
+      <div
+        data-chrome
+        className="pointer-events-none absolute inset-x-2.5 top-2.5 flex flex-wrap gap-2 [&>*]:pointer-events-auto"
+      >
         {isolated && (
           <div className={SEG}>
             <button
@@ -89,7 +106,10 @@ export function Viewport({ expression }: { expression: string }) {
         </p>
       )}
 
-      <div className="pointer-events-none absolute inset-x-3 bottom-2.5 flex flex-wrap items-end justify-between gap-3">
+      <div
+        data-chrome
+        className="pointer-events-none absolute inset-x-3 bottom-2.5 flex flex-wrap items-end justify-between gap-3"
+      >
         <span className="bg-canvas/80 text-text-secondary text-1xs rounded-sm px-2 py-1 font-mono tabular-nums">
           {voxels.field
             ? `${voxels.field.count.toLocaleString('en')} blocks · ${voxels.field.size}³`

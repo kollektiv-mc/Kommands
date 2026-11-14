@@ -1,3 +1,4 @@
+import { DEFAULT_PATTERN } from '../../data/authored/generate'
 import type { Diagnostic } from '../../schema/types'
 import { compileTree, simplify } from '../csg'
 import type { Layer } from './layers'
@@ -40,7 +41,12 @@ export function stackCommand({ layers, pattern, hollow, round }: CommandInput): 
     round ? { precision: ROUND_DIGITS } : {},
   )
   const expression = compiled.source === '0' ? '' : compiled.source
-  const words = ['//generate', ...(hollow ? ['-h'] : []), pattern.trim() || 'stone', expression]
+  const words = [
+    '//generate',
+    ...(hollow ? ['-h'] : []),
+    pattern.trim() || DEFAULT_PATTERN,
+    expression,
+  ]
   const text = words.filter((w) => w !== '').join(' ')
   const shared = expression === '' ? 0 : expression.split(';').length - 1
   const fits =

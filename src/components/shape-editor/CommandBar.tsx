@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useState, type Ref } from 'react'
 import { useShapeEditorStore } from '../../stores/useShapeEditorStore'
 import { CHAT_LIMIT, COMMAND_BLOCK_LIMIT, type StackCommand } from '../../worldedit/stack/command'
 import { FIELD, FOCUS } from '../editors/fieldStyles'
@@ -26,7 +26,7 @@ const FITS = {
   },
 } as const
 
-export function CommandBar({ command }: { command: StackCommand }) {
+export function CommandBar({ command, ref }: { command: StackCommand; ref?: Ref<HTMLElement> }) {
   const hollow = useShapeEditorStore((s) => s.hollow)
   const round = useShapeEditorStore((s) => s.round)
   const pattern = useShapeEditorStore((s) => s.pattern)
@@ -39,7 +39,8 @@ export function CommandBar({ command }: { command: StackCommand }) {
 
   return (
     <footer
-      className={`${PANEL} grid grid-cols-1 items-center gap-3.5 px-3 py-2.5 lg:grid-cols-[auto_minmax(0,1fr)_auto]`}
+      ref={ref}
+      className={`${PANEL} pointer-events-auto relative mx-2.5 grid grid-cols-1 items-center gap-3.5 px-3 py-2.5 lg:grid-cols-[auto_minmax(0,1fr)_auto]`}
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5 lg:flex-col lg:items-start">
         <div className="flex h-7 items-center gap-4">
