@@ -78,6 +78,8 @@
 .site-wrap {
   position: relative;
   z-index: 1;
+  /* The gutter sits outside the 75rem, as in the reviewed design. */
+  box-sizing: content-box;
   max-width: 75rem;
   margin: 0 auto;
   padding-inline: var(--gutter);
