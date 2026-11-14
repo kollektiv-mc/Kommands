@@ -660,6 +660,12 @@
   border-color: color-mix(in srgb, var(--hc) 42%, transparent);
 }
 
+/* A part too wide for its row wraps at a fixed width, so it takes its coloured
+   padding from the start: colouring in never moves a letter to the next line. */
+.hp.wraps {
+  padding: 0 0.22em;
+}
+
 .tiles .hp.arg {
   gap: calc(var(--spacing) * 2);
   padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 3) calc(var(--spacing) * 3);
