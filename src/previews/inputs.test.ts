@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { loadCatalogue } from '../data/catalogue'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import { EMPTY_VALUE, type CommandValue } from '../schema/serialize'
-import { previewInputsKey, readPreviewInputs } from './inputs'
+import { previewInputsKey, previewWrites, readPreviewInputs } from './inputs'
 
 /**
  * What a module is handed, and when it is handed something new.
@@ -90,5 +90,21 @@ describe('the memo key changes only for a declared input', () => {
       ),
     )
     expect(after).toBe(before)
+  })
+})
+
+describe('an editor writes back only what the binding declares', () => {
+  test('an argument and a flag land on their paths', () => {
+    const writes = previewWrites(generate, binding, EMPTY_VALUE, {
+      expression: 'y<0',
+      '-h': true,
+    })
+    expect(writes).toEqual({ args: { '/3': 'y<0' }, flags: { '/1/-h': true } })
+  })
+
+  test('a selector the binding does not declare is ignored', () => {
+    const narrow = { ...binding, inputs: ['expression'] }
+    const writes = previewWrites(generate, narrow, EMPTY_VALUE, { '-h': true, pattern: 'x' })
+    expect(writes).toEqual({ args: {}, flags: {} })
   })
 })

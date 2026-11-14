@@ -305,3 +305,19 @@ describe('writes that share a gesture tag', () => {
     expect(store().value.refs['/2/|0/1']).toBeUndefined()
   })
 })
+
+describe('several writes at once', () => {
+  test('are one undo step', () => {
+    const store = useCommandStore.getState()
+    store.setMany({ args: { '/3': 'y<0', '/2': 'stone' }, flags: { '/1/-h': true } })
+    expect(useCommandStore.getState().value.args['/3']).toBe('y<0')
+    useCommandStore.getState().undo()
+    const { args, flags } = useCommandStore.getState().value
+    expect([args['/3'], args['/2'], flags['/1/-h']]).toEqual([undefined, undefined, undefined])
+  })
+
+  test('nothing to write is not a step', () => {
+    useCommandStore.getState().setMany({ args: {}, flags: {} })
+    expect(useCommandStore.getState().history.past).toHaveLength(0)
+  })
+})

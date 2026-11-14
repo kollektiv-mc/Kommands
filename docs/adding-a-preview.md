@@ -125,6 +125,25 @@ A preview is **always optional**. If evaluation fails or input is incomplete, sh
 an empty canvas with an inline message. Never block command output on preview
 state — the generated command is the product; the preview is an aid.
 
+### 5. A full-screen editor
+
+A module may also offer an editor for what it draws, as `worldedit/shape` does with the
+//generate editor:
+
+```ts
+editor: () => import('../../../components/shape-editor/ShapeEditorModule'),
+```
+
+The sheet then shows **Open editor** on the preview. The editor gets the same `values`,
+an `origin` (where the preview is, to open out of and close back into), and `onDone`,
+which it calls with new values keyed by selector once its closing motion has run. The
+workbench writes them into the value tree as one undo step, and only for selectors the
+binding declares, so `accepts` covers the editor's writes as well as the preview's
+reads. While the editor is open the preview's canvas is not mounted, the form under it
+is inert, and the sheet's undo keys are left to the editor. It is drawn below the app
+header, in the overlay's full-screen layer (`lib/fullscreenLayer.ts`), and behind its
+own dynamic import like `load`.
+
 ---
 
 ## Checklist

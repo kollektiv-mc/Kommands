@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { CommandWorkbench } from './CommandWorkbench'
@@ -669,4 +669,49 @@ test('turning the run step on and off, each one undo step', async () => {
   expect(output()).toBe('/execute run say <message>')
   await user.click(screen.getByRole('button', { name: 'Undo' }))
   expect(output()).toBe('/execute')
+})
+
+vi.mock('./shape-editor/viewport/ViewportStage', () => ({
+  default: () => <div data-testid="viewport-stage" />,
+}))
+
+test('the shape editor round trip writes the form as one undo step', async () => {
+  // Opened from the preview, typed text arrives as a Formula layer, and Done writes
+  // the expression, the blocks and Hollow back as one edit.
+  const user = userEvent.setup()
+  const { container } = render(
+    <CommandWorkbench
+      definition={generate}
+      version={v1_21_1}
+      registries={makeRegistryLookup({ block: ['stone'] })}
+    />,
+  )
+  const output = () => container.querySelector('code')?.textContent
+  await user.type(screen.getByLabelText('Expression'), 'y<0')
+
+  await user.click(screen.getByRole('button', { name: 'Open editor' }))
+  const layers = await screen.findByRole('tree', { name: 'Layers' })
+  expect(within(layers).getByText('Expression')).toBeDefined()
+  await user.click(screen.getByRole('button', { name: 'Add Sphere' }))
+  // The form underneath is inert, which jsdom does not apply to queries: the editor's
+  // own switch is the later of the two.
+  expect(container.querySelector('[inert]')).not.toBeNull()
+  await user.click(screen.getAllByRole('switch', { name: /Hollow/ }).at(-1)!)
+  await user.click(screen.getByRole('button', { name: 'Done' }))
+
+  expect(screen.queryByRole('tree', { name: 'Layers' })).toBeNull()
+  expect(output()).toMatch(/^\/\/generate -h stone .*x\^2\+y\^2\+z\^2<0\.25/)
+  act(() => useCommandStore.getState().undo())
+  expect(output()).toBe('//generate <pattern> y<0')
+})
+
+test('the form does not undo underneath an open editor', async () => {
+  const user = userEvent.setup()
+  render(<CommandWorkbench definition={generate} version={v1_21_1} registries={registries} />)
+  await user.type(screen.getByLabelText('Expression'), 'y<0')
+  await user.click(screen.getByRole('button', { name: 'Open editor' }))
+  await screen.findByRole('tree', { name: 'Layers' })
+  await user.keyboard('{Control>}z{/Control}')
+  expect(useCommandStore.getState().history.past.length).toBeGreaterThan(0)
+  expect(Object.values(useCommandStore.getState().value.args)).toContain('y<0')
 })

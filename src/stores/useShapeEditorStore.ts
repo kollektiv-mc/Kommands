@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { TemplateSpec } from '../data/authored/generate'
+import { DEFAULT_PATTERN, type TemplateSpec } from '../data/authored/generate'
 import {
   duplicate,
   eachLayer,
@@ -76,7 +76,7 @@ interface ShapeEditorState extends ShapeSnapshot {
 
 const NEXT_OP: Readonly<Record<Op, Op>> = { add: 'cut', cut: 'overlap', overlap: 'add' }
 
-const snapshotOf = (s: ShapeSnapshot): ShapeSnapshot => ({
+export const snapshotOf = (s: ShapeSnapshot): ShapeSnapshot => ({
   layers: s.layers,
   pattern: s.pattern,
   hollow: s.hollow,
@@ -101,7 +101,7 @@ export const useShapeEditorStore = create<ShapeEditorState>((set, get) => {
 
   return {
     layers: [],
-    pattern: 'stone',
+    pattern: DEFAULT_PATTERN,
     hollow: false,
     round: false,
     selected: null,

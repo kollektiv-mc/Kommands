@@ -1,3 +1,4 @@
+import { expressionSource, type ExpressionValue } from '../../schema/argument-types/we-expression'
 import type { EditorProps } from '../../schema/types'
 import { FIELD } from './fieldStyles'
 
@@ -23,14 +24,14 @@ export function ExpressionEditor({
   onChange,
   options,
   diagnostics,
-}: EditorProps<string>) {
+}: EditorProps<ExpressionValue>) {
   return (
     <textarea
       id={id}
       aria-describedby={describedBy}
       className={`${FIELD} w-full min-w-0 resize-y`}
       rows={options.variadic === true ? 2 : 1}
-      value={value}
+      value={expressionSource(value)}
       spellCheck={false}
       aria-invalid={diagnostics.length > 0}
       onChange={(e) => onChange(e.target.value)}

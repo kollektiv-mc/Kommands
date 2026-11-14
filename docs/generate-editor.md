@@ -313,16 +313,23 @@ second class of layer that the viewport can only describe rather than show.
 The prototype is the reference for building it; these are the decisions it records, so
 that they are not reopened by accident.
 
-- **Placement.** `//generate` is a small tile in the command sheet with a button that opens
-  this editor full screen; **Done** returns to the sheet.
-- **Opening.** The tile's preview grows to fill the window, scaled evenly and cropped rather
-  than squeezed. The header, palette, command bar and inspector then slide in over it from
-  their own edges, and the live view takes its place. Done runs it backwards.
-- **Layout.** The view fills the whole window, behind everything. The header is an opaque
+- **Placement.** The sheet's preview of `//generate` has an Open editor button that opens
+  this editor full screen; **Done** returns to the sheet. The editor is the shape preview
+  module's `editor` (`docs/adding-a-preview.md` § A full-screen editor), so the sheet never
+  names the command. Done writes the expression, the pattern and `-h` as one undo step,
+  and the layers are saved inside the expression's value (`we-expression.ts`), so the
+  editor opens a saved command where it left off. A command typed by hand opens as one
+  Formula layer holding its text.
+- **Opening.** The tile's preview grows to fill the area below the app header, scaled
+  evenly and cropped rather than squeezed. The header, palette, command bar and inspector
+  then slide in over it from their own edges, and the live view takes its place. Done runs
+  it backwards (`src/lib/editorMotion.ts`).
+- **Layout.** The view fills the whole editor, behind everything. The header is an opaque
   bar, and the palette with the layer list, the inspector and the command bar are opaque
   tiles floating over the view. One gutter separates the header, the tiles and the window
-  edge. The opening between the tiles holds the view's controls and frames the camera, so
-  the build is centred between the tiles; the gaps pass the pointer through to the view.
+  edge. The opening between the tiles holds the view's controls and frames the camera
+  (taken when the camera is reset), so the build is centred between the tiles; the gaps
+  pass the pointer through to the view.
   Tiles resize from the gaps between them.
 - **View and Edit modes**, on Esc and Enter. Only Edit shows the move, turn and scale gizmo,
   with a Snap split button.

@@ -10,6 +10,12 @@ import { tree } from './tree'
 
 export type { LayerSpec, TemplateSpec } from './spec'
 
+/**
+ * The block a new //generate document places, and the one its command names when the
+ * Blocks field is left empty: a command needs a pattern to run at all.
+ */
+export const DEFAULT_PATTERN = 'stone'
+
 /** The //generate editor's templates, in the order the dialog shows them. */
 export const TEMPLATES: readonly TemplateSpec[] = [
   planet,

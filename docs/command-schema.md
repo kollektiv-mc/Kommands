@@ -280,7 +280,7 @@ Still text, as sets to author rather than fields that will do: `item_slot`,
 | `item_stack`     | `minecraft:item_stack`       | Item picker + data-component editor    |
 | `text_component` | `minecraft:component`        | Recursive text-component builder       |
 | `we_pattern`     | — (WorldEdit)                | Pattern builder                        |
-| `we_expression`  | — (WorldEdit)                | Expression editor                      |
+| `we_expression`  | — (WorldEdit)                | Expression editor, or the 3D editor    |
 | `nbt_compound`   | `minecraft:nbt_compound_tag` | Not built yet: the `raw_text` fallback |
 | `block_state`    | `minecraft:block_state`      | Not built yet: the `raw_text` fallback |
 
