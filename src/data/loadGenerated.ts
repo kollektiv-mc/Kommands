@@ -1,5 +1,5 @@
 import type { CommandDefinition } from '../schema/types'
-import { makeRegistryLookup } from './versions/registry'
+import { makeRegistryLookup, type BlockTable } from './versions/registry'
 import type { RegistryLookup, VersionDefinition } from './versions/types'
 
 /**
@@ -134,30 +134,28 @@ const registryCache = new Map<string, Promise<RegistryLookup>>()
 export function loadRegistries(version: VersionDefinition): Promise<RegistryLookup> {
   const cached = registryCache.get(version.id)
   if (cached) return cached
-  const promise = loadersFor(version)
-    .registries()
-    .then((m) => {
+  // Block states come with the registries rather than on their own: a pattern's block
+  // properties are offered by the editor, and an editor is handed one lookup. 12 KB
+  // gzipped beside the registries' much larger file, and still only on the editor route.
+  const promise = Promise.all([loadersFor(version).registries(), loadBlocks(version)]).then(
+    ([m, blocks]) => {
       const registries = readPayload<Record<string, string[]>>(
         m.default,
         'registries',
         version.id,
         `${version.id}/registries.json`,
       )
-      return makeRegistryLookup(registries)
-    })
+      return makeRegistryLookup(registries, blocks)
+    },
+  )
   registryCache.set(version.id, promise)
   return promise
 }
 
-export function loadBlocks(version: VersionDefinition): Promise<Record<string, unknown>> {
+export function loadBlocks(version: VersionDefinition): Promise<BlockTable> {
   return loadersFor(version)
     .blocks()
     .then((m) =>
-      readPayload<Record<string, unknown>>(
-        m.default,
-        'blocks',
-        version.id,
-        `${version.id}/blocks.json`,
-      ),
+      readPayload<BlockTable>(m.default, 'blocks', version.id, `${version.id}/blocks.json`),
     )
 }

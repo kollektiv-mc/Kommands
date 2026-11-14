@@ -71,17 +71,6 @@ export function PreviewCanvas({
       <div className="flex min-h-6 items-center gap-2">
         <span className={LABEL}>Preview</span>
         {status.cap !== undefined && <span className="text-text-faint text-2xs">{status.cap}</span>}
-        {editor !== undefined && (
-          <button
-            type="button"
-            onClick={editor.onOpen}
-            onPointerEnter={editor.warm}
-            onFocus={editor.warm}
-            className={`border-hairline border-border-hover text-text-primary hover:bg-hover duration-fast ml-auto inline-flex h-6 items-center rounded-md px-2 text-xs font-medium whitespace-nowrap transition-colors motion-reduce:transition-none ${FOCUS}`}
-          >
-            Open editor
-          </button>
-        )}
       </div>
 
       {/* Fills its tile: the preview is the one tile given the height the fields beside
@@ -104,6 +93,19 @@ export function PreviewCanvas({
           <img alt="" src={editor.picture} className="absolute inset-0 size-full object-cover" />
         )}
         {!open && status.message !== undefined && <Placeholder>{status.message}</Placeholder>}
+        {/* Inside the picture it opens, at its corner, rather than squeezed into the label
+            row above, where it clipped. Gone while the editor is open, which covers it. */}
+        {editor !== undefined && !open && (
+          <button
+            type="button"
+            onClick={editor.onOpen}
+            onPointerEnter={editor.warm}
+            onFocus={editor.warm}
+            className={`bg-accent text-canvas absolute right-2 bottom-2 inline-flex h-7 items-center rounded-md px-2.5 text-xs font-semibold whitespace-nowrap hover:brightness-110 ${FOCUS}`}
+          >
+            Open editor
+          </button>
+        )}
       </div>
 
       {(status.diagnostics ?? []).map((d, i) => (

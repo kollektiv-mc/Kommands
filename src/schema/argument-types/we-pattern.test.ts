@@ -7,13 +7,20 @@ import {
   parsePattern,
   serializePattern,
   validatePattern,
+  DEFAULT_STATE,
+  RANDOM_STATE,
+  withProperty,
+  type PatternEntry,
   type PatternValue,
 } from './we-pattern'
 import { expressionSource, validateExpression } from './we-expression'
 
 const ctx: SerializeContext = {
   traits: v1_21_1.traits,
-  registries: makeRegistryLookup({ block: ['stone', 'dirt', 'oak_log'] }),
+  registries: makeRegistryLookup(
+    { block: ['stone', 'dirt', 'oak_log'], 'tag/block': ['logs'] },
+    { oak_log: [{ axis: ['x', 'y', 'z'] }, { axis: 'y' }] },
+  ),
 }
 
 const pattern = (...entries: Array<[string, number | '']>): PatternValue => ({
@@ -162,8 +169,106 @@ describe('a pattern read back from its text', () => {
   })
 
   test('what it cannot split stays whole, as the field would', () => {
-    expect(parsePattern(' #clipboard , ').entries).toEqual([{ block: '#clipboard', weight: '' }])
+    expect(parsePattern(' #simplex , ').entries).toEqual([{ block: '#simplex', weight: '' }])
     expect(parsePattern('').entries).toEqual([])
+  })
+})
+
+describe('the four kinds of entry', () => {
+  const one = (entry: PatternEntry) => serializePattern({ entries: [entry] })
+
+  test('a block writes the states it names', () => {
+    expect(one({ block: 'oak_log', weight: '', states: { axis: 'x' } })).toBe('oak_log[axis=x]')
+  })
+
+  test('a random block is starred, its fixed states kept', () => {
+    // RandomStatePatternParser: what the brackets leave out is random.
+    expect(one({ block: 'oak_stairs', weight: '', random: true })).toBe('*oak_stairs')
+    const half = { block: 'oak_stairs', weight: '' as const, random: true, states: { half: 'top' } }
+    expect(one(half)).toBe('*oak_stairs[half=top]')
+  })
+
+  test('a tag is ##, and ##* with every state', () => {
+    expect(one({ kind: 'tag', block: 'logs', weight: '' })).toBe('##logs')
+    expect(one({ kind: 'tag', block: 'logs', weight: '', anyState: true })).toBe('##*logs')
+  })
+
+  test('change existing writes ^ with a type, states, or both', () => {
+    expect(one({ kind: 'apply', block: 'stone', weight: '' })).toBe('^stone')
+    const dry = { kind: 'apply' as const, block: '', weight: '' as const }
+    expect(one({ ...dry, states: { waterlogged: 'false' } })).toBe('^[waterlogged=false]')
+    expect(one(dry)).toBe('')
+  })
+
+  test('the clipboard writes its offset only when it has one', () => {
+    expect(one({ kind: 'clipboard', block: '', weight: '' })).toBe('#clipboard')
+    const moved = { kind: 'clipboard' as const, block: '', weight: '' as const }
+    expect(one({ ...moved, offset: [1, 0, -2] })).toBe('#clipboard@[1,0,-2]')
+  })
+
+  test('weights go in front of every kind', () => {
+    const value: PatternValue = {
+      entries: [
+        { kind: 'tag', block: 'logs', weight: 3 },
+        { block: 'oak_log', weight: 1, states: { axis: 'x' } },
+      ],
+    }
+    expect(serializePattern(value)).toBe('3%##logs,1%oak_log[axis=x]')
+  })
+
+  test('every kind reads back as it was written', () => {
+    const text = '3%##*logs,*oak_stairs[half=top,facing=east],^[open=true],#clipboard@[0,1,0],dirt'
+    expect(serializePattern(parsePattern(text))).toBe(text)
+  })
+
+  test('commas inside brackets do not split an entry', () => {
+    expect(parsePattern('oak_log[axis=x,foo=bar],dirt').entries).toHaveLength(2)
+  })
+
+  test('an unknown tag, state or value warns', () => {
+    const messages = (entry: PatternEntry) =>
+      validatePattern({ entries: [entry] }, ctx).map((d) => d.message)
+    expect(messages({ kind: 'tag', block: 'lgos', weight: '' })[0]).toContain('lgos')
+    expect(messages({ block: 'oak_log', weight: '', states: { axes: 'x' } })[0]).toContain('axes')
+    expect(messages({ block: 'oak_log', weight: '', states: { axis: 'w' } })[0]).toContain('w')
+    expect(messages({ block: 'oak_log', weight: '', states: { axis: 'x' } })).toEqual([])
+  })
+})
+
+describe('changing one property of a block entry', () => {
+  const stairs = {
+    properties: {
+      facing: ['north', 'east'],
+      half: ['top', 'bottom'],
+      waterlogged: ['true', 'false'],
+    },
+    defaults: { facing: 'north', half: 'bottom', waterlogged: 'false' },
+  }
+  const entry: PatternEntry = { block: 'oak_stairs', weight: '' }
+  const text = (e: PatternEntry) => serializePattern({ entries: [e] })
+
+  test('a set value is written, and its default is not', () => {
+    const east = withProperty(entry, stairs, 'facing', 'east')
+    expect(text(east)).toBe('oak_stairs[facing=east]')
+    expect(text(withProperty(east, stairs, 'facing', 'north'))).toBe('oak_stairs')
+  })
+
+  test('random writes the other properties out, so they stay put', () => {
+    const random = withProperty(entry, stairs, 'facing', RANDOM_STATE)
+    expect(text(random)).toBe('*oak_stairs[half=bottom,waterlogged=false]')
+  })
+
+  test('a default chosen while random is written out too', () => {
+    const random = withProperty(entry, stairs, 'facing', RANDOM_STATE)
+    const top = withProperty(random, stairs, 'half', 'top')
+    expect(text(withProperty(top, stairs, 'half', DEFAULT_STATE))).toBe(
+      '*oak_stairs[half=bottom,waterlogged=false]',
+    )
+  })
+
+  test('fixing the last random property drops the star and defaults', () => {
+    const random = withProperty(entry, stairs, 'facing', RANDOM_STATE)
+    expect(text(withProperty(random, stairs, 'facing', 'east'))).toBe('oak_stairs[facing=east]')
   })
 })
 

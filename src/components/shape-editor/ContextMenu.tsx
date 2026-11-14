@@ -13,6 +13,11 @@ export interface MenuAction {
  * Konnekt's context menu in this app's terms: a short list of verbs, the arrow keys
  * between them, Escape or a press anywhere else to close. Held inside the window's
  * edges, so a menu opened near a corner opens towards the middle.
+ *
+ * One item is lit at a time: the one under the pointer, or the one the arrow keys
+ * reached. Both move the focus, and only focus draws the highlight, so the pointer and
+ * the keys can never light two. It opens with none lit, as a menu opened by the pointer
+ * should.
  */
 export function ContextMenu({
   at,
@@ -32,7 +37,7 @@ export function ContextMenu({
     const { innerWidth, innerHeight } = window
     el.style.left = `${Math.max(edge, Math.min(at.x, innerWidth - el.offsetWidth - edge))}px`
     el.style.top = `${Math.max(edge, Math.min(at.y, innerHeight - el.offsetHeight - edge))}px`
-    el.querySelector('button')?.focus({ preventScroll: true })
+    el.focus({ preventScroll: true })
   }, [at])
 
   useEffect(() => {
@@ -47,12 +52,19 @@ export function ContextMenu({
     }
   }, [onClose])
 
+  /** Light an item, or none: the menu itself takes the focus so the keys still reach it. */
+  const light = (item: HTMLButtonElement | null) => {
+    const target = item ?? menu.current
+    if (target !== null && document.activeElement !== target) target.focus({ preventScroll: true })
+  }
+
   const onKeyDown = (event: KeyboardEvent) => {
     const buttons = [...(menu.current?.querySelectorAll('button') ?? [])]
     const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
+    const down = event.key === 'ArrowDown'
     if (event.key === 'Escape') onClose()
-    else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      buttons[stepIndex(index, event.key === 'ArrowDown' ? 1 : -1, buttons.length)]?.focus()
+    else if (down || event.key === 'ArrowUp') {
+      buttons[stepIndex(index, down ? 1 : -1, buttons.length)]?.focus()
     } else return
     event.preventDefault()
     event.stopPropagation()
@@ -65,7 +77,9 @@ export function ContextMenu({
       tabIndex={-1}
       onKeyDown={onKeyDown}
       onContextMenu={(e) => e.preventDefault()}
-      className="popover popover-enter border-hairline border-border-hover bg-overlay fixed z-60 w-44 rounded-lg p-1"
+      onPointerMove={(e) => light((e.target as Element).closest('button'))}
+      onPointerLeave={() => light(null)}
+      className="popover popover-enter border-hairline border-border-hover bg-overlay fixed z-60 w-44 rounded-lg p-1 outline-none"
     >
       {actions.map((action) => (
         <button
@@ -76,7 +90,7 @@ export function ContextMenu({
             onClose()
             action.onSelect()
           }}
-          className="text-text-primary hover:bg-hover focus:bg-hover flex w-full items-center rounded-md px-2 py-1.5 text-left font-mono text-xs outline-none"
+          className="text-text-primary focus:bg-hover flex w-full items-center rounded-md px-2 py-1.5 text-left font-mono text-xs outline-none"
         >
           {action.label}
         </button>
