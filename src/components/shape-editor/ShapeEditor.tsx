@@ -16,6 +16,7 @@ import { CommandBar } from './CommandBar'
 import { ContextMenu } from './ContextMenu'
 import { Inspector } from './Inspector'
 import { LayerList } from './LayerList'
+import { LayerMenu } from './LayerMenu'
 import { Palette } from './Palette'
 import { BUTTON, PANEL, PANEL_HEAD, PRIMARY } from './styles'
 import { TemplatesDialog } from './TemplatesDialog'
@@ -57,6 +58,13 @@ export function ShapeEditor({
   )
   const [templates, setTemplates] = useState(false)
   const [listMenu, setListMenu] = useState<{ x: number; y: number } | null>(null)
+  const [layerMenu, setLayerMenu] = useState<{ id: string; at: { x: number; y: number } } | null>(
+    null,
+  )
+  const openLayerMenu = useCallback(
+    (id: string, at: { x: number; y: number }) => setLayerMenu({ id, at }),
+    [],
+  )
   const closeTemplates = useCallback(() => setTemplates(false), [])
 
   useEditorKeys()
@@ -137,9 +145,14 @@ export function ShapeEditor({
               </span>
             </div>
             <Palette onAdd={add} />
-            <LayerList onFind={() => {}} onListMenu={setListMenu} />
+            <LayerList onMenu={openLayerMenu} onListMenu={setListMenu} />
           </aside>
-          <Viewport opening={parts.opening} stage={parts.stage} expression={command.expression} />
+          <Viewport
+            opening={parts.opening}
+            stage={parts.stage}
+            expression={command.expression}
+            onMenu={openLayerMenu}
+          />
           <aside
             ref={parts.right}
             aria-label="Inspector"
@@ -152,6 +165,7 @@ export function ShapeEditor({
         <CommandBar ref={parts.bottom} command={command} />
       </div>
 
+      {layerMenu && <LayerMenu {...layerMenu} onClose={() => setLayerMenu(null)} />}
       {listMenu && (
         <ContextMenu
           at={listMenu}
@@ -178,12 +192,16 @@ function countShapes(layers: ReturnType<typeof useShapeEditorStore.getState>['la
   return n
 }
 
+/** W, E and R: the gizmo each picks, which also enters Edit. */
+const GIZMO_KEYS = { w: 'translate', e: 'rotate', r: 'scale' } as const
+
 /**
  * The editor's keys, while it is open.
  *
  * Undo and redo always, as in the command editor (`CommandWorkbench` explains why).
  * The rest only when no field has the keyboard, so typing an `s` into a name does not
- * isolate anything.
+ * isolate anything. Enter enters Edit; Escape leaves it, and in View lets go of the
+ * selection.
  */
 function useEditorKeys() {
   useEffect(() => {
@@ -197,18 +215,33 @@ function useEditorKeys() {
         else store.undo()
         return
       }
-      const typing = (event.target as Element | null)?.closest?.('input, textarea, select')
-      if (typing) return
+      const target = event.target as Element | null
+      if (target?.closest?.('input, textarea, select')) return
       const { selected } = store
       if (mod && key === 'd' && selected !== null) {
         event.preventDefault()
         store.duplicateLayer(selected)
+      } else if (mod || event.altKey) {
+        return
       } else if ((key === 'delete' || key === 'backspace') && selected !== null) {
         event.preventDefault()
         store.removeLayer(selected)
-      } else if (key === 's' && !mod) {
+      } else if (key === 'f') {
+        store.findLayer(selected)
+      } else if (key === 's') {
         event.preventDefault()
         store.setIsolate(store.isolate !== null ? null : selected)
+      } else if (key === 'enter') {
+        // A focused button or menu item keeps Enter for itself.
+        if (target?.closest?.('button, a, [role="option"], [role^="menuitem"]')) return
+        event.preventDefault()
+        store.setEdit({ on: true })
+      } else if (key in GIZMO_KEYS) {
+        store.setEdit({ on: true, mode: GIZMO_KEYS[key as keyof typeof GIZMO_KEYS] })
+      } else if (key === 'escape') {
+        if (store.dragging) return
+        if (store.edit.on) store.setEdit({ on: false })
+        else store.select(null)
       }
     }
     // Escape closes the editor's own menus and nothing else: marked as taken before the

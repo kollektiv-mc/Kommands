@@ -1,15 +1,26 @@
-import { Component, lazy, Suspense, useState, type ReactNode, type RefObject } from 'react'
+import { Component, lazy, Suspense, useMemo, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useShapeEditorStore } from '../../stores/useShapeEditorStore'
-import { find } from '../../worldedit/stack/edit'
+import { stackCommand } from '../../worldedit/stack/command'
+import { find, isolated } from '../../worldedit/stack/edit'
+import type { Layer } from '../../worldedit/stack/layers'
 import { FOCUS } from '../editors/fieldStyles'
+import { Listbox } from '../ui/Listbox'
 import { Tooltip } from '../ui/Tooltip'
+import { EditTools } from './EditTools'
+import { KeyHints } from './KeyHints'
 import { SEG, SEG_BUTTON } from './styles'
+import { useAltHeld } from './useAltHeld'
+import { ViewMenu } from './ViewMenu'
+import { useReferenceVoxels } from './viewport/useReferenceVoxels'
 import { EDITOR_MAX_SIZE, useVoxels } from './viewport/useVoxels'
 
 const ViewportStage = lazy(() => import('./viewport/ViewportStage'))
 
-const SIZES = [16, 32, 48, 64, EDITOR_MAX_SIZE] as const
+const SIZES = [16, 32, 48, 64, EDITOR_MAX_SIZE].map((s) => ({
+  value: String(s),
+  label: `${s}³`,
+}))
 
 /**
  * The opening onto the 3D view, and the view itself.
@@ -26,20 +37,40 @@ export function Viewport({
   expression,
   opening,
   stage,
+  onMenu,
 }: {
   expression: string
+  /** A right-click on a layer in the view: that layer's menu. */
+  onMenu: (id: string, at: { x: number; y: number }) => void
   opening: RefObject<HTMLElement | null>
   /** Where the canvas goes: the editor's full area, under everything else. */
   stage: HTMLElement | null
 }) {
   const hollow = useShapeEditorStore((s) => s.hollow)
+  const round = useShapeEditorStore((s) => s.round)
+  const pattern = useShapeEditorStore((s) => s.pattern)
   const isolate = useShapeEditorStore((s) => s.isolate)
   const layers = useShapeEditorStore((s) => s.layers)
   const setIsolate = useShapeEditorStore((s) => s.setIsolate)
   const [size, setSize] = useState<number>(32)
   const [home, setHome] = useState(0)
-  const voxels = useVoxels(expression, size, hollow)
-  const isolated = isolate === null ? null : find(layers, isolate)?.layer
+  // Isolated, the view shows the one layer while the command stays whole.
+  const shown = useMemo(
+    () => (isolate === null ? null : isolated(layers, isolate)),
+    [layers, isolate],
+  )
+  const source = useMemo(
+    () =>
+      shown === null
+        ? expression
+        : stackCommand({ layers: shown, pattern, hollow, round }).expression,
+    [shown, expression, pattern, hollow, round],
+  )
+  const voxels = useVoxels(source, size, hollow)
+  const commands = useMemo(() => referenceCommands(shown ?? layers), [shown, layers])
+  const references = useReferenceVoxels(commands, size)
+  const isolatedLayer = isolate === null ? null : find(layers, isolate)?.layer
+  const hints = useAltHeld()
 
   return (
     <section ref={opening} aria-label="Viewport" className="relative min-h-0">
@@ -47,7 +78,16 @@ export function Viewport({
         createPortal(
           <StageBoundary>
             <Suspense fallback={null}>
-              <ViewportStage field={voxels.field} homeKey={home} opening={opening} />
+              <ViewportStage
+                field={voxels.field}
+                pattern={pattern}
+                layers={shown ?? layers}
+                references={references}
+                size={size}
+                homeKey={home}
+                opening={opening}
+                onMenu={onMenu}
+              />
             </Suspense>
           </StageBoundary>,
           stage,
@@ -57,7 +97,8 @@ export function Viewport({
         data-chrome
         className="pointer-events-none absolute inset-x-2.5 top-2.5 flex flex-wrap gap-2 [&>*]:pointer-events-auto"
       >
-        {isolated && (
+        <EditTools />
+        {isolatedLayer && (
           <div className={SEG}>
             <button
               type="button"
@@ -66,26 +107,22 @@ export function Viewport({
               onClick={() => setIsolate(null)}
               className={`${SEG_BUTTON} ${FOCUS}`}
             >
-              <span className="max-w-36 truncate">{isolated.name}</span>
+              <span className="max-w-36 truncate">{isolatedLayer.name}</span>
               <kbd className="text-accent text-2xs font-mono">S</kbd>
             </button>
           </div>
         )}
         <span className="pointer-events-none flex-1" />
+        <ViewMenu />
         <div className={SEG}>
           <Tooltip label="Samples per axis. In game this is your selection size." side="bottom">
-            <select
+            <Listbox
+              bare
               aria-label="Preview resolution"
-              value={size}
-              onChange={(e) => setSize(Number(e.currentTarget.value))}
-              className="text-text-secondary h-6.5 bg-transparent px-1 text-xs font-semibold outline-none"
-            >
-              {SIZES.map((s) => (
-                <option key={s} value={s}>
-                  {s}³
-                </option>
-              ))}
-            </select>
+              value={String(size)}
+              options={SIZES}
+              onChange={(s) => setSize(Number(s))}
+            />
           </Tooltip>
           <Tooltip label="Reset the camera" side="bottom">
             <button
@@ -110,12 +147,16 @@ export function Viewport({
         data-chrome
         className="pointer-events-none absolute inset-x-3 bottom-2.5 flex flex-wrap items-end justify-between gap-3"
       >
-        <span className="bg-canvas/80 text-text-secondary text-1xs rounded-sm px-2 py-1 font-mono tabular-nums">
-          {voxels.field
-            ? `${voxels.field.count.toLocaleString('en')} blocks · ${voxels.field.size}³`
-            : '–'}
-        </span>
-        {voxels.pending && (
+        {hints ? (
+          <KeyHints />
+        ) : (
+          <span className="bg-canvas/80 text-text-secondary text-1xs rounded-sm px-2 py-1 font-mono tabular-nums">
+            {voxels.field
+              ? `${voxels.field.count.toLocaleString('en')} blocks · ${voxels.field.size}³`
+              : '–'}
+          </span>
+        )}
+        {voxels.pending && !hints && (
           <output className="bg-canvas/80 text-text-secondary text-1xs flex items-center gap-1.5 rounded-sm px-2 py-1 font-mono">
             <span aria-hidden="true" className="spinner" />
             Evaluating
@@ -161,4 +202,15 @@ class StageBoundary extends Component<{ children: ReactNode }, { failed: boolean
     }
     return this.props.children
   }
+}
+
+/** The commands of the References the view draws: visible, and not inside a hidden group. */
+function referenceCommands(layers: readonly Layer[]): string[] {
+  const out: string[] = []
+  for (const layer of layers) {
+    if (!layer.visible) continue
+    if (layer.type === 'reference') out.push(layer.command)
+    else if (layer.type === 'group') out.push(...referenceCommands(layer.children))
+  }
+  return out
 }

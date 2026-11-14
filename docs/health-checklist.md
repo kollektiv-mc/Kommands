@@ -448,10 +448,12 @@ it should be stable between runs.
 **P3: The shape editor has no token for three of its colours**
 
 - The prototype colours the z axis blue, and gives modifier and reference rows their
-  own tint. No role token exists for any of them, so `shape-editor/scrub.ts` draws z in
-  `text-text-secondary` and the layer list shows modifiers and references in neutral
-  tones. The fix is three role tokens in kollektiv's `design/tokens.json` (an axis set,
-  and the two layer kinds), synced here and regenerated, never a literal here.
+  own tint. No role token exists for any of them, so `shape-editor/scrub.ts` and the
+  view's Axes draw z in `text-secondary`, the layer list shows modifiers and references
+  in neutral tones, and the view draws a selected Reference's box and every modifier's
+  guide in `text-secondary` and the to-scale Player in `text-muted`. The fix is role tokens in kollektiv's
+  `design/tokens.json` (an axis set, the two layer kinds, and a figure), synced here
+  and regenerated, never a literal here.
 
 **P3 — The scrollbar cannot be verified in this repo's own tooling**
 
