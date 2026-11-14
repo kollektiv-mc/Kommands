@@ -58,7 +58,7 @@ describe('what a @any Ref may embed', () => {
 
   test('a WorldEdit command may embed WorldEdit commands only', () => {
     const embeddable = embeddableIn(catalogue, catalogue['worldedit:generate']!)
-    expect(Object.keys(embeddable)).toEqual(['worldedit:generate'])
+    expect(Object.keys(embeddable).sort()).toEqual(['worldedit:generate', 'worldedit:palette'])
   })
 
   test('a command may embed itself — the depth cap is what stops recursion, not this', () => {

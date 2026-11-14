@@ -452,6 +452,12 @@ empty argument that a later one forces is written as its game default or its `<n
 placeholder rather than dropped (`command-schema.md` § `ArgumentNode`). A tile shows the
 corrected text once the command is saved again.
 
+`we_mask` stores `{ include, exclude, chance, rules }`: included and excluded block
+ids, with a block tag written `#name` among them, a chance from 1 to 100 or `''` for
+all, and a list of rules, each `{ test, not, offset, values, text, exact, chance }`
+with every field present whatever the test. It is the shape the editor holds rather
+than the mask text, which is written fresh from it (`we-mask.ts`).
+
 Positions and rotations (`block_pos`, `vec3`, `column_pos`, `vec2`, `rotation`,
 `angle`) store one string, the parts joined by single spaces with an empty part kept
 in its place: `'1  '` is x set and y and z not. They were plain text fields before
