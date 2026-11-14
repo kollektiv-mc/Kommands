@@ -18,8 +18,11 @@ const IN_MS = 180
 const IN_EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)'
 /** The dim's fade, in and out. */
 const BACKDROP_MS = 120
-/** Where a panel with no origin grows from and shrinks to: the same gesture, smaller. */
-const NO_ORIGIN = 'scale(0.93)'
+/**
+ * A panel with no origin does not move at all: it fades in and out where it stands, as a
+ * popup does. A scale with nothing to grow from read as a box zooming in.
+ */
+const NO_ORIGIN = 'none'
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
@@ -49,8 +52,8 @@ function transformOnto(panel: HTMLElement, origin: OriginRect): string {
 /**
  * Grow `panel` out of `origin`. Returns a cleanup for the caller's effect.
  *
- * With no origin — the editor was opened by URL, or from something off screen — this
- * still runs, as a small scale-up rather than nothing. An entrance that sometimes
+ * With no origin (the New command button, a URL, something off screen) this still
+ * runs, as a fade where the panel stands rather than nothing. An entrance that sometimes
  * animates and sometimes cuts reads as a glitch; one that always animates, from a
  * rect when there is one, reads as the same gesture at two levels of detail.
  */
@@ -163,7 +166,7 @@ export function flipOut(
   }
 
   // `flipIn` stripped its transform at IN_MS + 20, so the panel measures its true box.
-  // With no origin it shrinks where it stands, as it grew; one with no layout cuts.
+  // With no origin it fades where it stands, as it came; one with no layout cuts.
   const hasBox = panel !== null && panel.getBoundingClientRect().width > 0
   const to = panel === null || !hasBox ? '' : origin ? transformOnto(panel, origin) : NO_ORIGIN
 

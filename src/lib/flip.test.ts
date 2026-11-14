@@ -86,8 +86,24 @@ test('no origin still animates, rather than cutting', () => {
 
   // The editor is reachable by URL, where there is no tile to grow from. An entrance
   // that sometimes animates and sometimes cuts reads as a glitch; the same gesture at
-  // less detail reads as one design.
+  // less detail reads as one design. With nothing to grow from it only fades.
   expect(panel.style.transform).toBe('translate(0px, 0px) scale(1, 1)')
+  expect(panel.style.transition).toContain('opacity')
+})
+
+test('no origin fades in without a scale', () => {
+  stubReducedMotion(false)
+  const panel = panelOf({ top: 0, left: 0, width: 600, height: 400 })
+  const set: string[] = []
+  const style = panel.style
+  Object.defineProperty(style, 'transform', {
+    configurable: true,
+    get: () => set.at(-1) ?? '',
+    set: (value: string) => void set.push(value),
+  })
+  flipIn(panel, null)
+  // Every transform it passes through is the identity: nothing scales or moves.
+  expect(set.filter((value) => value !== '' && !/^none$|scale\(1, 1\)/.test(value))).toEqual([])
 })
 
 test('reduced motion touches nothing at all', () => {
@@ -192,7 +208,7 @@ test('the backdrop fades with the panel', () => {
   expect(backdrop.style.transition).toContain('opacity')
 })
 
-test('an exit with no origin shrinks where it stands', () => {
+test('an exit with no origin fades where it stands', () => {
   vi.useFakeTimers()
   stubReducedMotion(false)
   const panel = panelOf({ top: 0, left: 0, width: 600, height: 400 })
@@ -202,7 +218,7 @@ test('an exit with no origin shrinks where it stands', () => {
   // exit used to cut for all of them while the entrance animated.
   flipOut(panel, null, null, done)
 
-  expect(panel.style.transform).toBe('scale(0.93)')
+  expect(panel.style.transform).toBe('none')
   expect(panel.style.opacity).toBe('0')
   expect(done).not.toHaveBeenCalled()
   vi.advanceTimersByTime(200)
