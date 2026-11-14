@@ -452,6 +452,11 @@ empty argument that a later one forces is written as its game default or its `<n
 placeholder rather than dropped (`command-schema.md` § `ArgumentNode`). A tile shows the
 corrected text once the command is saved again.
 
+`we_pattern` stores `{ entries }`, each `{ block, weight }` with optional `kind`
+(`block` when absent, else `tag`, `apply` or `clipboard`), `states`, `random`,
+`anyState` and `offset`. A pattern saved before the kinds existed is a list of plain
+block entries, and still loads as one.
+
 `we_mask` stores `{ include, exclude, chance, rules }`: included and excluded block
 ids, with a block tag written `#name` among them, a chance from 1 to 100 or `''` for
 all, and a list of rules, each `{ test, not, offset, values, text, exact, chance }`
