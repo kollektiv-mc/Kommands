@@ -13,6 +13,7 @@ import { SelectorEditor } from '../../components/editors/SelectorEditor'
 import { ItemStackEditor } from '../../components/editors/ItemStackEditor'
 import { TextComponentEditor } from '../../components/editors/TextComponentEditor'
 import { PatternEditor } from '../../components/editors/PatternEditor'
+import { MaskEditor } from '../../components/editors/MaskEditor'
 import { ExpressionEditor } from '../../components/editors/ExpressionEditor'
 import { coordinateEditor } from '../../components/editors/CoordinateEditor'
 import { enumEditor } from '../../components/editors/EnumEditor'
@@ -26,6 +27,7 @@ import {
   TEAM_COLORS,
   TEMPLATE_MIRRORS,
   TEMPLATE_ROTATIONS,
+  WORLDEDIT_REGION_SHAPES,
 } from '../../data/authored/enums'
 import { selectorsFor } from '../../data/authored/selectors'
 import {
@@ -42,6 +44,7 @@ import {
   type ItemStackValue,
 } from './item-stack'
 import { serializePattern, validatePattern, EMPTY_PATTERN, type PatternValue } from './we-pattern'
+import { serializeMask, validateMask, EMPTY_MASK, type MaskValue } from './we-mask'
 import { expressionSource, validateExpression, type ExpressionValue } from './we-expression'
 import { COORDINATE_SHAPES, coordinateProblems, serializeCoordinates } from '../coordinates'
 import { choiceRows, enumControl } from '../presentation'
@@ -247,6 +250,17 @@ const TYPES: ErasedArgumentType[] = [
     validate: (value, _options, ctx) => validatePattern(value, ctx),
     defaultValue: () => EMPTY_PATTERN,
   }),
+  defineArgumentType<MaskValue>({
+    key: 'we_mask',
+    labelling: 'group',
+    // Include, exclude and chance side by side, and a rule a line below each: wider than
+    // one tile, and tall enough that a column would be mostly this.
+    wideTile: true,
+    editor: MaskEditor,
+    serialize: serializeMask,
+    validate: (value, _options, ctx) => validateMask(value, ctx),
+    defaultValue: () => EMPTY_MASK,
+  }),
   defineArgumentType<ExpressionValue>({
     key: 'we_expression',
     editor: ExpressionEditor,
@@ -287,6 +301,7 @@ const TYPES: ErasedArgumentType[] = [
   enumType('template_rotation', TEMPLATE_ROTATIONS),
   enumType('operation', SCOREBOARD_OPERATIONS),
   enumType('color', TEAM_COLORS),
+  enumType('we_region_shape', WORLDEDIT_REGION_SHAPES),
   // A number and an optional unit: days, seconds or ticks, ticks when none is given.
   patternType('time', /^(\d+\.?\d*|\.\d+)[dst]?$/, 'A number, then d, s or t (ticks if none)'),
   // An exact whole number, or a range with either end left open: 1..5, ..5, 1..

@@ -1,4 +1,9 @@
-import type { RegistryLookup } from './types'
+import type { BlockStates, RegistryLookup } from './types'
+
+/** `blocks.json`'s shape: per block, its properties' values and then their defaults. */
+export type BlockTable = Readonly<
+  Record<string, readonly [Record<string, readonly string[]>, Record<string, string>]>
+>
 
 /**
  * A `RegistryLookup` over a plain record of registry name → ids.
@@ -10,8 +15,15 @@ import type { RegistryLookup } from './types'
  */
 export function makeRegistryLookup(
   registries: Readonly<Record<string, readonly string[]>>,
+  blocks: BlockTable = {},
 ): RegistryLookup {
   return {
+    blockStates: (block): BlockStates | undefined => {
+      const bare = block.trim().split(':').pop() ?? ''
+      if (!Object.hasOwn(blocks, bare)) return undefined
+      const [properties, defaults] = blocks[bare]!
+      return { properties, defaults }
+    },
     entries: (registry) => (Object.hasOwn(registries, registry) ? registries[registry]! : []),
     // Unknown registry -> true, deliberately. A validator that warned "this item does
     // not exist" because *the registry* was missing would be blaming the user's input

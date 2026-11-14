@@ -64,8 +64,13 @@ interface ParsedSelector {
   chain: readonly string[]
 }
 
+/**
+ * Split on the slashes between keywords, not the ones a keyword starts with. A
+ * WorldEdit literal carries its own (`//replace`), so `//replace/mask` is the keyword
+ * `//replace` and the name `mask`. Vanilla keywords never start with one.
+ */
 function parseSelector(selector: string): ParsedSelector {
-  const parts = selector.split('/')
+  const parts = selector.split(/(?<=[^/])\//)
   return { name: parts[parts.length - 1] ?? '', chain: parts.slice(0, -1) }
 }
 

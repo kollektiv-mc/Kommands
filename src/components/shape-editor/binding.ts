@@ -17,7 +17,8 @@ import { shape } from '../../worldedit/stack/make'
  * The editor reads and writes three of `//generate`'s inputs, by the selectors the
  * preview binding declares: the expression (with the layers it was drawn from), the
  * pattern, and `-h`. A command typed by hand opens as one Formula layer holding its
- * text, so nothing a user wrote is lost by opening the editor on it.
+ * text, so nothing a user wrote is lost by opening the editor on it. A command with no
+ * blocks yet opens on the default ones.
  */
 export const INPUTS = { expression: 'expression', pattern: 'pattern', hollow: '-h' } as const
 
@@ -30,7 +31,9 @@ export function openSnapshot(values: Readonly<Record<string, unknown>>): ShapeSn
     layers:
       document?.layers ??
       (source === '' ? [] : [shape('formula', { name: 'Expression', params: { source } })]),
-    pattern: isPattern(pattern) ? serializePattern(pattern) : '',
+    // What the command would run with, so the Blocks field never shows empty while the
+    // command beside it names a block.
+    pattern: (isPattern(pattern) ? serializePattern(pattern) : '') || DEFAULT_PATTERN,
     hollow: values[INPUTS.hollow] === true,
     round: document?.round ?? false,
   }
