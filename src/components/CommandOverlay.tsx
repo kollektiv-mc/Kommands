@@ -3,6 +3,7 @@ import { useBlocker, useNavigate } from '@tanstack/react-router'
 import { flipIn, flipOut } from '../lib/flip'
 import { morphIn, morphOut } from '../lib/morph'
 import { FullscreenLayer } from '../lib/fullscreenLayer'
+import { ConfirmDialog } from './ui/ConfirmDialog'
 import { useSheetSize } from '../lib/useSheetSize'
 import { originElement, originOf, useUiStore } from '../stores/useUiStore'
 
@@ -16,7 +17,8 @@ import { originElement, originOf, useUiStore } from '../stores/useUiStore'
  * in once the sheet has its size.
  *
  * Owns the whole open/close gesture: the entrance that grows out of the tile, the
- * exit that shrinks back into it, the dim behind, and the three ways out.
+ * exit that shrinks back into it, the dim behind, and the ways out: the close button and
+ * Escape, which ask before throwing unsaved changes away. A press on the dim does nothing.
  *
  * Scoped to its layout container rather than to the viewport — `absolute`, not
  * `fixed` — so the app header stays visible and clickable, exactly as Konnekt's
@@ -65,6 +67,8 @@ export function CommandOverlay({
   // State rather than a ref, so the content below learns the element once it exists.
   const [layer, setLayer] = useState<HTMLDivElement | null>(null)
   const closing = useRef(false)
+  /** The unsaved-changes question on screen, and what each answer does. */
+  const [asking, setAsking] = useState<{ discard: () => void; keep: () => void } | null>(null)
   const navigate = useNavigate()
   const originFor = useUiStore((s) => s.originFor)
 
@@ -85,7 +89,7 @@ export function CommandOverlay({
     return originOf(originElement(originKey)) ?? originFor(originKey)
   }, [originKey, originFor])
 
-  const close = useCallback(() => {
+  const exit = useCallback(() => {
     if (closing.current) return
     closing.current = true
     const home = () => void navigate({ to: '/dashboard' })
@@ -105,12 +109,42 @@ export function CommandOverlay({
     flipOut(panel.current, returns ? collapseTo() : null, backdrop.current, home)
   }, [collapseTo, navigate, panel, originKey, saved])
 
+  /** Asks before throwing away unsaved changes; true when it is fine to go. */
+  const mayLeave = useCallback(
+    () =>
+      useUiStore.getState().unsaved
+        ? new Promise<boolean>((resolve) =>
+            setAsking({
+              discard: () => {
+                setAsking(null)
+                resolve(true)
+              },
+              keep: () => {
+                setAsking(null)
+                resolve(false)
+              },
+            }),
+          )
+        : Promise.resolve(true),
+    [],
+  )
+
+  // The close button and Escape. Not a press on the dim around the sheet: a stray click
+  // beside a form lost the whole command.
+  const close = useCallback(() => {
+    if (closing.current) return
+    void mayLeave().then((go) => {
+      if (go) exit()
+    })
+  }, [exit, mayLeave])
+
   // Another command, or the list: the one on screen fades out before the route changes,
   // and the new one is placed and faded in once the sheet has resized to it.
   useBlocker({
     shouldBlockFn: async ({ current, next }) => {
       if (closing.current || next.pathname === current.pathname) return false
-      if (!/^\/c(\/|$)/.test(next.pathname)) return false
+      // Out of the editor some other way (the app header's way home): ask first too.
+      if (!/^\/c(\/|$)/.test(next.pathname)) return !(await mayLeave())
       await leave()
       // In case the route lands on what is already shown, which no change of key reveals.
       window.setTimeout(settle, 1000)
@@ -168,14 +202,10 @@ export function CommandOverlay({
         `aria-hidden` because the dashboard beneath is already `inert`; this element is
         a surface, not content.
       */}
-      <div
-        ref={backdrop}
-        aria-hidden="true"
-        onClick={close}
-        className="bg-overlay/70 absolute inset-0"
-      />
+      <div ref={backdrop} aria-hidden="true" className="bg-overlay/70 absolute inset-0" />
       {/*
-        The stage centres the sheet and lets presses through to the dim around it.
+        The stage centres the sheet and lets presses through to the dim around it, which
+        takes them and does nothing with them.
         `absolute`, not `fixed`, so the app header stays visible and clickable.
       */}
       <div
@@ -254,6 +284,15 @@ export function CommandOverlay({
         below the app header.
       */}
       <div ref={setLayer} className="pointer-events-none absolute inset-0 z-20" />
+      {asking && (
+        <ConfirmDialog
+          title="Discard unsaved changes?"
+          body="This command has changes you have not saved. Closing the editor throws them away."
+          action="Discard"
+          onConfirm={asking.discard}
+          onCancel={asking.keep}
+        />
+      )}
     </>
   )
 }

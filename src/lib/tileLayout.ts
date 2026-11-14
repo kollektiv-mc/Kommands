@@ -37,6 +37,38 @@ export interface TileLayout {
   place: Placement[]
 }
 
+/**
+ * The width each column needs, from what each tile in it needs to lay out without
+ * squeezing (its min-content width, measured by `TileGrid`), or 0 where the standard
+ * width is enough. A band spans every column and a filling tile sizes from its column
+ * rather than to its content, so neither asks for anything.
+ */
+export function columnNeeds(
+  layout: Pick<TileLayout, 'cols' | 'place'>,
+  needs: readonly number[],
+): number[] {
+  const cols = Array<number>(layout.cols).fill(0)
+  layout.place.forEach((at, i) => {
+    if (!at || at.band) return
+    cols[at.col] = Math.max(cols[at.col]!, Math.ceil(needs[i] ?? 0))
+  })
+  return cols
+}
+
+/**
+ * The grid's columns and its own width as CSS: every column at least the tile width
+ * and at least what it needs. Null when no column needs more, so the stylesheet's own
+ * equal columns stand.
+ */
+export function columnTemplate(cols: readonly number[]): { template: string; min: string } | null {
+  if (cols.every((n) => n === 0)) return null
+  const width = (n: number) => (n === 0 ? 'var(--tile-w)' : `max(var(--tile-w), ${n}px)`)
+  return {
+    template: cols.map((n) => `minmax(${width(n)}, 1fr)`).join(' '),
+    min: `calc(${cols.map(width).join(' + ')} + ${cols.length - 1} * var(--tile-gap))`,
+  }
+}
+
 /** The fewest rows a filling tile gets, so a preview or a chain never collapses to a strip. */
 export const MIN_FILL = 6
 /** Above this many tiles the exhaustive search is skipped for the greedy one. */

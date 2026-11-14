@@ -22,6 +22,11 @@ export function useSlidingMark<C extends HTMLElement, M extends HTMLElement>(
     const target = box.querySelector<HTMLElement>(selector)
     if (!target) {
       el.dataset.shown = 'false'
+      // Back to the top as well as hidden: a mark left on an option far down a list
+      // that has since been filtered short still counts towards what the list scrolls,
+      // and kept a three-option list scrolled to blank space below them.
+      el.style.transform = ''
+      el.style.height = ''
       return
     }
     const first = el.dataset.shown !== 'true'
