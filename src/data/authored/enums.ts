@@ -52,3 +52,9 @@ export const SCOREBOARD_OPERATIONS: readonly string[] = [
  * No `#rrggbb` here, unlike a text component's colour.
  */
 export const TEAM_COLORS: readonly string[] = [...TEXT_COLORS, 'reset']
+
+/**
+ * WorldEdit's region shapes, as `/brush set` takes them. Read from 7.3.6's
+ * `RegionFactoryConverter`, which also accepts `cylinder` for `cyl`.
+ */
+export const WORLDEDIT_REGION_SHAPES: readonly string[] = ['cuboid', 'sphere', 'cyl']

@@ -114,4 +114,49 @@ describe('the shape editor', () => {
     act(() => store().redo())
     expect(layerRows()).toHaveLength(1)
   })
+
+  test('a right-click menu lights one item, the one pointed at', async () => {
+    const { user } = open()
+    await user.click(screen.getByRole('button', { name: 'Add Sphere' }))
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: layerRows()[0]!.querySelector('[data-row]')!,
+    })
+    const menu = screen.getByRole('menu')
+    expect(document.activeElement).toBe(menu)
+    await user.hover(within(menu).getByRole('menuitem', { name: 'Duplicate' }))
+    const lit = () =>
+      within(menu)
+        .getAllByRole('menuitem')
+        .filter((i) => i === document.activeElement)
+    expect(lit().map((i) => i.textContent)).toEqual(['Duplicate'])
+    await user.keyboard('{ArrowDown}')
+    expect(lit().map((i) => i.textContent)).toEqual(['Delete'])
+  })
+
+  test('Clear all asks first, and Undo brings the layers back', async () => {
+    const { user } = open()
+    await user.click(screen.getByRole('button', { name: 'Add Sphere' }))
+    await user.click(screen.getByRole('button', { name: 'Add Box' }))
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('tree', { name: 'Layers' }),
+    })
+    await user.click(screen.getByRole('menuitem', { name: 'Clear all' }))
+    const dialog = screen.getByRole('alertdialog', { name: 'Clear all shapes?' })
+    expect(document.activeElement?.textContent).toBe('Cancel')
+    await user.click(within(dialog).getByRole('button', { name: 'Clear all' }))
+    expect(layerRows()).toHaveLength(0)
+    await user.keyboard('{Control>}z{/Control}')
+    expect(layerRows()).toHaveLength(2)
+  })
+
+  test('the chevron folds a group without selecting it', async () => {
+    const { user } = open()
+    await user.click(screen.getByRole('button', { name: 'Add Group' }))
+    act(() => store().select(null))
+    await user.click(screen.getByRole('button', { name: 'Fold' }))
+    expect(screen.getByRole('button', { name: 'Unfold' })).toBeTruthy()
+    expect(store().selected).toBeNull()
+  })
 })

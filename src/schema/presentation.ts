@@ -63,10 +63,14 @@ export function branchLabel(
 export function choiceLabel(node: ChoiceNode, inClause: boolean): string {
   if (inClause) return 'Clause'
   if (node.optional) return 'Continue with'
-  const keywordLed = node.nodes.every(
-    (n) => n.kind === 'literal' || (n.kind === 'sequence' && n.nodes[0]?.kind === 'literal'),
+  const leads = node.nodes.map((n) =>
+    n.kind === 'literal' ? n : n.kind === 'sequence' ? n.nodes[0] : undefined,
   )
-  return keywordLed ? 'Action' : 'Form'
+  if (!leads.every((lead) => lead?.kind === 'literal')) return 'Form'
+  // A keyword that starts with a slash is a command's own name (`//replace`, `/brush`),
+  // so a Choice between them is a choice of command rather than of what one does.
+  const commands = leads.every((lead) => lead?.kind === 'literal' && lead.token.startsWith('/'))
+  return commands ? 'Command' : 'Action'
 }
 
 /** What an optional Choice with nothing selected is called among its branches. */

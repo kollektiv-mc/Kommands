@@ -6,10 +6,12 @@ import { NO_REGISTRIES } from '../../versions/registry'
 import { argumentNodesFor } from '../../../schema/addressing'
 import { argumentOptions, lookupArgumentType } from '../../../schema/argument-types'
 import { EMPTY_VALUE, serializeCommand, type CommandValue } from '../../../schema/serialize'
+import { authoredCommands } from '../commands'
 import { authoredDefaults, withDefaults } from '.'
 
 const ctx = { traits: v1_21_1.traits, registries: NO_REGISTRIES }
-const derived = await loadCommands(v1_21_1)
+// Authored definitions too: WorldEdit's defaults are its own, read from its source.
+const derived = { ...(await loadCommands(v1_21_1)), ...authoredCommands }
 const catalogue = await loadCatalogue(v1_21_1)
 const entries = Object.entries(authoredDefaults()).flatMap(([id, byName]) =>
   Object.entries(byName).map(([selector, fallback]) => ({ id, selector, fallback })),

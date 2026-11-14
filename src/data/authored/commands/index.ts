@@ -1,5 +1,6 @@
 import type { CommandDefinition } from '../../../schema/types'
 import { generate } from './worldedit/generate'
+import { palette } from './worldedit/palette'
 
 /**
  * Commands written by hand rather than derived.
@@ -13,7 +14,7 @@ import { generate } from './worldedit/generate'
  * A flat list keyed by id, in the same shape the derived payload has, so the catalogue
  * can merge the two without either side knowing the other exists.
  */
-const AUTHORED: readonly CommandDefinition[] = [generate]
+const AUTHORED: readonly CommandDefinition[] = [generate, palette]
 
 export const authoredCommands: Readonly<Record<string, CommandDefinition>> = Object.fromEntries(
   AUTHORED.map((definition) => [definition.id, definition]),

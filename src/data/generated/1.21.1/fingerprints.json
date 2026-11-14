@@ -84,7 +84,8 @@
     "vanilla:weather": "82963766a759463e",
     "vanilla:whitelist": "b23386cfdd3c14d7",
     "vanilla:worldborder": "75780fd274581dd2",
-    "worldedit:generate": "533c0cfb78ed58bb"
+    "worldedit:generate": "533c0cfb78ed58bb",
+    "worldedit:palette": "0cb257683203d7e8"
   },
   "version": "1.21.1"
 }

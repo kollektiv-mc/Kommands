@@ -253,7 +253,7 @@ function Row({
             e.stopPropagation()
             store.toggleOpen(layer.id)
           }}
-          className={`text-text-muted relative grid size-3.5 shrink-0 place-items-center ${FOCUS}`}
+          className={`text-text-muted relative z-1 grid size-3.5 shrink-0 place-items-center ${FOCUS}`}
         >
           <Icon
             name="chevronDown"
@@ -279,6 +279,8 @@ function Row({
           }}
         />
       ) : (
+        // Its hit area covers the whole row, so a click anywhere selects. The fold chevron
+        // and the op badge are raised above it, or the row would take their clicks too.
         <button
           type="button"
           aria-current={selected ? 'true' : undefined}
@@ -352,7 +354,7 @@ function Badge({ layer }: { layer: Layer }) {
           e.stopPropagation()
           useShapeEditorStore.getState().cycleOp(layer.id)
         }}
-        className={`${BOX} ${OP_TONE[op]} relative ${FOCUS}`}
+        className={`${BOX} ${OP_TONE[op]} relative z-1 ${FOCUS}`}
       >
         {OP_GLYPH[op]}
       </button>
