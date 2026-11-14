@@ -243,26 +243,36 @@ Two properties fall out for free, and both matter:
 
 ---
 
-## The node graph is that decision, given a UI
+## The layer stack is that decision, given a UI
 
-A Houdini-style procedural graph — nodes wired together, a 3D viewport beside them, the
-command updating live underneath — is **not an alternative to the operation tree. It is
-the operation tree with an interface.** Source nodes are primitives, filter nodes are
-transforms, merge nodes are the boolean combinators, and the terminal node is what gets
-compiled. Three views of one document: the graph edits it, the viewport evaluates it,
-the command serializes it. That is the same relationship this repo already has between a
-definition, a value tree and command text — see [`architecture.md`](architecture.md).
+This file used to recommend a Houdini-style node graph. A working prototype, compiled
+against `src/worldedit/csg/` and `src/worldedit/expression/` as they are, was built and
+reviewed in November 2026 instead, and it settled on a **layer stack**: the operation
+tree drawn as a list, the way an image editor draws layers. It is still the decision
+above with an interface. Only the interface changed.
 
-Three things are worth being precise about before building it.
+**The model.** Each row is a layer, read top to bottom.
 
-**It is a DAG, not a chain.** A boolean node takes two inputs, so the wiring branches and
-re-merges. Houdini is the same — its merge nodes are n-ary. A strictly linear chain
-cannot express "torus A intersected with torus B" at all.
+- A **shape** (sphere, box, cylinder, torus, triangle, cone, gyroid, formula, half) carries
+  an operation, **Add**, **Cut** or **Overlap**: union, subtract or intersect with
+  everything below it.
+- A **group** is one layer to its parent, which is how the stack branches: in A ∪ (B − C),
+  C cuts only B because B and C share a group. Nesting is the only branching there is, so
+  the document is a tree and maps onto `CsgTree` directly.
+- A **modifier** (mirror, distort, array, radial, bend, taper, revolve) acts on every layer
+  below it in its own list. The prototype lowers modifiers to raw expression nodes;
+  building it properly means modifier nodes in `src/worldedit/csg/`.
+- A **reference** is another `//generate` command drawn as a ghost beside this one, for a
+  build that needs one command per material. It is never part of the command.
 
-**Shared outputs compile to variables, not to duplicated text.** This is what makes a
-graph — rather than a tree — safe to compile, and it is the finding that decides the
-whole question. The expression language has assignment, statement sequencing, and
-last-statement-as-result. WorldEdit's own tests pin it
+**Why a stack and not a graph.** Everything a graph adds over a tree is sharing and
+wiring. Sharing is already found by the compiler, which keys it on the emitted text
+rather than on the node (see below), so a graph's explicit diamond buys nothing a tree
+does not get anyway. What is left is wiring, and a list has none: order is the order of
+operations, and a group is a parenthesis.
+
+**Shared parts still compile to variables.** The expression language has assignment,
+statement sequencing, and last-statement-as-result. WorldEdit's own tests pin it
 (`ExpressionTest.testAssignOps`):
 
 ```java
@@ -270,34 +280,56 @@ checkTestCase("a=2; a^=3; a", 8);   // sequence, assignment, last value is the r
 testCase("return 1; 0", 1);         // explicit return also works
 ```
 
-So a node whose output feeds two consumers becomes one assignment and two references:
+So a part used twice becomes one assignment and two references:
 
 ```
 r = x^2+y^2+z^2; (r<1) && !(r<0.7)
 ```
 
-Without that, a diamond in the graph would duplicate its shared subexpression on every
-path — the blow-up that made the scan-and-derive route fail, arriving by another door.
+That example is also why sharing is keyed on text: a sphere minus a _smaller_ sphere has
+no node that occurs twice, so memoising per node finds nothing. Keying on the emitted text
+finds it, and declines to share a node reached through two different transforms, because
+the coordinate frame is part of the text. Dropping the frame from the key leaves 200
+generated graphs passing and only the fixture written for it failing.
 
-**Sharpened by building it.** The example above is the argument against keying sharing
-on the graph node: it is a sphere minus a _smaller_ sphere, so there is no node that
-occurs twice, and a compiler memoising per node produces nothing at all here. The
-compiler keys on the **emitted text** instead, which finds this case, and which declines
-to share a node reached through two different transforms for free — because the
-coordinate frame is part of the text, and the same node under two frames is genuinely
-two expressions. That last point is not hypothetical: dropping the frame from the key
-leaves 200 generated graphs passing and only the fixture written for it failing.
+Because world masking is out, **every layer in the palette is previewable**. There is no
+second class of layer that the viewport can only describe rather than show.
 
-**Live update should cook the dirty subgraph, not the whole graph.** A node graph makes
-the dependency edges explicit, so a parameter change only invalidates nodes downstream of
-it. That is Houdini's own model, and it is what makes the preview budget in
-[`health-checklist.md`](health-checklist.md) achievable at 64³ — 262,144 evaluations per
-input change is only affordable if most inputs do not touch most nodes.
+### What the prototype settled
 
-One consequence for the graph's vocabulary: because world masking is out, **every node in
-the palette is previewable**. There is no second class of node that the viewport can only
-describe rather than show, and that is worth protecting — a palette where some nodes
-render and others merely promise is a palette that has to explain itself.
+The prototype is the reference for building it; these are the decisions it records, so
+that they are not reopened by accident.
+
+- **Placement.** `//generate` is a small tile in the command sheet with a button that opens
+  this editor full screen; **Done** returns to the sheet.
+- **Opening.** The tile's preview grows to fill the window, scaled evenly and cropped rather
+  than squeezed. The header, palette, command bar and inspector then slide in over it from
+  their own edges, and the live view takes its place. Done runs it backwards.
+- **Layout.** The view fills the whole window, behind everything. The header is an opaque
+  bar, and the palette with the layer list, the inspector and the command bar are opaque
+  tiles floating over the view. One gutter separates the header, the tiles and the window
+  edge. The opening between the tiles holds the view's controls and frames the camera, so
+  the build is centred between the tiles; the gaps pass the pointer through to the view.
+  Tiles resize from the gaps between them.
+- **View and Edit modes**, on Esc and Enter. Only Edit shows the move, turn and scale gizmo,
+  with a Snap split button.
+- **Mouse.** Left drag orbits, right drag zooms, middle drag pans, all around the point
+  under the cursor: the build if the cursor is on it, else a plane through the build's
+  centre facing the camera, else the floor within reach, else the camera turns in place.
+  Middle drag on a number field is a value ladder. Key hints show only while Alt is held.
+- **View menu.** Blocks or Shapes; Coloured, Solid or Wireframe shading (references
+  follow it); Cutaway, which follows the camera live; X-ray, Selection box, Grid, Axes, and
+  a to-scale Player.
+- **Ground.** `x`, `y` and `z` run −1..1 across block _centres_, so the outer blocks reach
+  half a block past that. The selection box, grid, floor and player sit on the blocks'
+  outer faces, and every template is lowered until its bottom layer is filled at 32³, 64³
+  and 128³.
+- **Command bar.** Hollow (`-h`) and Round numbers above the Blocks field; the field opens
+  a block mix (one row per block, its chance at the right) and its swatches stack in a
+  fixed width. The command box reports whether the command fits in chat (256) or a command
+  block (32,500), and how many parts are shared.
+- **Copy rules.** No help text in the editor, tooltips only, and no native `title`
+  tooltips. Motion animates only `transform` and `opacity` and respects reduced motion.
 
 ---
 
@@ -320,6 +352,12 @@ discovery halfway through.
 5. **The evaluated volume must be capped and the cap surfaced.** A 64³ region is 262,144
    evaluations per input change, and the expression language has loops — so the evaluator
    also needs a per-evaluation step budget, not just a volume cap.
+6. **A face exactly on the edge of the selection loses that layer.** WorldEdit maps the
+   selection's outer blocks to exactly ±1 (`TransformUtil.createTransformForExpressionCommand`
+   scales by `max - center`), and the compiler writes every primitive with a strict `<`,
+   so `abs(y)<1` leaves the bottom layer empty in game. Switching to `<=` is not the fix: it
+   puts single-block bumps on every sphere. A shape meant to touch the edge has to reach
+   past it.
 
 Also out of scope, and recorded above rather than here because it is a decision rather
 than a limit: **world masking**, and with it the world-reading functions `query`,
