@@ -312,10 +312,10 @@ CI. Both of the things that had to move with it have:
 ## Releases
 
 `.github/workflows/release.yml` cuts them and `snapshot.yml` builds `main`
-nightly. Both produce the same three artefacts, and the shape of that set is a
+nightly. Both produce the same four artefacts, and the shape of that set is a
 decision rather than a default.
 
-### Two of the three artefacts exist to register the URL scheme
+### Three of the four artefacts exist to register the URL scheme
 
 Windows gets an **NSIS installer**, not a loose `.exe`; Linux gets an **RPM**
 beside the bare binary. On both platforms the packaged form is the one that
@@ -352,10 +352,23 @@ it made the opposite call on registration: no `protocols` block in its
 nothing there. Neither choice is an oversight. Copying its packaging would
 simply not give this app a registered scheme.
 
-macOS builds from source. `build/darwin/Info.plist` already carries the
-`CFBundleURLTypes` template, so a macOS build would register the scheme on the
-same terms as the other two; what is missing is a signed, notarised artefact,
-which needs a paid Developer ID rather than a workflow change.
+macOS gets a **DMG** holding a universal `.app`. The bundle registers the
+scheme through `build/darwin/Info.plist`'s `CFBundleURLTypes`, which Wails fills
+from the same `protocols` block, so it stands with the installer and the RPM.
+Receiving a URL is different there: macOS delivers it as an Apple event, which
+Wails hands to `options.Mac.OnUrlOpen`, not as a second instance's argv, so
+[#43](https://github.com/kollektiv-mc/Kommands/issues/43) needs that hook as well
+as `onSecondInstanceLaunch`.
+
+**The macOS build is unsigned, by choice**
+([#159](https://github.com/kollektiv-mc/Kommands/issues/159)). A signed,
+notarised artefact needs a paid Apple Developer ID. Rather than offer no macOS
+download until then, the workflows ship the bundle ad-hoc signed
+(`codesign --sign -`). That is not an identity, and it is still required: Apple
+silicon will not launch an arm64 binary with no signature at all, and reports the
+download as damaged. Ad-hoc signed, Gatekeeper refuses the first launch, and the
+user allows it once under System Settings, Privacy & Security, Open Anyway. The
+release notes say so, beside the matching SmartScreen step on Windows.
 
 ### The version ladder
 
