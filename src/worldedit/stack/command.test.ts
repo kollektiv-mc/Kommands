@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { stackCommand } from './command'
+import { readGenerate, stackCommand } from './command'
 import { modifier, shape } from './make'
 
 const base = { pattern: 'stone', hollow: false, round: false }
@@ -40,5 +40,26 @@ describe('the command a stack writes', () => {
       modifier('mirror'),
     ]
     expect(stackCommand({ ...base, layers: twice }).shared).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('reading a pasted command back', () => {
+  test('takes the flags, the blocks and the expression', () => {
+    expect(readGenerate('//gen -hr 50%stone,dirt x^2 + y^2 < 1')).toEqual({
+      ok: true,
+      hollow: true,
+      pattern: '50%stone,dirt',
+      expression: 'x^2 + y^2 < 1',
+    })
+  })
+
+  test('reads what a stack writes', () => {
+    const { text } = stackCommand({ ...base, hollow: true, layers: [shape('sphere')] })
+    expect(readGenerate(text)).toMatchObject({ ok: true, hollow: true, pattern: 'stone' })
+  })
+
+  test('refuses another command, or one with nothing to draw', () => {
+    expect(readGenerate('/give @p stone')).toMatchObject({ ok: false })
+    expect(readGenerate('//generate stone')).toMatchObject({ ok: false })
   })
 })

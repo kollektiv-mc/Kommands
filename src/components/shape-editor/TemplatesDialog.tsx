@@ -1,10 +1,16 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { TEMPLATES, type TemplateSpec } from '../../data/authored/generate'
 import { FOCUS } from '../editors/fieldStyles'
 import { Icon } from '../ui/Icon'
 import { PANEL_HEAD } from './styles'
 
-/** The templates, one tile each. Picking one adds it as a group named after it. */
+/**
+ * The templates, one tile each, with a picture of its blocks. Picking one adds it as a
+ * group named after it.
+ *
+ * The dialog opens at once; each picture fills in as it is drawn, and is kept for the
+ * rest of the session.
+ */
 export function TemplatesDialog({
   onPick,
   onClose,
@@ -13,6 +19,7 @@ export function TemplatesDialog({
   onClose: () => void
 }) {
   const dialog = useRef<HTMLDivElement>(null)
+  const pictures = usePictures()
   useEffect(() => {
     dialog.current?.querySelector('button')?.focus()
     const onKey = (e: KeyboardEvent) => {
@@ -56,7 +63,11 @@ export function TemplatesDialog({
               onClick={() => onPick(template)}
               className={`border-hairline border-border-subtle bg-surface text-text-secondary hover:border-accent hover:text-text-primary flex flex-col gap-1.5 rounded-md p-1.5 pb-2 text-left text-xs font-semibold ${FOCUS}`}
             >
-              <span aria-hidden="true" className="bg-canvas aspect-4/3 rounded-sm" />
+              <span aria-hidden="true" className="bg-canvas aspect-4/3 overflow-hidden rounded-sm">
+                {pictures[template.id] && (
+                  <img src={pictures[template.id]} alt="" className="size-full object-cover" />
+                )}
+              </span>
               <span className="px-0.5">{template.name}</span>
             </button>
           ))}
@@ -64,4 +75,23 @@ export function TemplatesDialog({
       </div>
     </div>
   )
+}
+
+/** Each template's picture by id, as they arrive. */
+function usePictures(): Readonly<Record<string, string>> {
+  const [pictures, setPictures] = useState<Readonly<Record<string, string>>>({})
+  useEffect(() => {
+    let live = true
+    void import('./viewport/thumbnails').then(({ pictureOf }) => {
+      for (const template of TEMPLATES) {
+        void pictureOf(template).then((url) => {
+          if (live && url !== '') setPictures((p) => ({ ...p, [template.id]: url }))
+        })
+      }
+    })
+    return () => {
+      live = false
+    }
+  }, [])
+  return pictures
 }

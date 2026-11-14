@@ -38,12 +38,27 @@ export function useVoxels(source: string, size: number, hollow: boolean): Voxels
   const [answer, setAnswer] = useState<{ key: string; voxels: Voxels } | null>(null)
   const worker = useRef<Worker | null>(null)
   const latest = useRef({ id: 0, key: '' })
+  /**
+   * One request at a time: while one is out, only the newest waits behind it. A gizmo
+   * drag asks on every frame, and a queue of all of them would keep the worker on
+   * pictures nobody will see.
+   */
+  const flight = useRef<{ busy: boolean; next: VoxelRequest | null }>({ busy: false, next: null })
 
   useEffect(() => {
     if (local) return
     const w = new Worker(new URL('./voxels.worker.ts', import.meta.url), { type: 'module' })
+    const sent = flight.current
+    const sendNext = () => {
+      sent.busy = sent.next !== null
+      if (sent.next !== null) w.postMessage(sent.next)
+      sent.next = null
+    }
+    // A request that throws gets no answer; the next one still goes.
+    w.onerror = sendNext
     w.onmessage = (event: MessageEvent<VoxelReply>) => {
       const reply = event.data
+      sendNext()
       if (reply.id !== latest.current.id) return
       const voxels: Voxels = reply.ok
         ? {
@@ -58,6 +73,8 @@ export function useVoxels(source: string, size: number, hollow: boolean): Voxels
     return () => {
       w.terminate()
       worker.current = null
+      sent.busy = false
+      sent.next = null
     }
   }, [local])
 
@@ -66,7 +83,12 @@ export function useVoxels(source: string, size: number, hollow: boolean): Voxels
     if (empty || w === null) return
     const id = latest.current.id + 1
     latest.current = { id, key }
-    w.postMessage({ id, source, size, hollow } satisfies VoxelRequest)
+    const request: VoxelRequest = { id, source, size, hollow }
+    if (flight.current.busy) flight.current.next = request
+    else {
+      flight.current.busy = true
+      w.postMessage(request)
+    }
   }, [empty, key, source, size, hollow])
 
   const inPlace = useMemo(() => {
