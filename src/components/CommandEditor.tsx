@@ -8,7 +8,7 @@ import { useCommandStore } from '../stores/useCommandStore'
 import { useSavedCommandsStore } from '../stores/useSavedCommandsStore'
 import { WARNING } from './editors/fieldStyles'
 
-const route = getRouteApi('/dashboard/c/$commandId')
+const route = getRouteApi('/app/dashboard/c/$commandId')
 
 /**
  * Why a saved tree was not restored. Three refusals, three different explanations —

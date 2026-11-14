@@ -26,7 +26,7 @@ test('the wordmark is in the bar, and is still the way back to the dashboard', a
   // The editor covers the whole viewport, so this is the only route back to what has
   // been saved. A label here rather than a link would strand anyone who opened a
   // command — which is why it survived the move out of the old header.
-  expect(screen.getByRole('link', { name: 'Kommands' }).getAttribute('href')).toBe('/')
+  expect(screen.getByRole('link', { name: 'Kommands' }).getAttribute('href')).toBe('/dashboard')
 })
 
 test('the version line is gone', async () => {

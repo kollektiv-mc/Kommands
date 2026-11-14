@@ -2,9 +2,19 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { readFileSync } from 'node:fs'
+
+// The release line the download page shows (`0.1.0 snapshot`), from the one place the
+// version is defined. version.go holds `0.1.0-dev` between releases; the page shows the
+// version without that suffix, which is what the snapshot and the next release share.
+const goVersion = /^var Version = "([^"]+)"/m.exec(readFileSync('version.go', 'utf8'))?.[1]
+if (goVersion === undefined) throw new Error('vite.config.ts: no Version in version.go')
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: {
+    __APP_VERSION__: JSON.stringify(goVersion.replace(/-.*$/, '')),
+  },
   build: {
     // The generated data chunks are large and deliberately lazy, so Vite's generic
     // 500 KB warning fires on every build and is wrong every time. scripts/check-bundle.ts

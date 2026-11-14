@@ -76,7 +76,12 @@ export function CommandOverlay({
   const close = useCallback(() => {
     if (closing.current) return
     closing.current = true
-    flipOut(panel.current, collapseTo(), backdrop.current, () => void navigate({ to: '/' }))
+    flipOut(
+      panel.current,
+      collapseTo(),
+      backdrop.current,
+      () => void navigate({ to: '/dashboard' }),
+    )
   }, [collapseTo, navigate, panel])
 
   // Another command, or the list: the one on screen fades out before the route changes,

@@ -25,6 +25,8 @@
     "gen": "pnpm gen:commands && pnpm gen:fingerprints && pnpm gen:tokens"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/geist-mono": "5.3.0",
     "@formkit/auto-animate": "0.10.2",
     "@react-three/fiber": "^9.7.0",
     "@tanstack/react-router": "^1.135.4",

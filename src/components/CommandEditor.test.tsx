@@ -55,15 +55,20 @@ function savedCommand(overrides: Partial<SavedCommand>): SavedCommand {
 /**
  * The route tree the editor actually addresses.
  *
- * Not `test-router.tsx`'s stand-in: `getRouteApi('/dashboard/c/$commandId')` resolves a
- * route **id**, and the pathless layout route is what puts `dashboard` in front of a
- * path that is still `/c/$commandId`. A tree with the right paths and the wrong ids
+ * Not `test-router.tsx`'s stand-in: `getRouteApi('/app/dashboard/c/$commandId')` resolves
+ * a route **id**, and the pathless layout routes are what put `app/dashboard` in front of
+ * a path that is still `/c/$commandId`. A tree with the right paths and the wrong ids
  * would fail here for a reason that looks nothing like the cause.
  */
 async function openEditor(saved: SavedCommand | undefined) {
   const rootRoute = createRootRoute({ component: () => <Outlet /> })
-  const dashboardRoute = createRoute({
+  const appRoute = createRoute({
     getParentRoute: () => rootRoute,
+    id: 'app',
+    component: () => <Outlet />,
+  })
+  const dashboardRoute = createRoute({
+    getParentRoute: () => appRoute,
     id: 'dashboard',
     component: () => <Outlet />,
   })
@@ -84,7 +89,7 @@ async function openEditor(saved: SavedCommand | undefined) {
 
   const router = createRouter({
     routeTree: rootRoute.addChildren([
-      dashboardRoute.addChildren([editorRoute.addChildren([commandRoute])]),
+      appRoute.addChildren([dashboardRoute.addChildren([editorRoute.addChildren([commandRoute])])]),
     ]),
     history: createMemoryHistory({
       initialEntries: [saved ? `/c/vanilla:give?saved=${saved.id}` : '/c/vanilla:give'],
