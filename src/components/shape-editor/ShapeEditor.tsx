@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react'
 import {
   closeEditor,
   openEditor,
@@ -20,6 +28,8 @@ import { LayerMenu } from './LayerMenu'
 import { Palette } from './Palette'
 import { BUTTON, PANEL, PANEL_HEAD, PRIMARY } from './styles'
 import { TemplatesDialog } from './TemplatesDialog'
+import { TileHandles } from './TileHandles'
+import { DEFAULT_SIZES, type Measured, type TileSizes } from './tileSizes'
 import { Viewport } from './Viewport'
 
 /**
@@ -69,6 +79,22 @@ export function ShapeEditor({
 
   useEditorKeys()
   const parts = useParts()
+  const [sizes, setSizes] = useState<TileSizes>(DEFAULT_SIZES)
+  useTileSizes(parts.root, sizes)
+  const measure = useCallback((): Measured | null => {
+    const [l, r, v, f] = [parts.left, parts.right, parts.opening, parts.bottom].map(
+      (p) => p.current,
+    )
+    const box = f?.querySelector<HTMLElement>('[data-command-box]')
+    if (!l || !r || !v || !box) return null
+    return {
+      left: l.offsetWidth,
+      right: r.offsetWidth,
+      viewWidth: v.offsetWidth,
+      viewHeight: v.offsetHeight,
+      command: box.offsetHeight,
+    }
+  }, [parts.left, parts.right, parts.opening, parts.bottom])
   const leaving = useRef(false)
   useLayoutEffect(() => {
     const ready = parts.ready()
@@ -136,7 +162,7 @@ export function ShapeEditor({
           </div>
         </header>
 
-        <main className="mx-2.5 grid min-h-0 grid-cols-1 gap-2.5 md:grid-cols-[calc(var(--spacing)*53)_minmax(0,1fr)_calc(var(--spacing)*61)] xl:grid-cols-[calc(var(--spacing)*59)_minmax(0,1fr)_calc(var(--spacing)*75)]">
+        <main className="mx-2.5 grid min-h-0 grid-cols-1 gap-2.5 md:grid-cols-[var(--tile-left,calc(var(--spacing)*53))_minmax(0,1fr)_var(--tile-right,calc(var(--spacing)*61))] xl:grid-cols-[var(--tile-left,calc(var(--spacing)*59))_minmax(0,1fr)_var(--tile-right,calc(var(--spacing)*75))]">
           <aside ref={parts.left} aria-label="Shapes" className={`${PANEL} pointer-events-auto`}>
             <div className={PANEL_HEAD}>
               Shapes
@@ -152,6 +178,7 @@ export function ShapeEditor({
             stage={parts.stage}
             expression={command.expression}
             onMenu={openLayerMenu}
+            handles={<TileHandles sizes={sizes} measure={measure} onResize={setSizes} />}
           />
           <aside
             ref={parts.right}
@@ -192,6 +219,23 @@ function countShapes(layers: ReturnType<typeof useShapeEditorStore.getState>['la
   return n
 }
 
+/**
+ * The dragged tile sizes, as custom properties on the editor that its grid and the
+ * command box read; a size left at its default is no property, so the layout's own
+ * width for the window applies.
+ */
+function useTileSizes(root: RefObject<HTMLElement | null>, sizes: TileSizes) {
+  useLayoutEffect(() => {
+    const el = root.current
+    if (!el) return
+    const set = (name: string, px: number | null) =>
+      px === null ? el.style.removeProperty(name) : el.style.setProperty(name, `${px}px`)
+    set('--tile-left', sizes.left)
+    set('--tile-right', sizes.right)
+    set('--command-height', sizes.command)
+  }, [root, sizes])
+}
+
 /** W, E and R: the gizmo each picks, which also enters Edit. */
 const GIZMO_KEYS = { w: 'translate', e: 'rotate', r: 'scale' } as const
 
@@ -199,8 +243,8 @@ const GIZMO_KEYS = { w: 'translate', e: 'rotate', r: 'scale' } as const
  * The editor's keys, while it is open.
  *
  * Undo and redo always, as in the command editor (`CommandWorkbench` explains why).
- * The rest only when no field has the keyboard, so typing an `s` into a name does not
- * isolate anything. Enter enters Edit; Escape leaves it, and in View lets go of the
+ * The rest only when no field or dialog has the keyboard, so typing an `s` into a name
+ * does not isolate anything. Enter enters Edit; Escape leaves it, and in View lets go of the
  * selection.
  */
 function useEditorKeys() {
@@ -216,7 +260,8 @@ function useEditorKeys() {
         return
       }
       const target = event.target as Element | null
-      if (target?.closest?.('input, textarea, select')) return
+      // Nor inside a dialog over the editor, where Delete on a button is not the layer's.
+      if (target?.closest?.('input, textarea, select, [role="dialog"]')) return
       const { selected } = store
       if (mod && key === 'd' && selected !== null) {
         event.preventDefault()

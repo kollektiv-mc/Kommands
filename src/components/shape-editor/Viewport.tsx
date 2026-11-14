@@ -38,6 +38,7 @@ export function Viewport({
   opening,
   stage,
   onMenu,
+  handles,
 }: {
   expression: string
   /** A right-click on a layer in the view: that layer's menu. */
@@ -45,6 +46,8 @@ export function Viewport({
   opening: RefObject<HTMLElement | null>
   /** Where the canvas goes: the editor's full area, under everything else. */
   stage: HTMLElement | null
+  /** The gaps around the opening that resize the tiles. */
+  handles?: ReactNode
 }) {
   const hollow = useShapeEditorStore((s) => s.hollow)
   const round = useShapeEditorStore((s) => s.round)
@@ -74,6 +77,7 @@ export function Viewport({
 
   return (
     <section ref={opening} aria-label="Viewport" className="relative min-h-0">
+      {handles}
       {stage !== null &&
         createPortal(
           <StageBoundary>
