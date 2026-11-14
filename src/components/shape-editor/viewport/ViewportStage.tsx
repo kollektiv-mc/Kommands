@@ -9,7 +9,6 @@ import {
   EdgesGeometry,
   GridHelper,
   MOUSE,
-  NearestFilter,
   Plane,
   Vector3,
   type Color,
@@ -20,16 +19,15 @@ import type { VoxelField } from '../../../previews/worldedit/shape/voxels'
 import { cssToken, tokenColor, tokenCssColor } from '../../../previews/worldedit/shape/color'
 import { useShapeEditorStore, type ViewOptions } from '../../../stores/useShapeEditorStore'
 import type { Layer, Op, ReferenceLayer, ShapeLayer } from '../../../worldedit/stack/layers'
+import { HOME, blockTexture, faceGeometry, outlineGeometry } from './blockMesh'
 import {
   blockColour,
   blockPalette,
   cutAway,
   cutFacing,
   faceArrays,
-  faceOutlines,
   stepOf,
   type Cut,
-  type FaceArrays,
 } from './faces'
 import { ghostOf, ghostOpacity } from './ghosts'
 import type { ReferenceVoxels } from './useReferenceVoxels'
@@ -49,7 +47,6 @@ import type { ReferenceVoxels } from './useReferenceVoxels'
  * entry chunk.
  */
 
-const HOME = new Vector3(3.1, 2.3, 3.7)
 const FOV = 34
 const WIDE_FOV = 52
 const DEG = Math.PI / 180
@@ -242,50 +239,11 @@ function Controls({ homeKey }: { homeKey: number }) {
   return null
 }
 
-/** A faint bevel and grain, multiplied by each block's colour, so blocks read as blocks. */
+/** The block texture, made once for this canvas and let go with it. */
 function useBlockTexture(): CanvasTexture | null {
-  const texture = useMemo(() => {
-    if (typeof document === 'undefined') return null
-    const canvas = document.createElement('canvas')
-    canvas.width = canvas.height = 16
-    const g = canvas.getContext('2d')
-    if (g === null) return null
-    let seed = 7
-    const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647
-    for (let y = 0; y < 16; y++)
-      for (let x = 0; x < 16; x++) {
-        const edge = x === 0 || y === 0 || x === 15 || y === 15
-        const v = Math.round(255 * (edge ? 0.74 : 0.9 + random() * 0.1))
-        g.fillStyle = `rgb(${v} ${v} ${v})`
-        g.fillRect(x, y, 1, 1)
-      }
-    const t = new CanvasTexture(canvas)
-    t.magFilter = NearestFilter
-    t.minFilter = NearestFilter
-    return t
-  }, [])
+  const texture = useMemo(() => blockTexture(), [])
   useEffect(() => () => texture?.dispose(), [texture])
   return texture
-}
-
-function faceGeometry(arrays: FaceArrays): BufferGeometry {
-  const geometry = new BufferGeometry()
-  geometry.setAttribute('position', new BufferAttribute(arrays.position, 3))
-  geometry.setAttribute('normal', new BufferAttribute(arrays.normal, 3))
-  geometry.setAttribute('uv', new BufferAttribute(arrays.uv, 2))
-  geometry.setAttribute('color', new BufferAttribute(arrays.color, 3))
-  geometry.setIndex(new BufferAttribute(arrays.index, 1))
-  geometry.computeBoundingSphere()
-  return geometry
-}
-
-function outlineGeometry(arrays: FaceArrays): BufferGeometry {
-  const { position, color } = faceOutlines(arrays)
-  const geometry = new BufferGeometry()
-  geometry.setAttribute('position', new BufferAttribute(position, 3))
-  geometry.setAttribute('color', new BufferAttribute(color, 3))
-  geometry.computeBoundingSphere()
-  return geometry
 }
 
 /** One geometry for a set of blocks, in whichever shading the view asks for. */
