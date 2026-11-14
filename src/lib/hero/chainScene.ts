@@ -25,7 +25,9 @@ export async function playChain(host: HTMLElement, h: HeroCommand, c: Clock) {
   const late = h.parts[lateIndex]
   const part = findAll(cmd, '.hp')[lateIndex]
   if (late?.kind === 'arg' && part) {
-    const tile = stepNode(4, late, late.step?.value ?? '')
+    // Numbered where it lands: after every step written before it.
+    const n = h.parts.slice(0, lateIndex + 1).filter((p) => p.kind === 'arg').length
+    const tile = stepNode(n, late, late.step?.value ?? '')
     tile.classList.add('work')
     find(part, '.hp-vt').textContent = late.value
     // One FLIP over both sides: on a phone the chain sits below the command and moves too.
