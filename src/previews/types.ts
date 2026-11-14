@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import type { RegistryLookup } from '../data/versions/types'
+import type { EditorOrigin } from '../lib/editorMotion'
 import type { CommandDefinition, Diagnostic } from '../schema/types'
 
 /**
@@ -78,4 +79,32 @@ export interface PreviewModule {
    * failing CI.
    */
   accepts: (definition: CommandDefinition) => boolean
+  /**
+   * A full-screen editor for what this module draws, behind its own dynamic import.
+   *
+   * Optional, and the only way a command gets an editor of its own: the sheet offers
+   * Open editor on the preview of a module that has one, and nothing about the
+   * renderer or the definition changes. The editor reads and writes the same inputs
+   * the preview reads, so the binding that names them is checked once, by invariant 7
+   * and `accepts`, for both.
+   */
+  editor?: () => Promise<{ default: ComponentType<FullEditorProps> }>
+}
+
+export interface FullEditorProps {
+  /** The declared inputs' values, keyed by selector, as `PreviewProps.values`. */
+  values: Readonly<Record<string, unknown>>
+  registry: RegistryLookup
+  /**
+   * Where the sheet's preview is on screen, with a picture of it, which the editor opens
+   * out of and closes back into. Null when it cannot be measured, and the editor then
+   * simply appears.
+   */
+  origin: () => EditorOrigin | null
+  /**
+   * Done, with the inputs the editor changed, keyed by selector. Called once the
+   * closing motion has finished, so the sheet's preview is back in place to land on.
+   * Only the binding's own inputs are written; anything else is ignored.
+   */
+  onDone: (values: Readonly<Record<string, unknown>>) => void
 }

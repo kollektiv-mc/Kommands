@@ -2,8 +2,14 @@ import { describe, expect, test } from 'vitest'
 import { v1_21_1 } from '../../data/versions/1.21.1'
 import { makeRegistryLookup } from '../../data/versions/registry'
 import type { SerializeContext } from '../../data/versions/types'
-import { isKnownBlock, serializePattern, validatePattern, type PatternValue } from './we-pattern'
-import { validateExpression } from './we-expression'
+import {
+  isKnownBlock,
+  parsePattern,
+  serializePattern,
+  validatePattern,
+  type PatternValue,
+} from './we-pattern'
+import { expressionSource, validateExpression } from './we-expression'
 
 const ctx: SerializeContext = {
   traits: v1_21_1.traits,
@@ -141,5 +147,35 @@ describe('the editor and the validator ask the same question', () => {
   test('a genuine typo is unknown to both', () => {
     expect(isKnownBlock('stnoe', ctx)).toBe(false)
     expect(validatePattern(pattern(['stnoe', ''], ['dirt', '']), ctx)).toHaveLength(1)
+  })
+})
+
+describe('a pattern read back from its text', () => {
+  test('weights and plain entries round trip', () => {
+    const text = '50%stone,25.5%dirt,oak_log'
+    expect(parsePattern(text).entries).toEqual([
+      { block: 'stone', weight: 50 },
+      { block: 'dirt', weight: 25.5 },
+      { block: 'oak_log', weight: '' },
+    ])
+    expect(serializePattern(parsePattern(text))).toBe(text)
+  })
+
+  test('what it cannot split stays whole, as the field would', () => {
+    expect(parsePattern(' #clipboard , ').entries).toEqual([{ block: '#clipboard', weight: '' }])
+    expect(parsePattern('').entries).toEqual([])
+  })
+})
+
+describe('an expression held with the layers it was drawn from', () => {
+  test('its text is what is checked and written', () => {
+    const drawn = { source: 'x^2+y^2+z^2<1', layers: { version: 1, layers: [] } }
+    expect(expressionSource(drawn)).toBe('x^2+y^2+z^2<1')
+    expect(validateExpression(drawn)).toEqual(validateExpression('x^2+y^2+z^2<1'))
+  })
+
+  test('anything else reads as no text at all', () => {
+    expect(expressionSource({ layers: [] })).toBe('')
+    expect(expressionSource(undefined)).toBe('')
   })
 })

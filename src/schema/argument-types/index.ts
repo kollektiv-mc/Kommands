@@ -42,7 +42,7 @@ import {
   type ItemStackValue,
 } from './item-stack'
 import { serializePattern, validatePattern, EMPTY_PATTERN, type PatternValue } from './we-pattern'
-import { validateExpression } from './we-expression'
+import { expressionSource, validateExpression, type ExpressionValue } from './we-expression'
 import { COORDINATE_SHAPES, coordinateProblems, serializeCoordinates } from '../coordinates'
 import { choiceRows, enumControl } from '../presentation'
 import { validateResource } from '../resource-location'
@@ -247,13 +247,13 @@ const TYPES: ErasedArgumentType[] = [
     validate: (value, _options, ctx) => validatePattern(value, ctx),
     defaultValue: () => EMPTY_PATTERN,
   }),
-  defineArgumentType<string>({
+  defineArgumentType<ExpressionValue>({
     key: 'we_expression',
     editor: ExpressionEditor,
     // Emitted as typed, spaces and all. That is only sound because the argument is
     // variadic and last: it takes every remaining token, so there is nothing after it
     // for a space to be mistaken for a separator between.
-    serialize: (value) => value.trim(),
+    serialize: (value) => expressionSource(value).trim(),
     validate: (value) => validateExpression(value),
     defaultValue: () => '',
   }),

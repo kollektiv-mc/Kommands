@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { RegistryLookup, SerializeContext, VersionDefinition } from '../data/versions/types'
 import { CommandRenderer, type Catalogue } from './CommandRenderer'
 import { embeddableIn } from '../data/catalogue'
 import { evaluateConstraints } from '../schema/constraints'
 import { EMPTY_VALUE, serializeWithReport } from '../schema/serialize'
 import type { CommandDefinition } from '../schema/types'
-import { previewInputsKey, readPreviewInputs } from '../previews/inputs'
+import { previewInputsKey, previewWrites, readPreviewInputs } from '../previews/inputs'
 import { previewModule } from '../previews/registry'
 import { useCommandStore } from '../stores/useCommandStore'
 import { canRedo, canUndo } from '../stores/commandHistory'
+import { originOf, pictureOf } from '../lib/editorMotion'
+import { FullEditorHost } from './FullEditorHost'
 import { PreviewCanvas } from './PreviewCanvas'
 import { OutputPanel } from './OutputPanel'
 
@@ -54,6 +56,7 @@ export function CommandWorkbench({
   const setArg = useCommandStore((s) => s.setArg)
   const setFlag = useCommandStore((s) => s.setFlag)
   const setChoice = useCommandStore((s) => s.setChoice)
+  const setMany = useCommandStore((s) => s.setMany)
   const addInstance = useCommandStore((s) => s.addInstance)
   const reorderRepeat = useCommandStore((s) => s.reorderRepeat)
   const setRef = useCommandStore((s) => s.setRef)
@@ -76,7 +79,12 @@ export function CommandWorkbench({
    * `commandHistory.ts`: a burst of typing in one field is one step, so undo inside a
    * field undoes what was typed there, which is what the browser would have done.
    */
+  //
+  // Not while a full-screen editor is open: it has its own document and its own undo,
+  // and one key undoing both would step the form back underneath it.
+  const [editing, setEditing] = useState(false)
   useEffect(() => {
+    if (editing) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z') return
       event.preventDefault()
@@ -85,7 +93,7 @@ export function CommandWorkbench({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [undo, redo])
+  }, [undo, redo, editing])
 
   /**
    * Which definition the stored value belongs to.
@@ -142,42 +150,92 @@ export function CommandWorkbench({
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the key *is* the dependency
   const previewValues = useMemo(() => inputs, [inputsKey])
 
+  // The module's own full-screen editor, when it has one: opened from the preview's
+  // tile, and written back into the tree as one undo step when it is done.
+  const box = useRef<HTMLDivElement>(null)
+  // The picture is taken on the click, while the preview's canvas is still mounted: the
+  // editor's first frame is the one that unmounts it.
+  const [picture, setPicture] = useState<string | null>(null)
+  const origin = () => {
+    if (box.current === null) return null
+    const now = originOf(box.current)
+    return { rect: now.rect, picture: now.picture ?? picture }
+  }
+  const loadEditor = module?.editor
+  const finishEditing = (updates: Readonly<Record<string, unknown>> | null) => {
+    if (updates !== null && binding !== undefined) {
+      setMany(previewWrites(definition, binding, value, updates))
+    }
+    setEditing(false)
+  }
+
   return (
-    <div className="flex flex-col gap-3">
-      {/*
+    <>
+      {/* Inert while a full-screen editor covers it, so neither the keyboard nor a screen
+        reader reaches the form underneath. */}
+      <div className="flex flex-col gap-3" inert={editing}>
+        {/*
         The output first, above the form that produces it, and pinned there: the
         command is the product and the editors are how you reach it. Still ahead of
         the preview, as `.claude/rules/previews.md` requires.
       */}
-      {/* As wide as the tiles below and no wider: `w-0 min-w-full` keeps the command
+        {/* As wide as the tiles below and no wider: `w-0 min-w-full` keeps the command
           line's own length out of the sheet's width, which the tiles decide. */}
-      <div className="w-0 min-w-full">
-        <OutputPanel
-          text={report.text}
-          segments={report.segments}
-          versionId={version.id}
-          warnings={warnings}
-          history={{ undo, redo, canUndo: canUndo(history), canRedo: canRedo(history) }}
-          actions={actions?.(report.text)}
+        <div className="w-0 min-w-full">
+          <OutputPanel
+            text={report.text}
+            segments={report.segments}
+            versionId={version.id}
+            warnings={warnings}
+            history={{ undo, redo, canUndo: canUndo(history), canRedo: canRedo(history) }}
+            actions={actions?.(report.text)}
+          />
+        </div>
+
+        <CommandRenderer
+          definition={definition}
+          value={value}
+          ctx={ctx}
+          actions={{ setArg, setFlag, setChoice, addInstance, reorderRepeat, setRef }}
+          catalogue={embeddable}
+          forced={report.forced}
+          // A tile of its own, beside the fields, and still separate from the output: the
+          // preview is an aid and the command is the product, so nothing else can be
+          // taken down by a preview that fails to load.
+          preview={
+            module !== undefined && (
+              <PreviewCanvas
+                module={module}
+                values={previewValues}
+                registry={registries}
+                editor={
+                  loadEditor === undefined
+                    ? undefined
+                    : {
+                        open: editing,
+                        onOpen: () => {
+                          setPicture(box.current === null ? null : pictureOf(box.current))
+                          setEditing(true)
+                        },
+                        warm: () => void loadEditor().catch(() => undefined),
+                        box,
+                        picture,
+                      }
+                }
+              />
+            )
+          }
         />
       </div>
-
-      <CommandRenderer
-        definition={definition}
-        value={value}
-        ctx={ctx}
-        actions={{ setArg, setFlag, setChoice, addInstance, reorderRepeat, setRef }}
-        catalogue={embeddable}
-        forced={report.forced}
-        // A tile of its own, beside the fields, and still separate from the output: the
-        // preview is an aid and the command is the product, so nothing else can be
-        // taken down by a preview that fails to load.
-        preview={
-          module !== undefined && (
-            <PreviewCanvas module={module} values={previewValues} registry={registries} />
-          )
-        }
-      />
-    </div>
+      {editing && loadEditor !== undefined && (
+        <FullEditorHost
+          load={loadEditor}
+          values={previewValues}
+          registry={registries}
+          origin={origin}
+          onDone={finishEditing}
+        />
+      )}
+    </>
   )
 }

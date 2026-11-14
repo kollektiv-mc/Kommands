@@ -21,7 +21,7 @@ quality:
   # doubled limit.
   maxFunctionLoc: 128
   # maxFileLoc 641: held by src/worldedit/expression/compile.ts (641 lines).
-  # Next stops: csg/compile.ts 615, then 400 (the default).
+  # Next stops: csg/compile.ts 491, then 400 (the default).
   maxFileLoc: 641
 
 ci:

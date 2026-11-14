@@ -21,6 +21,49 @@ import { buildTree, describeTree, type CsgNode, type CsgTree } from './tree'
  */
 
 /**
+ * Every modifier once, over a shape that is not symmetric about anything it folds.
+ *
+ * The generator reaches all of them too; these are named so that a failure says which
+ * map is wrong, and they sit off-centre so that a sign error shows as a moved shape.
+ */
+const MODIFIER_TREES: ReadonlyArray<{ name: string; tree: CsgTree }> = (
+  [
+    ['mirror', (c) => ({ kind: 'mirror', child: c, axis: 'x', keep: 'negative' })],
+    [
+      'wave',
+      (c) => ({ kind: 'wave', child: c, axis: 'y', along: 'x', amplitude: 0.2, frequency: 5 }),
+    ],
+    ['twist', (c) => ({ kind: 'twist', child: c, axis: 'y', rate: 1.5 })],
+    ['array', (c) => ({ kind: 'array', child: c, axis: 'z', spacing: 0.4, count: 3 })],
+    ['radial', (c) => ({ kind: 'radial', child: c, axis: 'y', count: 5 })],
+    [
+      'bend, both sides',
+      (c) => ({ kind: 'bend', child: c, axis: 'y', toward: 'x', rate: 1, side: 'both' }),
+    ],
+    [
+      'bend, one side, away',
+      (c) => ({ kind: 'bend', child: c, axis: 'x', toward: 'y', rate: -0.8, side: 'positive' }),
+    ],
+    ['taper', (c) => ({ kind: 'taper', child: c, axis: 'y', amount: -0.5 })],
+    ['revolve', (c) => ({ kind: 'revolve', child: c, axis: 'y' })],
+    [
+      'affine',
+      (c) => ({
+        kind: 'affine',
+        child: c,
+        matrix: [0.5, 0, 0.25, 0.1, 0, 1, 0, -0.2, -0.25, 0, 0.5, 0],
+      }),
+    ],
+  ] as const satisfies ReadonlyArray<readonly [string, (child: string) => CsgNode]>
+).map(([name, wrap]) => ({
+  name: `a ${name} modifier`,
+  tree: buildTree((add) => {
+    const box = add({ kind: 'box', half: [0.15, 0.6, 0.2] })
+    return add(wrap(add({ kind: 'translate', offset: [0.4, 0.1, -0.2], child: box })))
+  }),
+}))
+
+/**
  * The graphs worth naming, rather than waiting for the generator to stumble on them.
  *
  * Each is a case where something in the compiler could be wrong in a way that ordinary
@@ -125,6 +168,7 @@ const NAMED_TREES: ReadonlyArray<{ name: string; tree: CsgTree }> = [
       }),
     ),
   },
+  ...MODIFIER_TREES,
 ]
 
 // ── The differential test ──────────────────────────────────────────────────
@@ -288,6 +332,132 @@ describe('the shapes the design doc costs the whole approach on', () => {
     // 41 characters, which is what generate-editor.md's table says. Nothing is shared,
     // because the two spheres are in different frames.
     expect(compileTree(tree).source).toBe('x^2+y^2+z^2<1&&!((x-0.3)^2+y^2+z^2<0.7^2)')
+  })
+})
+
+describe('a quarter turn is written as one', () => {
+  test('with no float noise from cos(pi/2)', () => {
+    const tree = buildTree((add) =>
+      add({
+        kind: 'rotate',
+        axis: 'y',
+        angle: Math.PI / 2,
+        child: add({ kind: 'box', half: [0.8, 0.2, 0.4] }),
+      }),
+    )
+    expect(compileTree(tree).source).toBe('abs(-z)<0.8&&abs(y)<0.2&&abs(x)<0.4')
+  })
+
+  test('and three of them about different axes stay exact', () => {
+    const tree = buildTree((add) => {
+      let node = add({ kind: 'box', half: [0.5, 0.25, 0.125] })
+      for (const axis of ['z', 'y', 'x'] as const) {
+        node = add({ kind: 'rotate', axis, angle: -Math.PI / 2, child: node })
+      }
+      return node
+    })
+    expect(compileTree(tree).source).not.toMatch(/e-|\d{6}/)
+  })
+})
+
+describe('Round numbers', () => {
+  const turned = buildTree((add) =>
+    add({
+      kind: 'rotate',
+      axis: 'z',
+      angle: Math.PI / 6,
+      child: add({ kind: 'box', half: [0.6, 0.2, 0.3] }),
+    }),
+  )
+
+  test('shortens the doubles a rotation prints', () => {
+    const exact = compileTree(turned).source
+    const rounded = compileTree(turned, { precision: 4 }).source
+    expect(exact).toContain('0.8660254037844387')
+    expect(rounded).toContain('0.866')
+    expect(rounded).not.toContain('0.8660254')
+    expect(rounded.length).toBeLessThan(exact.length)
+  })
+
+  test('leaves a number alone that is already short', () => {
+    const plain = buildTree((add) => add({ kind: 'sphere', radius: 0.7 }))
+    expect(compileTree(plain, { precision: 4 }).source).toBe('x^2+y^2+z^2<0.7^2')
+  })
+
+  test('moves a face by much less than a block at 128³', () => {
+    const exact = compileExpression(compileTree(turned).source)
+    const rounded = compileExpression(compileTree(turned, { precision: 4 }).source)
+    if (!exact.ok || !rounded.ok) throw new Error('did not parse')
+    const step = 2 / 127
+    let differ = 0
+    for (let i = 0; i < 128; i++) {
+      for (let j = 0; j < 128; j++) {
+        const [x, y] = [-1 + i * step, -1 + j * step]
+        if (exact.expression.evaluate(x, y, 0) > 0 !== rounded.expression.evaluate(x, y, 0) > 0)
+          differ++
+      }
+    }
+    expect(differ).toBeLessThanOrEqual(2)
+  })
+})
+
+describe('a modifier reads as the map it is', () => {
+  test('a mirror folds one coordinate', () => {
+    const tree = buildTree((add) =>
+      add({
+        kind: 'mirror',
+        axis: 'x',
+        keep: 'positive',
+        child: add({
+          kind: 'translate',
+          offset: [0.5, 0, 0],
+          child: add({ kind: 'sphere', radius: 0.3 }),
+        }),
+      }),
+    )
+    expect(compileTree(tree).source).toBe('(abs(x)-0.5)^2+y^2+z^2<0.09')
+  })
+
+  test('a revolve reads its outline in the plane through the axis', () => {
+    const tree = buildTree((add) =>
+      add({
+        kind: 'revolve',
+        axis: 'y',
+        child: add({
+          kind: 'translate',
+          offset: [0.5, 0, 0],
+          child: add({ kind: 'box', half: [0.1, 0.3, 1] }),
+        }),
+      }),
+    )
+    expect(compileTree(tree).source).toBe('abs(sqrt(x^2+z^2)-0.5)<0.1&&abs(y)<0.3')
+  })
+
+  test('a modifier that does nothing writes nothing', () => {
+    for (const node of [
+      { kind: 'array', axis: 'x', spacing: 0.5, count: 1 },
+      { kind: 'radial', axis: 'y', count: 1 },
+      { kind: 'twist', axis: 'y', rate: 0 },
+      { kind: 'bend', axis: 'y', toward: 'x', rate: 0, side: 'both' },
+      { kind: 'taper', axis: 'y', amount: 0 },
+    ] as const) {
+      const tree = buildTree((add) => add({ ...node, child: add({ kind: 'sphere', radius: 1 }) }))
+      expect(compileTree(tree).source, node.kind).toBe('x^2+y^2+z^2<1')
+    }
+  })
+
+  test('a bend towards its own axis is refused', () => {
+    const tree = buildTree((add) =>
+      add({
+        kind: 'bend',
+        axis: 'y',
+        toward: 'y',
+        rate: 1,
+        side: 'both',
+        child: add({ kind: 'sphere', radius: 1 }),
+      }),
+    )
+    expect(compileTree(tree).diagnostics[0]?.message).toContain('bends towards itself')
   })
 })
 

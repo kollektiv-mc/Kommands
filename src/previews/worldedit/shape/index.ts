@@ -15,6 +15,10 @@ export const shapePreview: PreviewModule = {
   // would put the whole renderer in front of someone who only ever opens /give.
   load: () => import('./ShapePreview'),
 
+  // The editor, behind an import of its own: the panels and the store are as much a
+  // weight as the renderer, and only someone who opens the editor pays for them.
+  editor: () => import('../../../components/shape-editor/ShapeEditorModule'),
+
   // Types, not just names. `hasArgument` fails if `expression` is renamed, removed,
   // duplicated, or re-typed — the last of which is the one a name check cannot see and
   // the one that would render an empty canvas in production.

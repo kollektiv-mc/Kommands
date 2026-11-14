@@ -1,4 +1,13 @@
-import { childrenOf, type CsgNode, type CsgTree, type NodeId, type Vec3 } from './tree'
+import {
+  IDENTITY_AFFINE,
+  childrenOf,
+  isFrameNode,
+  type CsgNode,
+  type CsgTree,
+  type FrameNode,
+  type NodeId,
+  type Vec3,
+} from './tree'
 
 /**
  * The graph, tidied, without changing what it means.
@@ -144,12 +153,45 @@ export function simplify(tree: CsgTree): CsgTree {
       case 'universe':
         return universe()
 
-      default:
-        return add(node)
+      default: {
+        if (!isFrameNode(node)) return add(node)
+        // A modifier or an affine map: the same two rules as a transform. One that does
+        // nothing is dropped, and nothing and everything are unmoved by any map.
+        const child = go(node.child)
+        if (isIdentity(node)) return child
+        const inner = at(child)
+        if (inner?.kind === 'empty' || inner?.kind === 'universe') return child
+        return add({ ...node, child })
+      }
     }
   }
 
   return prune({ nodes, root: go(tree.root) })
+}
+
+/**
+ * Whether a map leaves every point where it was, by its parameters alone.
+ *
+ * Exact values only, as for the transforms above: a modifier dialled almost to nothing
+ * is still the one on screen.
+ */
+function isIdentity(node: FrameNode): boolean {
+  switch (node.kind) {
+    case 'affine':
+      return node.matrix.every((v, i) => v === IDENTITY_AFFINE[i])
+    case 'wave':
+      return node.amplitude === 0
+    case 'twist':
+    case 'bend':
+      return node.rate === 0
+    case 'array':
+    case 'radial':
+      return node.count <= 1
+    case 'taper':
+      return node.amount === 0
+    default:
+      return false
+  }
 }
 
 /**
@@ -163,10 +205,16 @@ function compose(
   inner: CsgNode | undefined,
 ): CsgNode | undefined {
   if (outer.kind === 'translate' && inner?.kind === 'translate') {
-    return { kind: 'translate', child: inner.child, offset: zip(outer.offset, inner.offset, sum) }
+    const offset = zip(outer.offset, inner.offset, sum)
+    return noLonger(offset, outer.offset, inner.offset)
+      ? { kind: 'translate', child: inner.child, offset }
+      : undefined
   }
   if (outer.kind === 'scale' && inner?.kind === 'scale') {
-    return { kind: 'scale', child: inner.child, factor: zip(outer.factor, inner.factor, product) }
+    const factor = zip(outer.factor, inner.factor, product)
+    return noLonger(factor, outer.factor, inner.factor)
+      ? { kind: 'scale', child: inner.child, factor }
+      : undefined
   }
   if (outer.kind === 'rotate' && inner?.kind === 'rotate' && outer.axis === inner.axis) {
     return {
@@ -177,6 +225,18 @@ function compose(
     }
   }
   return undefined
+}
+
+/**
+ * Whether one folded vector prints no longer than the two it replaces.
+ *
+ * `0.7 * 0.4` is `0.27999999999999997`, so folding two short scales can write a long
+ * one into the command; the rule everywhere in this compiler is never to make the
+ * output longer. Each component costs its digits plus the operator that applies it.
+ */
+function noLonger(folded: Vec3, a: Vec3, b: Vec3): boolean {
+  const cost = (v: Vec3): number => v.reduce((n, c) => n + String(c).length + 1, 0)
+  return cost(folded) <= cost(a) + cost(b)
 }
 
 const sum = (a: number, b: number): number => a + b

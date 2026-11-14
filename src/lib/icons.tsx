@@ -33,6 +33,9 @@ export const PATHS = {
   minimize: 'M4 14h6v6 M20 10h-6V4 M14 10l7-7 M3 21l7-7',
   pin: 'M12 17v5 M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z',
   chevronDown: 'M6 9l6 6 6-6',
+  eye: 'M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0 M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+  eyeOff:
+    'M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49 M14.084 14.158a3 3 0 0 1-4.242-4.242 M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143 M2 2l20 20',
   chevronUp: 'M18 15l-6-6-6 6',
   // Lucide's `equal`, used as a drag handle. Its `grip-vertical` is six circles, which
   // cannot be a single stroked path without transcribing six arcs; two rules read

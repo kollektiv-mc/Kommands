@@ -2,6 +2,7 @@ import { compileExpression, type CompiledExpression } from '../expression'
 import {
   axisFrame,
   perpendicular,
+  turn,
   type CsgNode,
   type CsgTree,
   type NodeId,
@@ -133,14 +134,122 @@ function evaluateNode(
 
     case 'rotate': {
       const { u, v, w } = axisFrame(node.axis)
-      const cos = Math.cos(node.angle)
-      const sin = Math.sin(node.angle)
+      const { cos, sin } = turn(node.angle)
       // Turned by −angle, which is the inverse of turning the shape by +angle.
       const turned: [number, number, number] = [0, 0, 0]
       turned[u] = p[u] * cos + p[v] * sin
       turned[v] = p[u] * -sin + p[v] * cos
       turned[w] = p[w]
       return at(node.child, turned)
+    }
+
+    case 'affine': {
+      const m = node.matrix
+      const row = (r: number): number =>
+        x * m[r * 4]! + y * m[r * 4 + 1]! + z * m[r * 4 + 2]! + m[r * 4 + 3]!
+      return at(node.child, [row(0), row(1), row(2)])
+    }
+
+    // ── Modifiers, each written out as the map it is named for ──────────────
+    case 'mirror': {
+      const i = INDEX[node.axis]
+      const folded = Math.abs(p[i])
+      return at(node.child, put(p, [[i, node.keep === 'positive' ? folded : -folded]]))
+    }
+
+    case 'wave': {
+      const i = INDEX[node.axis]
+      const pushed = p[i] - node.amplitude * Math.sin(p[INDEX[node.along]] * node.frequency)
+      return at(node.child, put(p, [[i, pushed]]))
+    }
+
+    case 'twist': {
+      if (node.rate === 0) return at(node.child, p)
+      const { u, v, w } = axisFrame(node.axis)
+      const angle = p[w] * node.rate
+      const cos = Math.cos(angle)
+      const sin = Math.sin(angle)
+      return at(
+        node.child,
+        put(p, [
+          [u, p[u] * cos + p[v] * sin],
+          [v, p[v] * cos - p[u] * sin],
+        ]),
+      )
+    }
+
+    case 'array': {
+      if (node.count <= 1) return at(node.child, p)
+      const i = INDEX[node.axis]
+      const copy = Math.min(Math.max(Math.round(p[i] / node.spacing), 0), node.count - 1)
+      return at(node.child, put(p, [[i, p[i] - node.spacing * copy]]))
+    }
+
+    case 'radial': {
+      if (node.count <= 1) return at(node.child, p)
+      const [a, b] = perpendicular(node.axis)
+      const sector = (2 * Math.PI) / node.count
+      const angle = Math.atan2(p[b], p[a])
+      const local = angle - sector * Math.round(angle / sector)
+      const radius = Math.sqrt(p[a] ** 2 + p[b] ** 2)
+      return at(
+        node.child,
+        put(p, [
+          [a, radius * Math.cos(local)],
+          [b, radius * Math.sin(local)],
+        ]),
+      )
+    }
+
+    case 'bend': {
+      if (node.rate === 0) return at(node.child, p)
+      const s = INDEX[node.axis]
+      const u = INDEX[node.toward]
+      const towards = node.rate > 0
+      const radius = 1 / Math.abs(node.rate)
+      const gap = radius - (towards ? p[u] : -p[u])
+      const along =
+        node.side === 'both'
+          ? p[s]
+          : node.side === 'positive'
+            ? Math.max(p[s], 0)
+            : Math.min(p[s], 0)
+      const arc = radius * Math.atan2(along, gap)
+      const straight =
+        node.side === 'both' ? 0 : node.side === 'positive' ? Math.min(p[s], 0) : Math.max(p[s], 0)
+      const off = radius - Math.sqrt(along ** 2 + gap ** 2)
+      return at(
+        node.child,
+        put(p, [
+          [s, node.side === 'both' ? arc : straight + arc],
+          [u, towards ? off : -off],
+        ]),
+      )
+    }
+
+    case 'taper': {
+      if (node.amount === 0) return at(node.child, p)
+      const [a, b] = perpendicular(node.axis)
+      const along = p[INDEX[node.axis]]
+      const width = node.amount < 0 ? 1 - -node.amount * along : 1 + node.amount * along
+      return at(
+        node.child,
+        put(p, [
+          [a, p[a] / width],
+          [b, p[b] / width],
+        ]),
+      )
+    }
+
+    case 'revolve': {
+      const [a, b] = perpendicular(node.axis)
+      return at(
+        node.child,
+        put(p, [
+          [a, Math.sqrt(p[a] ** 2 + p[b] ** 2)],
+          [b, 0],
+        ]),
+      )
     }
 
     case 'union':
@@ -155,4 +264,13 @@ function evaluateNode(
     case 'invert':
       return !at(node.child, p)
   }
+}
+
+const INDEX = { x: 0, y: 1, z: 2 } as const
+
+/** A copy of `p` with some coordinates replaced. */
+function put(p: Vec3, changes: ReadonlyArray<readonly [0 | 1 | 2, number]>): Vec3 {
+  const next: [number, number, number] = [p[0], p[1], p[2]]
+  for (const [i, value] of changes) next[i] = value
+  return next
 }

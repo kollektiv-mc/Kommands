@@ -1,5 +1,6 @@
 import { pathsForTarget } from '../schema/addressing'
 import type { CommandValue } from '../schema/serialize'
+import type { Path } from '../schema/paths'
 import type { CommandDefinition, PreviewBinding } from '../schema/types'
 
 /**
@@ -56,4 +57,30 @@ export function readPreviewInputs(
  */
 export function previewInputsKey(values: Record<string, unknown>): string {
   return JSON.stringify(values)
+}
+
+/**
+ * Where an editor's new values go in the value tree: the inverse of `readPreviewInputs`.
+ *
+ * Only a selector the binding declares is written, and only where it names exactly one
+ * place. A selector under a Repeat names one per clause, and which of them an editor
+ * meant is not something this can guess, so those are left alone rather than all set.
+ */
+export function previewWrites(
+  definition: CommandDefinition,
+  binding: PreviewBinding,
+  value: CommandValue,
+  updates: Readonly<Record<string, unknown>>,
+): { args: Record<Path, unknown>; flags: Record<Path, boolean> } {
+  const args: Record<Path, unknown> = {}
+  const flags: Record<Path, boolean> = {}
+  for (const [selector, next] of Object.entries(updates)) {
+    if (!binding.inputs.includes(selector)) continue
+    const targets = pathsForTarget(definition.root, selector, value.repeats)
+    if (targets.length !== 1) continue
+    const { kind, path } = targets[0]!
+    if (kind === 'flag') flags[path] = next === true
+    else args[path] = next
+  }
+  return { args, flags }
 }
