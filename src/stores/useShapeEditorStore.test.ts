@@ -6,7 +6,7 @@ import { useShapeEditorStore } from './useShapeEditorStore'
 const store = () => useShapeEditorStore.getState()
 const names = () => store().layers.map((l) => l.name)
 
-beforeEach(() => store().load({ layers: [], pattern: 'stone', hollow: false }))
+beforeEach(() => store().load({ layers: [], pattern: 'stone', hollow: false, round: false }))
 
 describe('the shape editor store', () => {
   test('a new layer is selected, and undo takes it away', () => {
@@ -73,7 +73,7 @@ describe('the shape editor store', () => {
     const a = shape('sphere')
     const m = modifier('mirror')
     const b = shape('box')
-    store().load({ layers: [a, m, b], pattern: 'stone', hollow: false })
+    store().load({ layers: [a, m, b], pattern: 'stone', hollow: false, round: false })
     store().setIsolate(m.id)
     store().select(b.id)
     expect(store().isolate).toBe(m.id)

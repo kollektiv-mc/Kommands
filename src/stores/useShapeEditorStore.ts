@@ -22,7 +22,7 @@ import { emptyHistory, record, redo, undo, type HistoryState } from './commandHi
  * The //generate shape editor's document, selection and undo.
  *
  * One store for the one editor that is open at a time. The document is what the
- * command keeps: the layers, the pattern and Hollow. Selection, isolation and which
+ * command keeps: the layers, the pattern, Hollow and Round numbers. Selection, isolation and which
  * groups are open are not part of the shape and never enter undo, so undoing keeps the
  * current selection while it still exists.
  */
@@ -31,6 +31,8 @@ export interface ShapeSnapshot {
   layers: readonly Layer[]
   pattern: string
   hollow: boolean
+  /** Round numbers: the command keeps four significant digits. */
+  round: boolean
 }
 
 interface ShapeEditorState extends ShapeSnapshot {
@@ -51,6 +53,8 @@ interface ShapeEditorState extends ShapeSnapshot {
    * a value is one step rather than one per frame.
    */
   change: (id: string, edit: (layer: Layer) => Layer, tag?: string) => void
+  /** End a burst of tagged changes, so the next one is an undo step of its own. */
+  settle: () => void
   rename: (id: string, name: string) => void
   toggleVisible: (id: string) => void
   cycleOp: (id: string) => void
@@ -64,6 +68,7 @@ interface ShapeEditorState extends ShapeSnapshot {
 
   setPattern: (pattern: string, tag?: string) => void
   setHollow: (hollow: boolean) => void
+  setRound: (round: boolean) => void
 
   undo: () => void
   redo: () => void
@@ -75,6 +80,7 @@ const snapshotOf = (s: ShapeSnapshot): ShapeSnapshot => ({
   layers: s.layers,
   pattern: s.pattern,
   hollow: s.hollow,
+  round: s.round,
 })
 
 export const useShapeEditorStore = create<ShapeEditorState>((set, get) => {
@@ -97,6 +103,7 @@ export const useShapeEditorStore = create<ShapeEditorState>((set, get) => {
     layers: [],
     pattern: 'stone',
     hollow: false,
+    round: false,
     selected: null,
     isolate: null,
     history: emptyHistory<ShapeSnapshot>(),
@@ -120,6 +127,7 @@ export const useShapeEditorStore = create<ShapeEditorState>((set, get) => {
       if (outer) get().add(outer)
     },
     change: (id, edit, tag) => commit({ layers: update(get().layers, id, edit) }, tag),
+    settle: () => set((s) => ({ history: { ...s.history, lastTag: null } })),
     rename: (id, name) => {
       const trimmed = name.trim()
       if (trimmed !== '') get().change(id, (l) => ({ ...l, name: trimmed }))
@@ -158,6 +166,7 @@ export const useShapeEditorStore = create<ShapeEditorState>((set, get) => {
 
     setPattern: (pattern, tag) => commit({ pattern }, tag),
     setHollow: (hollow) => commit({ hollow }),
+    setRound: (round) => commit({ round }),
 
     undo: () => {
       const state = get()

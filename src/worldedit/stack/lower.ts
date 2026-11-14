@@ -254,11 +254,19 @@ export function pivotAxes(layer: ModifierLayer): readonly AxisName[] {
   }
 }
 
-/** The point a modifier works about: all of `pos` when it is turned, else its pivot axes. */
+/**
+ * The point a modifier works about: its pivot axes when it is not turned, and all of
+ * `pos` when it is. A turn about y alone keeps y where it was and only mixes x with z,
+ * so a modifier that ignores y may still drop it, which spares a Radial turned to sit
+ * between its copies an offset in y that goes in and comes straight back out.
+ */
 export function pivotOf(layer: ModifierLayer): Vec3 {
-  if (isTurned(layer.rot)) return layer.pos
-  const used = pivotAxes(layer)
-  const keep = (i: 0 | 1 | 2): number => (used.includes(AXES[i]!) ? layer.pos[i] : 0)
+  const [rx, , rz] = layer.rot
+  const turned = isTurned(layer.rot)
+  if (turned && (rx % 360 !== 0 || rz % 360 !== 0)) return layer.pos
+  const used = new Set(pivotAxes(layer))
+  if (turned && (used.has('x') || used.has('z'))) used.add('x').add('z')
+  const keep = (i: 0 | 1 | 2): number => (used.has(AXES[i]!) ? layer.pos[i] : 0)
   return [keep(0), keep(1), keep(2)]
 }
 
