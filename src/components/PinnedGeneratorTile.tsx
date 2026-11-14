@@ -3,6 +3,7 @@ import type { PinnedGenerator } from '../storage/preferences'
 import { IconButton } from './ui/IconButton'
 import { Icon } from './ui/Icon'
 import { REVEALED, useReveal } from './dashboard/useReveal'
+import { originOf, useUiStore } from '../stores/useUiStore'
 
 /**
  * One pinned generator: its label and id, a link to start a fresh command with it.
@@ -20,15 +21,19 @@ export function PinnedGeneratorTile({
   onUnpin: () => void
 }) {
   const { card, control } = useReveal('top-right')
+  const openFrom = useUiStore((s) => s.openFrom)
   return (
     <li
       ref={card}
+      data-origin={generator.id}
       className="border-hairline border-border-subtle bg-surface hover:border-border-hover duration-fast relative flex min-w-0 flex-col gap-1 rounded-md px-3.5 py-3"
     >
       <Link
         to="/c/$commandId"
         params={{ commandId: generator.id }}
         aria-label={generator.label}
+        // The card the editor grows out of, captured at the click.
+        onClick={(event) => openFrom(generator.id, originOf(event.currentTarget.parentElement))}
         className="absolute inset-0 rounded-md"
       />
       <span className="text-text-primary pointer-events-none relative truncate font-mono text-sm font-semibold">

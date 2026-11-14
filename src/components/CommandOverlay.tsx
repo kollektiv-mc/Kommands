@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useBlocker, useNavigate } from '@tanstack/react-router'
 import { flipIn, flipOut } from '../lib/flip'
+import { morphIn, morphOut } from '../lib/morph'
 import { FullscreenLayer } from '../lib/fullscreenLayer'
 import { useSheetSize } from '../lib/useSheetSize'
-import { originOf, useUiStore } from '../stores/useUiStore'
+import { originElement, originOf, useUiStore } from '../stores/useUiStore'
 
 /**
  * The editor, as a sheet centred over the dimmed dashboard.
@@ -29,7 +30,7 @@ export function CommandOverlay({
   contentKey,
   children,
 }: {
-  /** The saved command this was opened from, if any. Keys the rect to grow from. */
+  /** What this was opened from: the `data-origin` of the tile it grows out of. */
   originKey?: string
   /** Names the dialog for a screen reader. The command's label, when there is one. */
   label?: string
@@ -69,20 +70,20 @@ export function CommandOverlay({
    */
   const collapseTo = useCallback(() => {
     if (originKey === undefined) return null
-    const tile = document.querySelector(`[data-saved-id="${CSS.escape(originKey)}"]`)
-    return originOf(tile) ?? originFor(originKey)
+    return originOf(originElement(originKey)) ?? originFor(originKey)
   }, [originKey, originFor])
 
   const close = useCallback(() => {
     if (closing.current) return
     closing.current = true
-    flipOut(
-      panel.current,
-      collapseTo(),
-      backdrop.current,
-      () => void navigate({ to: '/dashboard' }),
-    )
-  }, [collapseTo, navigate, panel])
+    const home = () => void navigate({ to: '/dashboard' })
+    const tile = originElement(originKey)
+    const sheet = panel.current
+    if (tile && sheet && stage.current) {
+      if (morphOut({ panel: sheet, tile, host: stage.current }, backdrop.current, home)) return
+    }
+    flipOut(panel.current, collapseTo(), backdrop.current, home)
+  }, [collapseTo, navigate, panel, stage, originKey])
 
   // Another command, or the list: the one on screen fades out before the route changes,
   // and the new one is placed and faded in once the sheet has resized to it.
@@ -101,7 +102,15 @@ export function CommandOverlay({
 
   useLayoutEffect(() => {
     if (!panel.current) return
-    return flipIn(panel.current, originFor(originKey), backdrop.current)
+    // Only from what the store says opened it: a URL opens with nothing to grow from,
+    // even when a tile for the same command is on the dashboard underneath.
+    const origin = originFor(originKey)
+    const tile = origin === null ? null : originElement(originKey)
+    const grown =
+      tile && stage.current
+        ? morphIn({ panel: panel.current, tile, host: stage.current }, backdrop.current)
+        : null
+    return grown ?? flipIn(panel.current, origin, backdrop.current)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per mount, like the open it animates
   }, [])
 

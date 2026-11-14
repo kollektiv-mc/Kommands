@@ -3,7 +3,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { storageKind, useSavedCommandsStore } from '../stores/useSavedCommandsStore'
 import { useDashboardStore } from '../stores/useDashboardStore'
 import { usePinnedGeneratorsStore } from '../stores/usePinnedGeneratorsStore'
-import { originOf, useUiStore } from '../stores/useUiStore'
+import { NEW_COMMAND, originOf, useUiStore } from '../stores/useUiStore'
 import { PinnedPanel } from './dashboard/PinnedPanel'
 import { SavedPanel } from './dashboard/SavedPanel'
 import { ListPanel } from './dashboard/ListPanel'
@@ -124,7 +124,12 @@ export function Dashboard() {
             : `${commands.length} saved`}
         </span>
         <span className="flex-1" />
-        <Link to="/c" className={CTA}>
+        <Link
+          to="/c"
+          data-origin={NEW_COMMAND}
+          onClick={(event) => openFrom(NEW_COMMAND, originOf(event.currentTarget))}
+          className={CTA}
+        >
           New command
         </Link>
       </div>

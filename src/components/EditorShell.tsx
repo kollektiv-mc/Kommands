@@ -1,5 +1,6 @@
 import { Outlet, getRouteApi, useParams, useSearch } from '@tanstack/react-router'
 import { CommandOverlay } from './CommandOverlay'
+import { NEW_COMMAND } from '../stores/useUiStore'
 import { CommandSwitcher } from './CommandSwitcher'
 import { EditorLayout } from './EditorLayout'
 
@@ -40,7 +41,7 @@ export function EditorShell() {
 
   return (
     <CommandOverlay
-      originKey={saved}
+      originKey={saved ?? commandId ?? NEW_COMMAND}
       label={label}
       contentKey={commandId}
       header={<CommandSwitcher catalogue={catalogue} activeId={commandId} />}

@@ -65,6 +65,21 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
 }))
 
+/**
+ * The origin key of the dashboard's New command button. A saved command's key is its id
+ * and a pinned generator's is its command id, so this one cannot collide with either.
+ */
+export const NEW_COMMAND = 'new'
+
+/**
+ * The element an editor with `key` opens from: whatever carries `data-origin={key}`,
+ * a saved tile, a pinned generator or the New command button.
+ */
+export function originElement(key: string | undefined): HTMLElement | null {
+  if (key === undefined) return null
+  return document.querySelector<HTMLElement>(`[data-origin="${CSS.escape(key)}"]`)
+}
+
 /** The rect of an element, in the flattened shape the store holds. */
 export function originOf(element: Element | null): OriginRect | null {
   if (!element) return null

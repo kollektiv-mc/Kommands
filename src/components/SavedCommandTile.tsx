@@ -94,7 +94,7 @@ export function SavedCommandTile({
         return card(el)
       }}
       {...dragProps}
-      data-saved-id={saved.id}
+      data-origin={saved.id}
       className={
         'border-hairline bg-surface hover:border-border-hover duration-fast relative rounded-lg ' +
         'flex min-h-0 flex-col gap-1.5 overflow-hidden pt-2 pr-2.5 pb-1 pl-3 select-none ' +
