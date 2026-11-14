@@ -269,6 +269,15 @@ above with an interface. Only the interface changed.
 - A **reference** is another `//generate` command drawn as a ghost beside this one, for a
   build that needs one command per material. It is never part of the command.
 
+The document is `src/worldedit/stack/`: plain data (`layers.ts`) so it can be saved in a
+command, sent to a worker and compared for undo, with edits as functions from one stack
+to the next (`edit.ts`). `lower.ts` turns it into a `CsgTree`, building each run of
+same-op shapes below a modifier once rather than once per shape, composing a turned
+placement into one `affine` node, and folding scale into a primitive's size where its
+formula allows. `oracle.ts` says what a stack means straight from these rules, shape by
+shape through every modifier above it, and the lowering is tested against it on 300
+generated stacks, so each of those shortcuts is checked rather than trusted.
+
 **Why a stack and not a graph.** Everything a graph adds over a tree is sharing and
 wiring. Sharing is already found by the compiler, which keys it on the emitted text
 rather than on the node (see below), so a graph's explicit diamond buys nothing a tree
@@ -326,8 +335,9 @@ that they are not reopened by accident.
   a to-scale Player.
 - **Ground.** `x`, `y` and `z` run −1..1 across block _centres_, so the outer blocks reach
   half a block past that. The selection box, grid, floor and player sit on the blocks'
-  outer faces, and every template is lowered until its bottom layer is filled at 32³, 64³
-  and 128³.
+  outer faces, and every template's lowest parts reach below −1, so its bottom layer is
+  filled at 32³, 64³ and 128³. The templates are data in `src/data/authored/generate/`,
+  one file each, with that offset written into their coordinates.
 - **Command bar.** Hollow (`-h`) and Round numbers above the Blocks field; the field opens
   a block mix (one row per block, its chance at the right) and its swatches stack in a
   fixed width. The command box reports whether the command fits in chat (256) or a command

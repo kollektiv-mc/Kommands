@@ -205,6 +205,10 @@ belongs here.
       The named graphs are not decoration: dropping the coordinate frame from the
       compiler's memo key — the exact bug its sharing design is about — leaves all 200
       generated graphs passing, and only the fixture written for it fails.
+      The shape editor's layer stack is held to the same standard one level up:
+      `src/worldedit/stack/lower.ts` is checked against `oracle.ts`, which reads a stack
+      straight off the editor's rules, on 300 generated stacks. Composing Euler turns in
+      the wrong order, or putting a modifier's pivot on the wrong side, fails it.
       Verify: `pnpm test`.
 
 ## 3. Scalable / future-proof
