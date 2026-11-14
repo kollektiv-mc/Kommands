@@ -29,6 +29,8 @@ export async function renderWithRouter(ui: ReactNode, initialPath = '/') {
   const rootRoute = createRootRoute({ component: stub })
   const routes = [
     createRoute({ getParentRoute: () => rootRoute, path: '/', component: stub }),
+    createRoute({ getParentRoute: () => rootRoute, path: '/dashboard', component: stub }),
+    createRoute({ getParentRoute: () => rootRoute, path: '/download', component: stub }),
     createRoute({ getParentRoute: () => rootRoute, path: '/c', component: stub }),
     createRoute({
       getParentRoute: () => rootRoute,

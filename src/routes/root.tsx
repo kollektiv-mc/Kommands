@@ -1,17 +1,11 @@
-import { createRootRoute, Outlet } from '@tanstack/react-router'
-import { AppShell } from '../components/AppShell'
-import { SplashScreen } from '../components/SplashScreen'
+import { createRootRoute } from '@tanstack/react-router'
 
-// The splash sits beside the shell rather than inside it. It is a startup sequence,
-// not part of the frame — AppShell's own doc comment says the shell owns the frame and
-// routes own everything inside it, and an overlay that covers both is neither.
-export const rootRoute = createRootRoute({
-  component: () => (
-    <>
-      <SplashScreen />
-      <AppShell>
-        <Outlet />
-      </AppShell>
-    </>
-  ),
-})
+/**
+ * The root renders nothing of its own, only its matched child.
+ *
+ * It used to draw the splash and the app's frame around every route, which was right
+ * while every route was the app. The home page and the download page are not: they are
+ * the web build's front door and carry their own header, so the frame moved down a
+ * level into `appRoute` (routes/app.tsx), and the site's pages sit beside it here.
+ */
+export const rootRoute = createRootRoute()

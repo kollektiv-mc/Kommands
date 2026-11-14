@@ -6,7 +6,7 @@ import { dashboardRoute } from './dashboard'
  *
  * Not a mistake and not a placeholder. `dashboardRoute` draws the dashboard and then an
  * Outlet for whatever covers it; at `/` nothing covers it, so the correct content for
- * this route is empty. The page you see at `/` is its parent.
+ * this route is empty. The page you see at `/dashboard` is its parent.
  *
  * Still no loader, and now for a stronger reason than before: the dashboard renders on
  * every route, so anything loaded here would be loaded on the way to the editor too.
@@ -16,6 +16,9 @@ import { dashboardRoute } from './dashboard'
  */
 export const indexRoute = createRoute({
   getParentRoute: () => dashboardRoute,
-  path: '/',
+  // `/dashboard` rather than `/`, which the home page holds in the web build. The
+  // installed app never shows the home page (routes/home.tsx), so for it this is simply
+  // where it opens.
+  path: '/dashboard',
   component: () => null,
 })

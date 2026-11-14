@@ -93,7 +93,7 @@ export function TitleBar({ onOpenSettings }: { onOpenSettings: () => void }) {
         className="flex h-full min-w-0 flex-1 items-center pl-3"
       >
         <Link
-          to="/"
+          to="/dashboard"
           className="titlebar-no-drag text-accent font-display text-sm font-black tracking-tight"
         >
           Kommands

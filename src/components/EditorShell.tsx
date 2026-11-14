@@ -7,7 +7,7 @@ import { EditorLayout } from './EditorLayout'
 // because the pathless `dashboard` layout route sits between this and the root, and an
 // id is a path through the route tree rather than through the URL. Worth stating: the
 // two look interchangeable right up until one of them silently is not.
-const route = getRouteApi('/dashboard/c')
+const route = getRouteApi('/app/dashboard/c')
 
 /**
  * The frame every editor route renders inside.

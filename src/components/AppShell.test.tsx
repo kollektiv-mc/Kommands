@@ -81,7 +81,7 @@ test('the product name is the way back to the dashboard', async () => {
   )
   // The editor fills the viewport, so this is the only route back to what has been
   // saved. A label here rather than a link would strand anyone who opened a command.
-  expect(screen.getByRole('link', { name: 'Kommands' }).getAttribute('href')).toBe('/')
+  expect(screen.getByRole('link', { name: 'Kommands' }).getAttribute('href')).toBe('/dashboard')
 })
 
 test('the shell owns the settings dialog, because it is what stays mounted', async () => {

@@ -135,6 +135,13 @@ Two surfaces over one saved-commands file is not the concurrency problem it
 sounds like: both go through one handler with one lock in one process, and the
 single-instance lock keeps it to one process per machine.
 
+The same probe decides where the app opens. The hosted site opens on its home
+page at `/`, with the download page at `/download`, and the dashboard lives at
+`/dashboard`. An install of either surface has already been downloaded, so
+`src/routes/site.tsx` sends both of those pages straight on to `/dashboard`
+whenever the backend answers. The editor stays at `/c/...`, drawn over the dashboard,
+so a link to a command means the same thing on every build.
+
 ---
 
 ## The window is the app's, including its title bar
