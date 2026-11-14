@@ -266,6 +266,13 @@ export interface PreviewBinding {
 export interface UiMetadata {
   summary?: string
   /**
+   * Every column of the editor at twice the standard width, for a command whose tiles
+   * need the room at any column count: `//generate`'s pattern rows and expression
+   * beside its preview. Without it only a single column is widened, and only when it
+   * holds a rich editor (`planColumns`). Presentation, so outside the fingerprint.
+   */
+  width?: 'wide'
+  /**
    * Per-argument presentation. Derivation cannot produce these.
    *
    * Keyed by a selector, as a constraint target is (`src/schema/addressing.ts`): a

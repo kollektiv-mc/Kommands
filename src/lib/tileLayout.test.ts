@@ -99,6 +99,13 @@ describe('layoutState', () => {
     expect(layoutState(tiles([2]), plan)).toMatchObject({ cols: 1, width: 'standard' })
   })
 
+  it('widens every column when the definition asks', () => {
+    // //generate: its pattern rows and expression beside a preview need the room.
+    const plan = planColumns([2, 2, 'fill'], [tiles([2, 2, 'fill'])], 'wide')
+    expect(plan).toMatchObject({ cols: 2, width: 'wide' })
+    expect(planColumns([2, 2, 'fill'], [tiles([2, 2, 'fill'])]).width).toBe('standard')
+  })
+
   it('narrows rather than stretch a tall tile beside short ones', () => {
     // Two one-line tiles and a five-row list: side by side, both short ones would
     // stretch three rows; stacked beside it, they stretch one between them.

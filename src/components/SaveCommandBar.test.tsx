@@ -262,3 +262,13 @@ test('rename opens the same popover, seeded with the current name', async () => 
   // every linked consumer to re-read a command that did not change.
   expect(renamed!.revision).toBe(1)
 })
+
+test('the name field turns password-manager autofill off', async () => {
+  // Read as a person's name, it had 1Password offering a contact card.
+  const user = userEvent.setup()
+  await renderWithRouter(bar('/give @p stone'))
+  await user.click(await screen.findByRole('button', { name: 'Save…' }))
+  const field = screen.getByRole('textbox', { name: 'Save as' })
+  expect(field.getAttribute('autocomplete')).toBe('off')
+  expect(field.hasAttribute('data-1p-ignore')).toBe(true)
+})

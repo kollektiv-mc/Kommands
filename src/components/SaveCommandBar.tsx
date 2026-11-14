@@ -302,6 +302,13 @@ function NameForm({
         onChange={(event) => setName(event.target.value)}
         onKeyDown={onKeyDown}
         placeholder="name"
+        // A field placeholdered "name" inside a form reads to a password manager as a
+        // person's name, and it offered a contact card. It names a saved command, so
+        // autofill is turned off here and in the managers that skip `autocomplete`.
+        autoComplete="off"
+        data-1p-ignore
+        data-lpignore="true"
+        data-bwignore
         className={`${FIELD} min-w-0 flex-1`}
       />
       <button type="submit" className={SUBMIT} disabled={name.trim() === ''} onKeyDown={onKeyDown}>

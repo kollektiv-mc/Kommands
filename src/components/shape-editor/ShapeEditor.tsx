@@ -95,8 +95,7 @@ export function ShapeEditor({
           ref={parts.header}
           className="border-b-hairline border-border-subtle bg-surface pointer-events-auto flex min-w-0 flex-wrap items-center gap-3.5 px-3 py-2"
         >
-          <span className="font-display text-accent text-sm font-bold">Kommands</span>
-          <span className="text-text-faint">/</span>
+          {/* The command alone: the app bar above already names the product. */}
           <h1 className="font-mono text-lg font-medium">//generate</h1>
           <span className="flex-1" />
           <div className="flex items-center gap-1.5">
