@@ -16,6 +16,7 @@ import { pivotAxes } from '../../worldedit/stack/lower'
 import { partCommand, templateLayers } from '../../worldedit/stack/templates'
 import { FIELD, FOCUS } from '../editors/fieldStyles'
 import { Icon } from '../ui/Icon'
+import { Listbox } from '../ui/Listbox'
 import { Segmented } from '../ui/Segmented'
 import { FieldRow, NumberField } from './NumberField'
 import { useScrub } from './scrub'
@@ -540,15 +541,23 @@ function ModifierFields({ layer }: { layer: ModifierLayer }) {
   )
 }
 
+/** Where a Reference's command comes from: pasted, or one of the templates. */
+const PASTED = 'pasted'
+const SOURCES = [
+  { value: PASTED, label: 'Pasted command' },
+  ...TEMPLATES.map((t) => ({ value: t.id, label: t.name })),
+]
+
 function ReferenceFields({ layer }: { layer: ReferenceLayer }) {
   const { edit, settle } = useEdit(layer)
   return (
     <Section title="Command">
-      <select
+      <Listbox
         aria-label="Command source"
-        value={layer.template ?? ''}
-        onChange={(e) => {
-          const template = TEMPLATES.find((t) => t.id === e.currentTarget.value)
+        value={layer.template ?? PASTED}
+        options={SOURCES}
+        onChange={(id) => {
+          const template = TEMPLATES.find((t) => t.id === id)
           edit('template', (l) => {
             if (l.type !== 'reference') return l
             if (!template) {
@@ -560,17 +569,8 @@ function ReferenceFields({ layer }: { layer: ReferenceLayer }) {
           })
           settle()
         }}
-        className={`${FIELD} h-8 font-sans font-semibold`}
-      >
-        <option value="">Pasted command</option>
-        <optgroup label="Templates">
-          {TEMPLATES.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </optgroup>
-      </select>
+        className="w-full"
+      />
       <textarea
         aria-label="//generate command"
         spellCheck={false}

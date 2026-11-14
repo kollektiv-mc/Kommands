@@ -35,15 +35,44 @@ export interface ShapeSnapshot {
   round: boolean
 }
 
+/** How the view draws the build. A way of looking, so never part of the document or undo. */
+export interface ViewOptions {
+  /** The blocks the command places, or the shapes it is built from. */
+  show: 'blocks' | 'shapes'
+  shading: 'coloured' | 'solid' | 'wire'
+  /** Hide the half of the build nearer the camera. */
+  cutaway: boolean
+  /** See-through blocks. */
+  xray: boolean
+  bounds: boolean
+  grid: boolean
+  axes: boolean
+  /** A player standing beside the build, to scale. */
+  player: boolean
+}
+
+export const DEFAULT_VIEW: ViewOptions = {
+  show: 'blocks',
+  shading: 'coloured',
+  cutaway: false,
+  xray: false,
+  bounds: true,
+  grid: true,
+  axes: true,
+  player: false,
+}
+
 interface ShapeEditorState extends ShapeSnapshot {
   selected: string | null
   /** The layer S shows on its own, or null. */
   isolate: string | null
   history: HistoryState<ShapeSnapshot>
+  view: ViewOptions
 
   load: (snapshot: ShapeSnapshot) => void
   select: (id: string | null) => void
   setIsolate: (id: string | null) => void
+  setView: (change: Partial<ViewOptions>) => void
 
   /** Add a layer where the palette puts it, and select it. */
   add: (layer: Layer) => void
@@ -107,6 +136,7 @@ export const useShapeEditorStore = create<ShapeEditorState>((set, get) => {
     selected: null,
     isolate: null,
     history: emptyHistory<ShapeSnapshot>(),
+    view: DEFAULT_VIEW,
 
     load: (snapshot) =>
       set({ ...snapshot, selected: null, isolate: null, history: emptyHistory<ShapeSnapshot>() }),
@@ -117,6 +147,7 @@ export const useShapeEditorStore = create<ShapeEditorState>((set, get) => {
       set(outside ? { selected: id, isolate: null } : { selected: id })
     },
     setIsolate: (id) => set({ isolate: id }),
+    setView: (change) => set((s) => ({ view: { ...s.view, ...change } })),
 
     add: (layer) => {
       const { layers, selected } = get()
