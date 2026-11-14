@@ -235,8 +235,17 @@ export function morphIn(parts: Parts, backdrop: HTMLElement | null): (() => void
  * Shrink the sheet back into `tile`, then show the tile and call `done`, which
  * navigates away. Returns false when it cannot run, and then calls nothing, for the
  * caller's fallback.
+ *
+ * `hide` is whether the tile hides while the sheet shrinks into it: only when it was
+ * hidden while the sheet stood for it. A tile that has been on show behind the sheet,
+ * such as one just saved from it, stays on show rather than blinking out and back.
  */
-export function morphOut(parts: Parts, backdrop: HTMLElement | null, done: () => void): boolean {
+export function morphOut(
+  parts: Parts,
+  backdrop: HTMLElement | null,
+  done: () => void,
+  hide = true,
+): boolean {
   if (!canAnimate(parts)) return false
   const { panel, body, tile } = parts
   const m = measure(panel, tile)
@@ -245,7 +254,7 @@ export function morphOut(parts: Parts, backdrop: HTMLElement | null, done: () =>
   const duration = Math.round(motion.duration * CLOSE_SCALE)
   const steps = frames(m, easingOf(motion.easing), false)
 
-  hideTile(tile, true)
+  if (hide) hideTile(tile, true)
   stage(parts, true)
   const copy = copyOf(tile, panel)
   fadeBackdrop(backdrop, false, duration)

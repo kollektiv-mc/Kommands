@@ -82,12 +82,15 @@ export function CommandOverlay({
     closing.current = true
     const home = () => void navigate({ to: '/dashboard' })
     // Ends an open still playing, so the close measures the sheet where it stands.
+    // Only the tile the sheet still stands for hides as it closes: one on show behind
+    // it, such as a command just saved, stays on show.
+    const standing = reveal.current !== null
     reveal.current?.()
     reveal.current = null
     const tile = originElement(originKey)
     if (tile && panel.current && body.current) {
       const parts = { panel: panel.current, body: body.current, tile }
-      if (morphOut(parts, backdrop.current, home)) return
+      if (morphOut(parts, backdrop.current, home, standing)) return
     }
     flipOut(panel.current, collapseTo(), backdrop.current, home)
   }, [collapseTo, navigate, panel, originKey])

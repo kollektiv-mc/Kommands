@@ -105,6 +105,17 @@ test('closing lands on the tile, then shows it and navigates', async () => {
   expect(parts.tile.style.visibility).toBe('')
 })
 
+test('a tile already on show stays on show as it closes', async () => {
+  const parts = setup()
+  const done = vi.fn()
+  expect(morphOut(parts, null, done, false)).toBe(true)
+  expect(parts.tile.style.visibility).toBe('')
+  finish()
+  await Promise.resolve()
+  expect(done).toHaveBeenCalledOnce()
+  expect(parts.tile.style.visibility).toBe('')
+})
+
 test('reduced motion leaves it to the fallback', () => {
   vi.stubGlobal(
     'matchMedia',
