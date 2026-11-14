@@ -1,10 +1,11 @@
 import { useId, useState, type Ref } from 'react'
 import { useShapeEditorStore } from '../../stores/useShapeEditorStore'
 import { CHAT_LIMIT, COMMAND_BLOCK_LIMIT, type StackCommand } from '../../worldedit/stack/command'
-import { FIELD, FOCUS } from '../editors/fieldStyles'
+import { FOCUS } from '../editors/fieldStyles'
 import { Icon } from '../ui/Icon'
 import { Switch } from '../ui/Switch'
 import { Tooltip } from '../ui/Tooltip'
+import { BlocksField } from './BlockMix'
 import { PANEL, PRIMARY } from './styles'
 
 /**
@@ -29,12 +30,9 @@ const FITS = {
 export function CommandBar({ command, ref }: { command: StackCommand; ref?: Ref<HTMLElement> }) {
   const hollow = useShapeEditorStore((s) => s.hollow)
   const round = useShapeEditorStore((s) => s.round)
-  const pattern = useShapeEditorStore((s) => s.pattern)
   const setHollow = useShapeEditorStore((s) => s.setHollow)
   const setRound = useShapeEditorStore((s) => s.setRound)
-  const setPattern = useShapeEditorStore((s) => s.setPattern)
-  const settle = useShapeEditorStore((s) => s.settle)
-  const ids = { hollow: useId(), round: useId(), pattern: useId() }
+  const ids = { hollow: useId(), round: useId() }
   const fits = FITS[command.fits]
 
   return (
@@ -62,24 +60,13 @@ export function CommandBar({ command, ref }: { command: StackCommand; ref?: Ref<
             </label>
           </Tooltip>
         </div>
-        <div className="flex items-center gap-1.5">
-          <label htmlFor={ids.pattern} className="text-text-secondary text-xs font-semibold">
-            Blocks
-          </label>
-          <input
-            id={ids.pattern}
-            value={pattern}
-            spellCheck={false}
-            autoComplete="off"
-            onChange={(e) => setPattern(e.currentTarget.value, 'pattern')}
-            onBlur={settle}
-            onKeyDown={(e) => e.stopPropagation()}
-            className={`${FIELD} h-7 min-h-0 w-40 py-0`}
-          />
-        </div>
+        <BlocksField />
       </div>
 
-      <div className="border-hairline border-border-subtle bg-canvas flex h-16.5 min-w-0 flex-col overflow-hidden rounded-md">
+      <div
+        data-command-box
+        className="border-hairline border-border-subtle bg-canvas flex h-[var(--command-height,calc(var(--spacing)*16.5))] min-w-0 flex-col overflow-hidden rounded-md"
+      >
         <output
           aria-label="Command"
           className="min-h-0 flex-1 overflow-auto px-2.5 pt-1.5 font-mono text-xs leading-normal break-all whitespace-pre-wrap"

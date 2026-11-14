@@ -50,6 +50,7 @@ export function NumberField({
   const ladder = useLadder(value, step, set, onDone)
 
   return (
+    // aislop-ignore-next-line jsx-a11y/no-static-element-interactions -- the ladder is a middle-drag gesture over the whole field; the input inside stays its keyboard interface
     <div
       className={`${NUM} ${ladder.state ? 'cursor-ew-resize' : ''}`}
       onPointerDown={ladder.start}

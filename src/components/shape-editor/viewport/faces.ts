@@ -1,6 +1,6 @@
-import { Color, SRGBColorSpace } from 'three'
-import { BLOCK_COLOURS } from '../../../data/authored/block-colours'
+import { Color } from 'three'
 import { parsePattern } from '../../../schema/argument-types/we-pattern'
+import { bareId, blockCss } from '../swatch'
 
 /**
  * The blocks as the view draws them: only the faces that can be seen, each coloured
@@ -34,27 +34,9 @@ export function blockPalette(pattern: string): Swatch[] {
     : [{ block: 'stone', weight: 1, colour: blockColour('stone') }]
 }
 
-/** A namespaced id with states, and a `##` tag, both read as the bare id the table is keyed by. */
-function bareId(block: string): string {
-  return block
-    .trim()
-    .replace(/\[.*$/, '')
-    .replace(/^[#*^]+/, '')
-    .split(':')
-    .pop()!
-}
-
-/**
- * A block's colour: from the table, or for a block it does not list a muted one worked
- * out from the id, so the same block is always the same colour and two blocks rarely
- * share one.
- */
+/** A block's colour, as `swatch.ts` works it out. */
 export function blockColour(id: string): Color {
-  const known = BLOCK_COLOURS[id]
-  if (known !== undefined) return new Color(known)
-  let hash = 0
-  for (const c of id) hash = (hash * 31 + c.charCodeAt(0)) >>> 0
-  return new Color().setHSL((hash % 360) / 360, 0.28, 0.52, SRGBColorSpace)
+  return new Color(blockCss(id))
 }
 
 /** The six faces of a unit cube: the neighbour's direction, then the quad's corners. */
