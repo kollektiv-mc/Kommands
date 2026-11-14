@@ -50,6 +50,13 @@ test('every command in the catalogue is a link, grouped by dialect', async () =>
   expect(within(worldedit).queryByRole('link', { name: '/give' })).toBeNull()
 })
 
+test('WorldEdit is drawn above vanilla', async () => {
+  await renderWithRouter(<CommandNav catalogue={CATALOGUE} />)
+
+  const headings = screen.getAllByRole('heading').map((h) => h.textContent)
+  expect(headings.map((text) => text?.replace(/\d+$/, ''))).toEqual(['WorldEdit', 'Vanilla'])
+})
+
 test('the count comes from the catalogue, not from a hand-authored list', async () => {
   await renderWithRouter(<CommandNav catalogue={CATALOGUE} />)
 

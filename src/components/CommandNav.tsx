@@ -9,7 +9,9 @@ import { IconButton } from './ui/IconButton'
 import { Icon } from './ui/Icon'
 
 /**
- * The dialect groups, in the order they are drawn.
+ * The dialect groups, in the order they are drawn: WorldEdit first, because its handful
+ * of commands would otherwise sit below eighty vanilla ones, a scroll away from anyone
+ * opening the list for them.
  *
  * Grouping by dialect rather than alphabetically across everything, because the
  * distinction is load-bearing rather than cosmetic: `embeddableIn` already filters by
@@ -21,8 +23,8 @@ import { Icon } from './ui/Icon'
  * "WorldEdit" is presentation, and `dialect` is data.
  */
 const GROUPS: readonly { dialect: CommandDefinition['dialect']; label: string }[] = [
-  { dialect: 'vanilla', label: 'Vanilla' },
   { dialect: 'worldedit', label: 'WorldEdit' },
+  { dialect: 'vanilla', label: 'Vanilla' },
 ]
 
 /** Whether a definition matches a typed filter, by label or by any alias. */
