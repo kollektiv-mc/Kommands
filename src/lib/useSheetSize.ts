@@ -47,15 +47,40 @@ export function useSheetSize<T extends HTMLElement>() {
     const inner = content.current
     if (!room || !sheet || !band || !holder || !inner) return
 
+    let maxW = Infinity
+    let maxH = Infinity
     const fitRoom = () => {
       const style = getComputedStyle(room)
-      const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
-      const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
-      inner.style.setProperty('--sheet-max-w', `${room.clientWidth - padX}px`)
-      inner.style.setProperty('--sheet-max-h', `${room.clientHeight - padY - band.offsetHeight}px`)
+      // A padding the engine reports as '' (no layout, as in a test) is none.
+      const px = (value: string) => parseFloat(value) || 0
+      const padX = px(style.paddingLeft) + px(style.paddingRight)
+      const padY = px(style.paddingTop) + px(style.paddingBottom)
+      maxW = room.clientWidth - padX
+      maxH = room.clientHeight - padY - band.offsetHeight
+      inner.style.setProperty('--sheet-max-w', `${maxW}px`)
+      inner.style.setProperty('--sheet-max-h', `${maxH}px`)
     }
     let settled = false
     let glide: Animation | undefined
+    /**
+     * Whether the content scrolls, which only a content the room caps needs. Otherwise
+     * it does not clip either, and that is the point: the content takes its new size at
+     * once, while the tiles that leave fade out and the ones that stay slide from where
+     * they were, both drawn where the old size had them. A content that clipped to its
+     * new size cut them off there (a shrinking command lost its lower tiles mid-switch),
+     * where the sheet, which still has the old size, would have held them.
+     */
+    const fitOverflow = (width: number, height: number) => {
+      // A phone's sheet is the room's width whatever it holds (index.css), so a content
+      // at that width scrolls across only when it is also wider than it.
+      const across = width >= maxW - 1 && inner.scrollWidth > inner.clientWidth
+      const scrolls = across || height >= maxH - 1
+      // Taking the scroll away puts a scrolled content back at its top, which would jump
+      // the tiles still moving. A scrolled one keeps it for now: once it fits, the browser
+      // scrolls it home, and the next change takes the scroll away.
+      if (!scrolls && (inner.scrollTop > 0 || inner.scrollLeft > 0)) return
+      inner.style.overflow = scrolls ? 'auto' : 'visible'
+    }
     /** Takes the content's size, and answers how long the sheet takes to get there. */
     const fitSheet = () => {
       // The header is laid out at the sheet's width, so the content is held at least as
@@ -70,12 +95,18 @@ export function useSheetSize<T extends HTMLElement>() {
       const width = inner.offsetWidth
       const height = inner.offsetHeight + band.offsetHeight
       if (width === 0 || height === 0) return 0
+      // The first size is not animated. Counted here, before the early return below:
+      // React's StrictMode runs this effect twice, and the second run finds the size
+      // the first wrote, so counting it later let the first real change snap.
+      const first = !settled
+      settled = true
       // The size it is drawn at now, part way through a resize included.
       const fromW = sheet.offsetWidth
       const fromH = sheet.offsetHeight
       holder.style.width = `${inner.offsetWidth}px`
       holder.style.height = `${inner.offsetHeight}px`
       if (sheet.style.width === `${width}px` && sheet.style.height === `${height}px`) {
+        fitOverflow(inner.offsetWidth, inner.offsetHeight)
         return glide?.playState === 'running' ? remaining(glide) : 0
       }
       glide?.cancel()
@@ -83,13 +114,15 @@ export function useSheetSize<T extends HTMLElement>() {
       sheet.style.width = `${width}px`
       sheet.style.height = `${height}px`
       const animate =
-        settled &&
+        !first &&
         !reducedMotion() &&
         sheet.style.transform === '' &&
         typeof sheet.animate === 'function' &&
         Math.abs(fromW - width) + Math.abs(fromH - height) >= 1
-      settled = true
-      if (!animate) return 0
+      if (!animate) {
+        fitOverflow(inner.offsetWidth, inner.offsetHeight)
+        return 0
+      }
       const { duration, easing } = motionTiming()
       // After the tiles that leave have faded, and before the ones that arrive.
       const delay = sequence(duration)
@@ -100,6 +133,7 @@ export function useSheetSize<T extends HTMLElement>() {
         ],
         { duration, delay, easing, fill: 'backwards' },
       )
+      fitOverflow(inner.offsetWidth, inner.offsetHeight)
       return delay + duration
     }
     fit.current = fitSheet
