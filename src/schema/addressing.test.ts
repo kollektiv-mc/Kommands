@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import commandsPayload from '../data/generated/1.21.1/commands.json'
 import { generate } from '../data/authored/commands/worldedit/generate'
+import { palette } from '../data/authored/commands/worldedit/palette'
 import { pathsForTarget, qualify, resolveTarget, staticLocations } from './addressing'
 import type { CommandDefinition } from './types'
 
@@ -91,6 +92,21 @@ describe('flags resolve the same way arguments do', () => {
   test('and it reports which table its value lives in', () => {
     expect(pathsForTarget(generate.root, '-h', {})).toEqual([{ kind: 'flag', path: '/1/-h' }])
     expect(pathsForTarget(generate.root, 'pattern', {})).toEqual([{ kind: 'argument', path: '/2' }])
+  })
+})
+
+describe('a WorldEdit keyword keeps its own slashes', () => {
+  test('//replace/mask is the keyword //replace, then the name', () => {
+    expect(resolveTarget(palette.root, '//replace/mask')).toHaveLength(1)
+    expect(resolveTarget(palette.root, 'mask')).toHaveLength(4)
+  })
+
+  test('/brush smooth and //smooth stay apart', () => {
+    expect(resolveTarget(palette.root, '//smooth/iterations')).toHaveLength(1)
+    expect(resolveTarget(palette.root, 'smooth/iterations')).toHaveLength(1)
+    expect(
+      qualify(palette.root, { kind: 'argument', name: 'iterations', literals: ['//smooth'] }),
+    ).toBe('//smooth/iterations')
   })
 })
 

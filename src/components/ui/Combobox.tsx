@@ -24,6 +24,7 @@ export function Combobox({
   value,
   options,
   onChange,
+  onCommit,
   limit = 50,
   placeholder,
   invalid,
@@ -36,6 +37,12 @@ export function Combobox({
   value: string
   options: readonly ListOption[]
   onChange: (value: string) => void
+  /**
+   * A value was settled on: an option picked, or Enter pressed on typed text. For a
+   * field that adds what it is given to a list and empties itself, where every
+   * keystroke reaching `onChange` cannot be read as a choice.
+   */
+  onCommit?: (value: string) => void
   limit?: number
   placeholder?: string
   invalid?: boolean
@@ -67,6 +74,7 @@ export function Combobox({
     setOpen(false)
     input.current?.focus()
     onChange(option.value)
+    onCommit?.(option.value)
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -78,10 +86,20 @@ export function Combobox({
         else setActive((i) => stepIndex(i, event.key === 'ArrowDown' ? 1 : -1, shown.length))
         return
       case 'Enter':
+        if (open && shown[active]) {
+          event.preventDefault()
+          pick(shown[active])
+          return
+        }
+        if (onCommit && value.trim() !== '') {
+          event.preventDefault()
+          setOpen(false)
+          onCommit(value)
+          return
+        }
         if (!open) return
         event.preventDefault()
-        if (shown[active]) pick(shown[active])
-        else setOpen(false)
+        setOpen(false)
         return
       case 'Escape':
         if (!open) return

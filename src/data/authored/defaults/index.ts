@@ -73,6 +73,27 @@ const DEFAULTS: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
   'vanilla:transfer': {
     port: 25565,
   },
+  // WorldEdit 7.3.6's own `def` values (BrushCommands, RegionCommands), not the wiki's.
+  // //replace's `from` defaults to an ExistingBlockMask, which is what `#existing` parses to.
+  'worldedit:palette': {
+    '//replace/mask': {
+      include: [],
+      exclude: [],
+      chance: '',
+      rules: [
+        { test: 'existing', not: false, offset: 0, values: [], text: '', exact: false, chance: 50 },
+      ],
+    },
+    '//smooth/iterations': 1,
+    'sphere/radius': 2,
+    'cylinder/radius': 2,
+    'cylinder/height': 1,
+    'set/radius': 5,
+    'splatter/radius': 2,
+    'splatter/decay': 1,
+    'smooth/radius': 2,
+    'smooth/iterations': 4,
+  },
 }
 
 /** Every authored default, for the invariant test. */
