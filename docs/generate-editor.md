@@ -302,7 +302,14 @@ that they are not reopened by accident.
 
 - **Placement.** `//generate` is a small tile in the command sheet with a button that opens
   this editor full screen; **Done** returns to the sheet.
-- **Layout.** Three tiles (palette and layer list, viewport, inspector) over a command bar.
+- **Opening.** The tile's preview grows to fill the window, scaled evenly and cropped rather
+  than squeezed. The header, palette, command bar and inspector then slide in over it from
+  their own edges, and the live view takes its place. Done runs it backwards.
+- **Layout.** The view fills the whole window, behind everything. The header is an opaque
+  bar, and the palette with the layer list, the inspector and the command bar are opaque
+  tiles floating over the view. One gutter separates the header, the tiles and the window
+  edge. The opening between the tiles holds the view's controls and frames the camera, so
+  the build is centred between the tiles; the gaps pass the pointer through to the view.
   Tiles resize from the gaps between them.
 - **View and Edit modes**, on Esc and Enter. Only Edit shows the move, turn and scale gizmo,
   with a Snap split button.
