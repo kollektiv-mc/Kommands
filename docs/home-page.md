@@ -2,7 +2,8 @@
 
 What the web build opens on, and the page the standalone app is downloaded from. Both
 were settled in a prototype reviewed in November 2026; this file records what it decided.
-Both pages are built (`src/components/home/`), except the download page's scenes.
+Both pages are built in `src/components/home/`, with the hero in `src/lib/hero/` and the
+download page's scenes in `src/lib/scenes/`.
 
 The dashboard moved from `/` to `/dashboard` to make room. Which build opens on which
 page is in [`distribution.md`](distribution.md#one-install-two-surfaces).

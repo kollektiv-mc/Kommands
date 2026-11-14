@@ -13,6 +13,8 @@ export const GLIDE_MS = 1000
 export interface Clock {
   aborted: boolean
   fast: boolean
+  /** While set, waits stop counting: a scene scrolled out of view holds where it is. */
+  paused: boolean
   wait: (ms: number) => Promise<void>
 }
 
@@ -20,6 +22,7 @@ export function clock(fast: boolean): Clock {
   const c: Clock = {
     aborted: false,
     fast,
+    paused: false,
     wait: (ms) =>
       new Promise((resolve, reject) => {
         if (c.aborted) return reject(ABORT)
@@ -27,10 +30,13 @@ export function clock(fast: boolean): Clock {
           void Promise.resolve().then(() => (c.aborted ? reject(ABORT) : resolve()))
           return
         }
-        const start = performance.now()
+        let left = ms
+        let last = performance.now()
         const tick = (now: number) => {
           if (c.aborted) return reject(ABORT)
-          if (now - start >= ms) resolve()
+          if (!c.paused) left -= now - last
+          last = now
+          if (left <= 0) resolve()
           else requestAnimationFrame(tick)
         }
         requestAnimationFrame(tick)
@@ -65,7 +71,11 @@ export function findAll(root: ParentNode, selector: string): HTMLElement[] {
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
 /** A small line icon, drawn in currentColor. */
-function icon(size: number, view: string, draw: (svg: SVGSVGElement) => void): SVGSVGElement {
+export function icon(
+  size: number,
+  view: string,
+  draw: (svg: SVGSVGElement) => void,
+): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, 'svg')
   svg.setAttribute('width', String(size))
   svg.setAttribute('height', String(size))
@@ -75,13 +85,17 @@ function icon(size: number, view: string, draw: (svg: SVGSVGElement) => void): S
   return svg
 }
 
-function shape(svg: SVGSVGElement, tag: string, attrs: Record<string, string>) {
+export function shape(svg: SVGSVGElement, tag: string, attrs: Record<string, string>) {
   const node = document.createElementNS(SVG_NS, tag)
   for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v)
   svg.append(node)
 }
 
-const stroke = (width: string) => ({ fill: 'none', stroke: 'currentColor', 'stroke-width': width })
+export const stroke = (width: string) => ({
+  fill: 'none',
+  stroke: 'currentColor',
+  'stroke-width': width,
+})
 
 export const chevron = () =>
   icon(9, '0 0 10 10', (s) => shape(s, 'path', { d: 'M2 3.5 5 6.5 8 3.5', ...stroke('1.4') }))

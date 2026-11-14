@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { Scenes } from './Scenes'
 import { DownloadIcon, SiteFooter, SiteHeader, SitePage } from './SiteChrome'
 import { SITE } from '../../data/home/site'
 
@@ -89,6 +90,7 @@ export function DownloadPage() {
             </span>
             <Downloads />
           </div>
+          <Scenes />
         </div>
       </div>
       <div className="site-wrap site-dl-foot">

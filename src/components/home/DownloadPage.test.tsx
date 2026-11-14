@@ -1,10 +1,24 @@
-import { expect, test } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithRouter } from '../../test-router'
 import { DownloadPage } from './DownloadPage'
 
 const SNAPSHOT = 'https://github.com/kollektiv-mc/Kommands/releases'
+
+// The scenes run under reduced motion here: jsdom animates nothing and observes nothing.
+class Inert {
+  observe() {}
+  disconnect() {}
+}
+
+beforeEach(() => {
+  vi.stubGlobal('ResizeObserver', Inert)
+  vi.stubGlobal('IntersectionObserver', Inert)
+  vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('reduce') }))
+})
+
+afterEach(() => vi.unstubAllGlobals())
 
 test('Windows is the first download and points at the snapshot installer', async () => {
   await renderWithRouter(<DownloadPage />, '/download')
@@ -40,4 +54,15 @@ test('the header leads back to the dashboard', async () => {
   expect(screen.getByRole('link', { name: 'Open Dashboard' }).getAttribute('href')).toBe(
     '/dashboard',
   )
+})
+
+test('a tab per scene, and a tab switches to its scene', async () => {
+  const user = userEvent.setup()
+  await renderWithRouter(<DownloadPage />, '/download')
+  const konnekt = screen.getByRole('button', { name: 'Konnekt' })
+  const saved = screen.getByRole('button', { name: 'Saved commands' })
+  expect(konnekt.getAttribute('aria-current')).toBe('true')
+  await user.click(saved)
+  expect(saved.getAttribute('aria-current')).toBe('true')
+  expect(konnekt.getAttribute('aria-current')).toBe('false')
 })
