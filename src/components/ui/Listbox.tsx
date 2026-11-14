@@ -8,6 +8,9 @@ import { Popover } from './Popover'
 
 const TYPEAHEAD_RESET_MS = 700
 
+const BARE =
+  'text-text-secondary hover:text-text-primary h-6.5 rounded-sm px-2 text-xs font-semibold outline-none focus-visible:outline-1 focus-visible:outline-accent'
+
 /**
  * A closed list: the replacement for a native `<select>`.
  *
@@ -29,6 +32,7 @@ export function Listbox<V extends string>({
   onChange,
   placeholder = 'choose…',
   className = '',
+  bare = false,
   'aria-label': ariaLabel,
   'aria-labelledby': labelledBy,
   'aria-describedby': describedBy,
@@ -40,6 +44,8 @@ export function Listbox<V extends string>({
   /** Shown when `value` matches no option. */
   placeholder?: string
   className?: string
+  /** Drawn as a toolbar button rather than a field: no border or well of its own. */
+  bare?: boolean
   'aria-label'?: string
   'aria-labelledby'?: string
   'aria-describedby'?: string
@@ -136,7 +142,7 @@ export function Listbox<V extends string>({
           else openList()
         }}
         onKeyDown={onKeyDown}
-        className={`${FIELD} flex w-full cursor-pointer items-center justify-between gap-2 text-left`}
+        className={`${bare ? BARE : FIELD} flex w-full cursor-pointer items-center justify-between gap-2 text-left`}
       >
         <span className={`truncate ${selected ? '' : 'text-text-faint'}`}>
           {selected?.label ?? placeholder}

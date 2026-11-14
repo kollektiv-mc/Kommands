@@ -46,3 +46,30 @@ export function tokenColor(name: string): Color | undefined {
   const raw = getComputedStyle(document.documentElement).getPropertyValue(name)
   return raw === '' ? undefined : colorFromChannels(raw)
 }
+
+/** A token's value as the stylesheet resolves it, `var()` substituted. Empty without a DOM. */
+export function cssToken(name: string): string {
+  if (typeof document === 'undefined') return ''
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+}
+
+/**
+ * A token holding a whole colour (hex, `rgba(255, 255, 255, 0.6)`, `rgb(74 222 128)`),
+ * as Three's colour. Any alpha is dropped: a material carries its own opacity.
+ *
+ * Read by hand rather than through `Color.setStyle` for the reason the header gives:
+ * `setStyle` misses the space-separated form and falls back to white without saying so.
+ */
+export function colorFromCss(value: string): Color | undefined {
+  const raw = value.trim()
+  if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(raw)) return new Color(raw)
+  const inner = /^rgba?\((.+)\)$/i.exec(raw)?.[1]
+  if (inner === undefined) return undefined
+  const parts = inner
+    .split(/[\s,/]+/)
+    .filter(Boolean)
+    .slice(0, 3)
+  return colorFromChannels(parts.join(' '))
+}
+
+export const tokenCssColor = (name: string): Color | undefined => colorFromCss(cssToken(name))

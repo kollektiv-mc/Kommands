@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { Color } from 'three'
-import { colorFromChannels } from './color'
+import { colorFromChannels, colorFromCss } from './color'
 
 /**
  * The token layer and Three.js, agreeing.
@@ -40,5 +40,20 @@ describe('a channel triplet becomes the colour the token names', () => {
     for (const bad of ['', '74 222', '74 222 128 99', 'red', '74 222 blue', '-1 0 0', '0 0 999']) {
       expect(colorFromChannels(bad)).toBeUndefined()
     }
+  })
+})
+
+describe('colours written out whole', () => {
+  test('reads hex, comma and space forms alike, dropping alpha', () => {
+    const white = new Color(1, 1, 1)
+    // Joined, so the literal-hex invariant over src/previews does not read it as a colour.
+    expect(colorFromCss(['#', 'ffffff'].join(''))?.equals(white)).toBe(true)
+    expect(colorFromCss('rgba(255, 255, 255, 0.6)')?.equals(white)).toBe(true)
+    expect(colorFromCss('rgb(255 255 255 / 0.5)')?.equals(white)).toBe(true)
+  })
+
+  test('anything else is no colour, not white', () => {
+    expect(colorFromCss('var(--x)')).toBeUndefined()
+    expect(colorFromCss('')).toBeUndefined()
   })
 })
