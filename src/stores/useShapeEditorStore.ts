@@ -62,17 +62,48 @@ export const DEFAULT_VIEW: ViewOptions = {
   player: false,
 }
 
+/**
+ * Edit mode and its gizmo. View mode orbits and selects; Edit adds the move, turn and
+ * scale gizmo on the selected layer. Like the view, never part of the document.
+ */
+export interface EditOptions {
+  on: boolean
+  mode: 'translate' | 'rotate' | 'scale'
+  snap: boolean
+  /** Moves snap to round steps, or to the preview's block centres. */
+  snapTo: 'grid' | 'blocks'
+  /** The snap steps: a move in units, a turn in degrees, a scale as a factor. */
+  move: number
+  turn: number
+  scale: number
+}
+
+export const DEFAULT_EDIT: EditOptions = {
+  on: false,
+  mode: 'translate',
+  snap: true,
+  snapTo: 'grid',
+  move: 0.05,
+  turn: 15,
+  scale: 0.05,
+}
+
 interface ShapeEditorState extends ShapeSnapshot {
   selected: string | null
   /** The layer S shows on its own, or null. */
   isolate: string | null
   history: HistoryState<ShapeSnapshot>
   view: ViewOptions
+  edit: EditOptions
+  /** A gizmo drag is under way, which Escape leaves alone. */
+  dragging: boolean
 
   load: (snapshot: ShapeSnapshot) => void
   select: (id: string | null) => void
   setIsolate: (id: string | null) => void
   setView: (change: Partial<ViewOptions>) => void
+  setEdit: (change: Partial<EditOptions>) => void
+  setDragging: (dragging: boolean) => void
 
   /** Add a layer where the palette puts it, and select it. */
   add: (layer: Layer) => void
@@ -137,6 +168,8 @@ export const useShapeEditorStore = create<ShapeEditorState>((set, get) => {
     isolate: null,
     history: emptyHistory<ShapeSnapshot>(),
     view: DEFAULT_VIEW,
+    edit: DEFAULT_EDIT,
+    dragging: false,
 
     load: (snapshot) =>
       set({ ...snapshot, selected: null, isolate: null, history: emptyHistory<ShapeSnapshot>() }),
@@ -148,6 +181,8 @@ export const useShapeEditorStore = create<ShapeEditorState>((set, get) => {
     },
     setIsolate: (id) => set({ isolate: id }),
     setView: (change) => set((s) => ({ view: { ...s.view, ...change } })),
+    setEdit: (change) => set((s) => ({ edit: { ...s.edit, ...change } })),
+    setDragging: (dragging) => set({ dragging }),
 
     add: (layer) => {
       const { layers, selected } = get()

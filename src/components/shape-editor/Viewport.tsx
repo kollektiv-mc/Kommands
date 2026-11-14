@@ -7,6 +7,7 @@ import type { Layer } from '../../worldedit/stack/layers'
 import { FOCUS } from '../editors/fieldStyles'
 import { Listbox } from '../ui/Listbox'
 import { Tooltip } from '../ui/Tooltip'
+import { EditTools } from './EditTools'
 import { SEG, SEG_BUTTON } from './styles'
 import { ViewMenu } from './ViewMenu'
 import { useReferenceVoxels } from './viewport/useReferenceVoxels'
@@ -89,6 +90,7 @@ export function Viewport({
         data-chrome
         className="pointer-events-none absolute inset-x-2.5 top-2.5 flex flex-wrap gap-2 [&>*]:pointer-events-auto"
       >
+        <EditTools />
         {isolatedLayer && (
           <div className={SEG}>
             <button

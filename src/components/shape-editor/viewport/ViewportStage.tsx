@@ -12,12 +12,15 @@ import {
   Plane,
   Vector3,
   type Color,
+  type Object3D,
   type PerspectiveCamera,
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 import type { VoxelField } from '../../../previews/worldedit/shape/voxels'
 import { cssToken, tokenColor, tokenCssColor } from '../../../previews/worldedit/shape/color'
 import { useShapeEditorStore, type ViewOptions } from '../../../stores/useShapeEditorStore'
+import { find } from '../../../worldedit/stack/edit'
 import type { Layer, Op, ReferenceLayer, ShapeLayer } from '../../../worldedit/stack/layers'
 import { HOME, blockTexture, faceGeometry, outlineGeometry } from './blockMesh'
 import {
@@ -30,6 +33,7 @@ import {
   type Cut,
 } from './faces'
 import { ghostOf, ghostOpacity } from './ghosts'
+import { snapToBlocks, transformOf } from './gizmo'
 import type { ReferenceVoxels } from './useReferenceVoxels'
 
 /**
@@ -90,7 +94,11 @@ export default function ViewportStage(props: StageProps) {
 function Scene({ field, pattern, layers, references, size, homeKey, opening }: StageProps) {
   const view = useShapeEditorStore((s) => s.view)
   const selected = useShapeEditorStore((s) => s.selected)
+  const editing = useShapeEditorStore((s) => s.edit.on)
   const colours = useColours()
+  const orbit = useRef<OrbitControls | null>(null)
+  // Each drawn layer's object, by id: what the gizmo takes hold of.
+  const objects = useMemo(() => new Map<string, Object3D>(), [])
   const cut = useCut(view.cutaway)
   const clip = useMemo(() => clipFor(cut), [cut])
   // The outer blocks reach half a block past ±1: the box, floor and figure sit there.
@@ -102,11 +110,15 @@ function Scene({ field, pattern, layers, references, size, homeKey, opening }: S
       <directionalLight position={[4, 6, 3]} intensity={1.6} />
       <directionalLight position={[-4, -2, -3]} intensity={0.4} />
       <Frame homeKey={homeKey} opening={opening} />
-      <Controls homeKey={homeKey} />
+      <Controls homeKey={homeKey} orbit={orbit} />
       {view.show === 'blocks' && field !== null && field.count > 0 && (
         <Blocks field={field} pattern={pattern} view={view} cut={cut} solid={colours.solid} />
       )}
-      <LayerTree layers={layers} context={{ selected, view, clip, colours, references, size }} />
+      <LayerTree
+        layers={layers}
+        context={{ selected, editing, view, clip, colours, references, size, objects }}
+      />
+      <Gizmo layers={layers} objects={objects} orbit={orbit} size={size} />
       {view.bounds && <SelectionBox half={ground} colour={colours.line} />}
       {view.grid && <Grid half={ground} colour={colours.line} />}
       {view.axes && <Axes half={ground} />}
@@ -213,9 +225,14 @@ function Frame({ homeKey, opening }: { homeKey: number; opening: RefObject<HTMLE
  * Three's orbit controls rather than a hand-written camera for now; the editor's own
  * rule, that each works about the point under the cursor, comes with the gizmo.
  */
-function Controls({ homeKey }: { homeKey: number }) {
+function Controls({
+  homeKey,
+  orbit: controls,
+}: {
+  homeKey: number
+  orbit: RefObject<OrbitControls | null>
+}) {
   const { camera, gl } = useThree()
-  const controls = useRef<OrbitControls | null>(null)
 
   useEffect(() => {
     const c = new OrbitControls(camera, gl.domElement)
@@ -224,8 +241,11 @@ function Controls({ homeKey }: { homeKey: number }) {
     c.minDistance = 0.4
     c.maxDistance = 20
     controls.current = c
-    return () => c.dispose()
-  }, [camera, gl])
+    return () => {
+      c.dispose()
+      controls.current = null
+    }
+  }, [camera, gl, controls])
 
   useEffect(() => {
     const c = controls.current
@@ -234,7 +254,7 @@ function Controls({ homeKey }: { homeKey: number }) {
     ;(camera as PerspectiveCamera).lookAt(0, 0, 0)
     c.target.set(0, 0, 0)
     c.update()
-  }, [homeKey, camera])
+  }, [homeKey, camera, controls])
 
   return null
 }
@@ -304,13 +324,96 @@ function Blocks({
   )
 }
 
+/**
+ * Edit mode's move, rotate and scale gizmo, on the selected layer.
+ *
+ * Three's transform controls, in the layer's own space. A drag writes the layer's
+ * transform back into the document as it goes, as one undo step, and holds the camera
+ * still while it lasts. Snap rounds moves to the chosen step, or to the preview's block
+ * centres; turns and scales always snap to their steps while Snap is on.
+ */
+function Gizmo({
+  layers,
+  objects,
+  orbit,
+  size,
+}: {
+  layers: readonly Layer[]
+  objects: ReadonlyMap<string, Object3D>
+  orbit: RefObject<OrbitControls | null>
+  size: number
+}) {
+  const { camera, gl, scene } = useThree()
+  const edit = useShapeEditorStore((s) => s.edit)
+  const selected = useShapeEditorStore((s) => s.selected)
+  const gizmo = useRef<TransformControls | null>(null)
+  const step = useRef(stepOf(size))
+  useEffect(() => {
+    step.current = stepOf(size)
+  }, [size])
+
+  useEffect(() => {
+    const c = new TransformControls(camera, gl.domElement)
+    c.setSpace('local')
+    c.setSize(0.8)
+    const helper = c.getHelper()
+    scene.add(helper)
+    const onDragging = (event: { value: unknown }) => {
+      const dragging = event.value === true
+      if (orbit.current) orbit.current.enabled = !dragging
+      const store = useShapeEditorStore.getState()
+      store.setDragging(dragging)
+      if (!dragging) store.settle()
+    }
+    const onChange = () => {
+      const store = useShapeEditorStore.getState()
+      const o = c.object
+      if (store.selected === null || o === undefined) return
+      if (store.edit.snap && store.edit.snapTo === 'blocks' && c.mode === 'translate')
+        snapToBlocks(o, step.current)
+      const placed = transformOf(o)
+      store.change(store.selected, (l) => ({ ...l, ...placed }), 'gizmo')
+    }
+    c.addEventListener('dragging-changed', onDragging)
+    c.addEventListener('objectChange', onChange)
+    gizmo.current = c
+    return () => {
+      c.removeEventListener('dragging-changed', onDragging)
+      c.removeEventListener('objectChange', onChange)
+      c.detach()
+      scene.remove(helper)
+      c.dispose()
+      gizmo.current = null
+    }
+  }, [camera, gl, scene, orbit])
+
+  // After the layers have drawn, so the selected layer's object is there to hold.
+  useEffect(() => {
+    const controls = gizmo.current
+    if (controls === null) return
+    const o = selected === null ? undefined : objects.get(selected)
+    const layer = selected === null ? null : find(layers, selected)?.layer
+    if (!edit.on || o === undefined || layer === null || layer === undefined) controls.detach()
+    else if (controls.object !== o) controls.attach(o)
+    controls.setMode(edit.mode)
+    const snap = edit.snap
+    controls.setTranslationSnap(snap && edit.snapTo === 'grid' ? edit.move : null)
+    controls.setRotationSnap(snap ? edit.turn * DEG : null)
+    controls.setScaleSnap(snap ? edit.scale : null)
+  }, [edit, selected, layers, objects])
+
+  return null
+}
+
 interface TreeContext {
   selected: string | null
+  editing: boolean
   view: ViewOptions
   clip: Plane[]
   colours: Colours
   references: ReadonlyMap<string, ReferenceVoxels>
   size: number
+  objects: Map<string, Object3D>
 }
 
 /**
@@ -325,12 +428,26 @@ function LayerTree({ layers, context }: { layers: readonly Layer[]; context: Tre
         layer.visible && layer.type !== 'modifier' ? (
           <group
             key={layer.id}
+            ref={(o) => {
+              if (o === null) return
+              context.objects.set(layer.id, o)
+              return () => {
+                if (context.objects.get(layer.id) === o) context.objects.delete(layer.id)
+              }
+            }}
             position={layer.pos}
             rotation={[layer.rot[0] * DEG, layer.rot[1] * DEG, layer.rot[2] * DEG]}
             scale={layer.scl}
           >
             {layer.type === 'group' ? (
-              <LayerTree layers={layer.children} context={context} />
+              <>
+                {/* In Edit, a selected group shows its own space, which moves, turns
+                    and scales with it. */}
+                {context.editing && context.selected === layer.id && (
+                  <SelectionBox half={1} colour={context.colours.op.add} opacity={0.45} />
+                )}
+                <LayerTree layers={layer.children} context={context} />
+              </>
             ) : layer.type === 'reference' ? (
               <ReferenceBlocks layer={layer} context={context} />
             ) : (
