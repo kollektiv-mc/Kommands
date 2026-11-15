@@ -40,6 +40,8 @@ export function Segmented<V extends string>({
   const track = useRef<HTMLDivElement>(null)
   const index = options.findIndex((o) => o.value === value)
 
+  // `auto-cols-[1fr]`, not `auto-cols-fr`: Tailwind's is `minmax(0, 1fr)`, which lets the
+  // control be squeezed narrower than its labels until they overlap.
   // Written straight onto the element: two numbers a stylesheet reads, not state.
   useLayoutEffect(() => {
     track.current?.style.setProperty('--seg-count', String(options.length))
@@ -53,7 +55,7 @@ export function Segmented<V extends string>({
       aria-label={ariaLabel}
       aria-labelledby={labelledBy}
       aria-orientation={orientation}
-      className={`segmented border-hairline border-border-hover bg-surface relative rounded-lg p-0.5 ${orientation === 'vertical' ? 'segmented-vertical grid w-full grid-flow-row auto-rows-fr' : 'inline-grid auto-cols-fr grid-flow-col'} ${className}`}
+      className={`segmented border-hairline border-border-hover bg-surface relative rounded-lg p-0.5 ${orientation === 'vertical' ? 'segmented-vertical grid w-full grid-flow-row auto-rows-fr' : 'inline-grid auto-cols-[1fr] grid-flow-col'} ${className}`}
     >
       <span
         aria-hidden="true"

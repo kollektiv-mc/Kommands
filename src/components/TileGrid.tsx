@@ -1,5 +1,12 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
-import { layoutState, type ColumnPlan, type Placement, type TileSize } from '../lib/tileLayout'
+import {
+  columnNeeds,
+  columnTemplate,
+  layoutState,
+  type ColumnPlan,
+  type Placement,
+  type TileSize,
+} from '../lib/tileLayout'
 import { useMotion } from '../lib/useMotion'
 
 export interface Tile {
@@ -49,6 +56,40 @@ export function TileGrid({ tiles, plan }: { tiles: readonly Tile[]; plan: Column
     box.current?.style.setProperty('--tile-cols', String(layout?.cols ?? 1))
     box.current?.style.setProperty('--tile-rows', String(layout?.rows ?? 1))
   }, [layout])
+
+  // Every column as wide as its widest tile needs, measured rather than guessed: what a
+  // tile holds is procedural (a choice, an added component, a row per enchantment), and
+  // a fixed width squeezed a deep one until its controls wrapped and overlapped. Measured
+  // again whenever a tile changes size, which is what adding or removing a field does.
+  useLayoutEffect(() => {
+    const grid = box.current
+    if (!grid || !layout || typeof ResizeObserver === 'undefined') return
+    let applied = ''
+    const measure = () => {
+      const roots = [...grid.children].map((cell) => cell.firstElementChild as HTMLElement | null)
+      // All the writes, then all the reads, then the restores: one layout, not one a tile.
+      const kept = roots.map((root) => root?.style.width ?? '')
+      roots.forEach((root) => root?.style.setProperty('width', 'min-content'))
+      const needs = roots.map((root) => root?.offsetWidth ?? 0)
+      roots.forEach((root, i) => root?.style.setProperty('width', kept[i] ?? ''))
+      const css = columnTemplate(columnNeeds(layout, needs))
+      const next = css ? `${css.template}|${css.min}` : ''
+      if (next === applied) return
+      applied = next
+      if (css) {
+        grid.style.setProperty('--tile-template', css.template)
+        grid.style.setProperty('--tile-min-w', css.min)
+      } else {
+        grid.style.removeProperty('--tile-template')
+        grid.style.removeProperty('--tile-min-w')
+      }
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    for (const cell of grid.children)
+      if (cell.firstElementChild) observer.observe(cell.firstElementChild)
+    return () => observer.disconnect()
+  }, [layout, signature])
 
   return (
     <div

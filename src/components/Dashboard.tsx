@@ -124,6 +124,7 @@ export function Dashboard() {
             : `${commands.length} saved`}
         </span>
         <span className="flex-1" />
+        {/* A plain popup: no tile to grow from, so the editor fades in and out. */}
         <Link to="/c" className={CTA}>
           New command
         </Link>

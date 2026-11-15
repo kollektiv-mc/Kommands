@@ -10,7 +10,7 @@ import { savedOn } from './dates'
  * One saved command in the browser, on one line: name and marks, the command fading at
  * the right, its tags, the save date, and on hover the tag and edit buttons.
  *
- * A click copies it. It drags onto a group heading to move there. The tag button opens a
+ * A click copies it, and a double click opens it in the editor. It drags onto a group heading to move there. The tag button opens a
  * small field; Enter or leaving the field adds the tag, Escape drops it.
  */
 export function BrowserRow({
@@ -60,7 +60,10 @@ export function BrowserRow({
       {/* Stretched over the row, as on a tile: the row is the copy target. */}
       <button
         type="button"
-        onClick={() => copy(saved.preview)}
+        onClick={(event) => {
+          if (event.detail < 2) copy(saved.preview)
+        }}
+        onDoubleClick={() => row.current && onEdit(row.current)}
         aria-label={`Copy ${saved.name}`}
         className="absolute inset-0 cursor-copy"
       />

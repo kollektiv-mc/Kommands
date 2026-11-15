@@ -40,7 +40,8 @@ export function EditorShell() {
 
   return (
     <CommandOverlay
-      originKey={saved}
+      originKey={saved ?? commandId}
+      saved={saved !== undefined}
       label={label}
       contentKey={commandId}
       header={<CommandSwitcher catalogue={catalogue} activeId={commandId} />}

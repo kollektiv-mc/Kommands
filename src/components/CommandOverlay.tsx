@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useBlocker, useNavigate } from '@tanstack/react-router'
 import { flipIn, flipOut } from '../lib/flip'
+import { morphIn, morphOut } from '../lib/morph'
 import { FullscreenLayer } from '../lib/fullscreenLayer'
+import { ConfirmDialog } from './ui/ConfirmDialog'
 import { useSheetSize } from '../lib/useSheetSize'
-import { originOf, useUiStore } from '../stores/useUiStore'
+import { originElement, originOf, useUiStore } from '../stores/useUiStore'
 
 /**
  * The editor, as a sheet centred over the dimmed dashboard.
@@ -15,7 +17,8 @@ import { originOf, useUiStore } from '../stores/useUiStore'
  * in once the sheet has its size.
  *
  * Owns the whole open/close gesture: the entrance that grows out of the tile, the
- * exit that shrinks back into it, the dim behind, and the three ways out.
+ * exit that shrinks back into it, the dim behind, and the ways out: the close button and
+ * Escape, which ask before throwing unsaved changes away. A press on the dim does nothing.
  *
  * Scoped to its layout container rather than to the viewport — `absolute`, not
  * `fixed` — so the app header stays visible and clickable, exactly as Konnekt's
@@ -24,13 +27,19 @@ import { originOf, useUiStore } from '../stores/useUiStore'
  */
 export function CommandOverlay({
   originKey,
+  saved = false,
   label,
   header,
   contentKey,
   children,
 }: {
-  /** The saved command this was opened from, if any. Keys the rect to grow from. */
+  /** What this was opened from: the `data-origin` of the tile it grows out of. */
   originKey?: string
+  /**
+   * Whether what is open is a saved command, which has a tile on the dashboard to close
+   * back into even when the editor was not opened from it (one just saved).
+   */
+  saved?: boolean
   /** Names the dialog for a screen reader. The command's label, when there is one. */
   label?: string
   /** The header band's own content, beside the Editor mark: the command switcher. */
@@ -49,9 +58,17 @@ export function CommandOverlay({
     settle,
   } = useSheetSize<HTMLDivElement>()
   const backdrop = useRef<HTMLDivElement>(null)
+  const body = useRef<HTMLDivElement>(null)
+  /** Shows the tile the editor grew out of again; it stays hidden while it is open. */
+  const reveal = useRef<(() => void) | null>(null)
+  const openedFrom = useRef(originKey)
+  /** Opened out of a tile, so it closes back into one. */
+  const grew = useRef(false)
   // State rather than a ref, so the content below learns the element once it exists.
   const [layer, setLayer] = useState<HTMLDivElement | null>(null)
   const closing = useRef(false)
+  /** The unsaved-changes question on screen, and what each answer does. */
+  const [asking, setAsking] = useState<{ discard: () => void; keep: () => void } | null>(null)
   const navigate = useNavigate()
   const originFor = useUiStore((s) => s.originFor)
 
@@ -69,27 +86,65 @@ export function CommandOverlay({
    */
   const collapseTo = useCallback(() => {
     if (originKey === undefined) return null
-    const tile = document.querySelector(`[data-saved-id="${CSS.escape(originKey)}"]`)
-    return originOf(tile) ?? originFor(originKey)
+    return originOf(originElement(originKey)) ?? originFor(originKey)
   }, [originKey, originFor])
 
-  const close = useCallback(() => {
+  const exit = useCallback(() => {
     if (closing.current) return
     closing.current = true
-    flipOut(
-      panel.current,
-      collapseTo(),
-      backdrop.current,
-      () => void navigate({ to: '/dashboard' }),
-    )
-  }, [collapseTo, navigate, panel])
+    const home = () => void navigate({ to: '/dashboard' })
+    // Ends an open still playing, so the close measures the sheet where it stands.
+    // Only the tile the sheet still stands for hides as it closes: one on show behind
+    // it, such as a command just saved, stays on show.
+    const standing = reveal.current !== null
+    reveal.current?.()
+    reveal.current = null
+    // A popup (New command, a link) fades out as it came, unless it was saved meanwhile.
+    const returns = grew.current || saved
+    const tile = returns ? originElement(originKey) : null
+    if (tile && panel.current && body.current) {
+      const parts = { panel: panel.current, body: body.current, tile }
+      if (morphOut(parts, backdrop.current, home, standing)) return
+    }
+    flipOut(panel.current, returns ? collapseTo() : null, backdrop.current, home)
+  }, [collapseTo, navigate, panel, originKey, saved])
+
+  /** Asks before throwing away unsaved changes; true when it is fine to go. */
+  const mayLeave = useCallback(
+    () =>
+      useUiStore.getState().unsaved
+        ? new Promise<boolean>((resolve) =>
+            setAsking({
+              discard: () => {
+                setAsking(null)
+                resolve(true)
+              },
+              keep: () => {
+                setAsking(null)
+                resolve(false)
+              },
+            }),
+          )
+        : Promise.resolve(true),
+    [],
+  )
+
+  // The close button and Escape. Not a press on the dim around the sheet: a stray click
+  // beside a form lost the whole command.
+  const close = useCallback(() => {
+    if (closing.current) return
+    void mayLeave().then((go) => {
+      if (go) exit()
+    })
+  }, [exit, mayLeave])
 
   // Another command, or the list: the one on screen fades out before the route changes,
   // and the new one is placed and faded in once the sheet has resized to it.
   useBlocker({
     shouldBlockFn: async ({ current, next }) => {
       if (closing.current || next.pathname === current.pathname) return false
-      if (!/^\/c(\/|$)/.test(next.pathname)) return false
+      // Out of the editor some other way (the app header's way home): ask first too.
+      if (!/^\/c(\/|$)/.test(next.pathname)) return !(await mayLeave())
       await leave()
       // In case the route lands on what is already shown, which no change of key reveals.
       window.setTimeout(settle, 1000)
@@ -101,9 +156,27 @@ export function CommandOverlay({
 
   useLayoutEffect(() => {
     if (!panel.current) return
-    return flipIn(panel.current, originFor(originKey), backdrop.current)
+    // Only from what the store says opened it: a URL opens with nothing to grow from,
+    // even when a tile for the same command is on the dashboard underneath.
+    const origin = originFor(originKey)
+    grew.current = origin !== null
+    const tile = origin === null ? null : originElement(originKey)
+    reveal.current =
+      tile && body.current
+        ? morphIn({ panel: panel.current, body: body.current, tile }, backdrop.current)
+        : null
+    if (!reveal.current) return flipIn(panel.current, origin, backdrop.current)
+    // The tile shows again when the editor goes, whichever way it goes.
+    return () => reveal.current?.()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per mount, like the open it animates
   }, [])
+
+  // Moved on to another command: the editor no longer stands for the tile it grew from.
+  useEffect(() => {
+    if (originKey === openedFrom.current) return
+    reveal.current?.()
+    reveal.current = null
+  }, [originKey])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -129,14 +202,10 @@ export function CommandOverlay({
         `aria-hidden` because the dashboard beneath is already `inert`; this element is
         a surface, not content.
       */}
-      <div
-        ref={backdrop}
-        aria-hidden="true"
-        onClick={close}
-        className="bg-overlay/70 absolute inset-0"
-      />
+      <div ref={backdrop} aria-hidden="true" className="bg-overlay/70 absolute inset-0" />
       {/*
-        The stage centres the sheet and lets presses through to the dim around it.
+        The stage centres the sheet and lets presses through to the dim around it, which
+        takes them and does nothing with them.
         `absolute`, not `fixed`, so the app header stays visible and clickable.
       */}
       <div
@@ -162,7 +231,7 @@ export function CommandOverlay({
             aria-hidden="true"
             className="border-hairline border-border-subtle bg-canvas rounded-panel absolute inset-0 bg-[linear-gradient(var(--bg-surface),var(--bg-surface))]"
           />
-          <div className="relative flex h-full flex-col">
+          <div ref={body} className="relative flex h-full flex-col">
             {/*
               The band that says where you are: the editor, not the dashboard. The
               accent wash and the Editor mark are what the dashboard's panels do not
@@ -215,6 +284,15 @@ export function CommandOverlay({
         below the app header.
       */}
       <div ref={setLayer} className="pointer-events-none absolute inset-0 z-20" />
+      {asking && (
+        <ConfirmDialog
+          title="Discard unsaved changes?"
+          body="This command has changes you have not saved. Closing the editor throws them away."
+          action="Discard"
+          onConfirm={asking.discard}
+          onCancel={asking.keep}
+        />
+      )}
     </>
   )
 }

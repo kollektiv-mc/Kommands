@@ -6,6 +6,7 @@ import type { CommandValue } from '../schema/serialize'
 import { fingerprintOf } from '../schema/fingerprint'
 import { contentChange } from '../schema/saved'
 import { storageKind, useSavedCommandsStore } from '../stores/useSavedCommandsStore'
+import { useUiStore } from '../stores/useUiStore'
 import { FIELD, FOCUS, WARNING } from './editors/fieldStyles'
 import { MenuButton } from './ui/MenuButton'
 import { Popover } from './ui/Popover'
@@ -88,6 +89,23 @@ export function SaveCommandBar({
   useEffect(() => {
     if (status === 'idle') void load()
   }, [status, load])
+
+  // The command as it opened, to tell an edit from a command nobody has touched. Reset
+  // when the editor moves to another command without remounting this bar.
+  const [start, setStart] = useState({ id: definition.id, output })
+  if (start.id !== definition.id) setStart({ id: definition.id, output })
+  // What closing the editor would lose: a saved command's changes since its last save,
+  // or a new command edited into something that can be saved. Nothing, where nothing
+  // can be saved at all.
+  const unsaved =
+    status !== 'unavailable' &&
+    (saved
+      ? contentChange(saved, { value, preview: output, fingerprint: fingerprintOf(definition) }) !==
+        'none'
+      : output !== '' && output !== start.output)
+  const setUnsaved = useUiStore((s) => s.setUnsaved)
+  useEffect(() => setUnsaved(unsaved), [unsaved, setUnsaved])
+  useEffect(() => () => setUnsaved(false), [setUnsaved])
 
   if (status === 'unavailable') {
     const reason = 'Saving is off: this browser is not letting the page store anything'

@@ -440,10 +440,16 @@ body {
      (its header, for a command of one short column): the columns share the rest
      rather than leaving it empty at the right. The grid's own width is stated rather
      than measured from its tiles, which an fr track would let a long option widen. */
-  grid-template-columns: repeat(var(--tile-cols, 1), minmax(var(--tile-w), 1fr));
+  /* Each column is at least the tile width and at least what its widest tile needs to
+     lay out without squeezing (`--tile-template`, measured by TileGrid.tsx). */
+  grid-template-columns: var(
+    --tile-template,
+    repeat(var(--tile-cols, 1), minmax(var(--tile-w), 1fr))
+  );
   contain: inline-size;
-  min-width: calc(
-    var(--tile-cols, 1) * var(--tile-w) + (var(--tile-cols, 1) - 1) * var(--tile-gap)
+  min-width: var(
+    --tile-min-w,
+    calc(var(--tile-cols, 1) * var(--tile-w) + (var(--tile-cols, 1) - 1) * var(--tile-gap))
   );
   grid-template-rows: repeat(var(--tile-rows, 1), minmax(calc(var(--spacing) * 8), auto));
   gap: var(--tile-gap);

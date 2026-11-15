@@ -1,5 +1,6 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { beforeEach, expect, test } from 'vitest'
 import { SaveCommandBar } from './SaveCommandBar'
 import { renderWithRouter } from '../test-router'
@@ -8,6 +9,7 @@ import { localStorageBackend } from '../storage/local'
 import { EMPTY_VALUE } from '../schema/serialize'
 import { v1_21_1 } from '../data/versions/1.21.1'
 import type { CommandDefinition } from '../schema/types'
+import { useUiStore } from '../stores/useUiStore'
 
 const GIVE: CommandDefinition = {
   id: 'vanilla:give',
@@ -271,4 +273,30 @@ test('the name field turns password-manager autofill off', async () => {
   const field = screen.getByRole('textbox', { name: 'Save as' })
   expect(field.getAttribute('autocomplete')).toBe('off')
   expect(field.hasAttribute('data-1p-ignore')).toBe(true)
+})
+
+/** The bar over a command that a button edits, as the form above it would. */
+function Edited({ from, to }: { from: string; to: string }) {
+  const [output, setOutput] = useState(from)
+  return (
+    <>
+      <button type="button" onClick={() => setOutput(to)}>
+        edit
+      </button>
+      {bar(output)}
+    </>
+  )
+}
+
+test('an untouched command has nothing unsaved', async () => {
+  await renderWithRouter(<Edited from="/give @p stone" to="/give @p stone" />)
+  await screen.findByRole('button', { name: 'Save…' })
+  expect(useUiStore.getState().unsaved).toBe(false)
+})
+
+test('an edited command is unsaved until it is saved', async () => {
+  const user = userEvent.setup()
+  await renderWithRouter(<Edited from="/give @p stone" to="/give @a stone" />)
+  await user.click(await screen.findByRole('button', { name: 'edit' }))
+  expect(useUiStore.getState().unsaved).toBe(true)
 })

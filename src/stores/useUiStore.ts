@@ -53,6 +53,14 @@ interface UiState {
    * different command, following a URL, or reloading all miss and fall back.
    */
   originFor: (key: string | undefined) => OriginRect | null
+  /**
+   * Whether the command open in the editor has changes closing it would throw away:
+   * edited since it opened and not saved, or a saved command changed since its last
+   * save. Written by `SaveCommandBar`, which is where that is known, and read by
+   * `CommandOverlay` when the editor is about to close.
+   */
+  unsaved: boolean
+  setUnsaved: (unsaved: boolean) => void
 }
 
 export const useUiStore = create<UiState>((set, get) => ({
@@ -63,7 +71,18 @@ export const useUiStore = create<UiState>((set, get) => ({
     const held = get().origin
     return held && held.key === key ? held.rect : null
   },
+  unsaved: false,
+  setUnsaved: (unsaved) => set({ unsaved }),
 }))
+
+/**
+ * The element an editor with `key` opens from: whatever carries `data-origin={key}`,
+ * a saved tile or a pinned generator.
+ */
+export function originElement(key: string | undefined): HTMLElement | null {
+  if (key === undefined) return null
+  return document.querySelector<HTMLElement>(`[data-origin="${CSS.escape(key)}"]`)
+}
 
 /** The rect of an element, in the flattened shape the store holds. */
 export function originOf(element: Element | null): OriginRect | null {

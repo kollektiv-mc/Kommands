@@ -22,8 +22,8 @@ export interface TileDrag {
  * One saved command on the dashboard.
  *
  * A click anywhere copies the command, which is what the tile is for: the product is a
- * string pasted somewhere else. Edit opens it in the generator, growing out of this
- * tile. Dragging moves it among the other tiles.
+ * string pasted somewhere else. Edit, or a double click, opens it in the generator,
+ * growing out of this tile. Dragging moves it among the other tiles.
  *
  * The name is a real button so the copy is reachable by keyboard; the `<li>` handler is
  * the pointer's way to the same thing. The command text fades into the console where it
@@ -94,7 +94,7 @@ export function SavedCommandTile({
         return card(el)
       }}
       {...dragProps}
-      data-saved-id={saved.id}
+      data-origin={saved.id}
       className={
         'border-hairline bg-surface hover:border-border-hover duration-fast relative rounded-lg ' +
         'flex min-h-0 flex-col gap-1.5 overflow-hidden pt-2 pr-2.5 pb-1 pl-3 select-none ' +
@@ -107,7 +107,13 @@ export function SavedCommandTile({
           except the controls row. */}
       <button
         type="button"
-        onClick={() => copy(saved.preview)}
+        onClick={(event) => {
+          // The second press of a double click opens it rather than copying again.
+          if (event.detail < 2) copy(saved.preview)
+        }}
+        onDoubleClick={() => {
+          if (tile.current) onEdit(tile.current)
+        }}
         aria-label={`Copy ${saved.name}`}
         className="absolute inset-0 cursor-copy rounded-lg"
       />

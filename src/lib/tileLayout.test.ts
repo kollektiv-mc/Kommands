@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, test } from 'vitest'
 import {
   chooseColumns,
+  columnNeeds,
+  columnTemplate,
   layoutState,
   MIN_FILL,
   pack,
@@ -178,5 +180,27 @@ describe('planColumns', () => {
     )
     expect(plan.home.size).toBe(12)
     expect(layoutState(many, plan)).toMatchObject({ stretched: 0 })
+  })
+})
+
+test('a column is as wide as the widest tile in it needs', () => {
+  const layout = {
+    cols: 2,
+    place: [
+      { col: 0, row: 0, span: 2 },
+      { col: 1, row: 0, span: 1 },
+      { col: 1, row: 1, span: 1 },
+      { col: 0, row: 2, span: 1, band: true as const },
+    ],
+  }
+  // The band asks for nothing: it spans every column.
+  expect(columnNeeds(layout, [120, 300.2, 356, 900])).toEqual([120, 356])
+})
+
+test('columns that fit the standard width keep the stylesheet', () => {
+  expect(columnTemplate([0, 0])).toBeNull()
+  expect(columnTemplate([0, 356])).toEqual({
+    template: 'minmax(var(--tile-w), 1fr) minmax(max(var(--tile-w), 356px), 1fr)',
+    min: 'calc(var(--tile-w) + max(var(--tile-w), 356px) + 1 * var(--tile-gap))',
   })
 })
