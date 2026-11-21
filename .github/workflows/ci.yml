@@ -13,15 +13,14 @@ permissions:
   contents: read
 
 jobs:
-  # The label gate and the aislop gate are not here: both are shared workflows
-  # vendored from kollektiv into this directory (pr-labelled.yml, aislop.yml),
-  # the same copies Konnekt runs, kept identical by kollektiv's
-  # sync-workflows.sh --check.
+  # The label gate and the aislop gate are not here: both are locked workflows
+  # from the AllesSandro template in this directory (pr-labelled.yml,
+  # aislop.yml).
 
   # The release-notes generator never runs until a release is being cut, which
   # is the worst moment to find out it is wrong. It is pure and offline, so its
-  # tests run on every push instead. The script and the tests are vendored from
-  # kollektiv; .github/changelog.json is this repo's own input to it.
+  # tests run on every push instead. The script and the tests come from the
+  # AllesSandro template; .github/changelog.json is this repo's own input to it.
   release-notes:
     runs-on: ubuntu-latest
     steps:
@@ -34,7 +33,7 @@ jobs:
       - run: python3 .github/scripts/release-notes_test.py
 
   # This repo's own two release scripts, kept in a separate job from the
-  # vendored generator above because only these need `rpm` installed.
+  # template's generator above because only these need `rpm` installed.
   #
   # They decide which tag a release is cut as and whether the snapshot channel
   # has stranded, and neither failure announces itself afterwards: a tag that

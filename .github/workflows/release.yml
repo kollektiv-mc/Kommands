@@ -454,7 +454,7 @@ jobs:
         with:
           subject-path: 'dist-release/kommands-*'
 
-      # The generator is vendored from kollektiv and its only input here is
+      # The generator comes from the AllesSandro template and its only input here is
       # .github/changelog.json, this repo's list of paths that never reach what
       # ships. It drops a pull request whose files all sit under those, and
       # files the rest by their type: label, counting maintenance and

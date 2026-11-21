@@ -19,26 +19,27 @@ pnpm-lock.yaml
 # report drift that does not exist — the same reason .gitattributes pins LF.
 tokens.source.json
 
-# Vendored from kollektiv/plugins/suite-kit/ by that repo's scripts/sync-priority.sh,
-# which byte-compares the two to detect drift. Same reasoning as tokens.source.json
-# above: a Prettier pass here would be reverted on the next sync and would show up
-# in between as drift that does not exist.
-.github/workflows/issue-priority.yml
-
-# Vendored from kollektiv/plugins/suite-kit/workflows/ by that repo's
-# scripts/sync-workflows.sh, which byte-compares the two to detect drift. Same
-# reasoning as issue-priority.yml above.
+# Locked files from the AllesSandro template, re-applied on every template
+# update. A Prettier pass here would turn the next update into a conflict.
+.copier-answers.yml
+.aislop/base.yml
+.claude/rules/copy.md
+.claude/rules/simplicity.md
+.claude/rules/template-files.md
+.claude/rules/typography.md
+.claude/rules/working.md
+.claude/rules/writing.md
+.github/release.yml
 .github/workflows/aislop.yml
 .github/workflows/codeql.yml
+.github/workflows/issue-priority.yml
+.github/workflows/labels.yml
 .github/workflows/pr-labelled.yml
 .github/workflows/scorecard.yml
+.github/workflows/template-guard.yml
 
-# Vendored from kollektiv/.aislop/base.yml by that repo's scripts/sync-aislop.sh, which
-# byte-compares the two. Same reasoning as the entries above.
-.aislop/base.yml
-
-# Vendored by kollektiv's scripts/sync-notes.sh beside the release-notes generator.
-.github/release.yml
+# Written by kollektiv's scripts/sync-labels.sh from design/labels.json.
+.github/labels.json
 
 # Wails' own packaging templates, copied verbatim from the CLI's buildassets
 # and expanded by `wails build` from wails.json. info.json is the only one

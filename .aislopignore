@@ -1,8 +1,7 @@
 # Paths aislop does not score. Same glob semantics as its `exclude`.
 
-# Vendored from kollektiv (suite-kit). Edits are reverted on the next sync, so
-# a finding here is a finding against the upstream file, which kollektiv holds
-# to the same gate.
+# Locked files from the AllesSandro template. A finding here is a finding
+# against the template; a local fix would only conflict on the next update.
 .claude/suite-check.py
 .claude/suite-probe.py
 .claude/suite-memory.py
@@ -11,7 +10,7 @@
 .github/scripts/changelog-section.py
 
 # Generated: the command skeletons and registries from mcmeta, the fingerprint
-# index, and the token sheet (see CLAUDE.md § Conventions, rule 3).
+# index, and the token sheet (see AGENTS.md § Conventions, rule 3).
 src/data/generated
 src/styles/tokens.css
 
