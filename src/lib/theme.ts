@@ -5,7 +5,7 @@
  * green, Kommands is ember orange. That difference cannot live in
  * `tokens.source.json` — it is vendored from `kollektiv/design/tokens.json` and read
  * by *both* products, so an orange written there would turn Konnekt orange too, and
- * the next `sync-tokens.sh` would overwrite it regardless (CLAUDE.md § Conventions,
+ * the next `sync-tokens.sh` would overwrite it regardless (AGENTS.md § Conventions,
  * rule 4).
  *
  * The token source anticipates this: `color.status.accent` is marked

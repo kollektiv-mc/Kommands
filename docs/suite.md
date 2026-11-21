@@ -39,28 +39,25 @@ What _is_ genuinely shared is narrower and more valuable:
   skipped check as passing.
 - **The wording limits.** A test function is named in at most 60 characters, a
   label that is scanned fits in 20, and a message that shares a line with
-  controls stays on that line under 140. kollektiv's `docs/conventions.md`
-  § Wording says why. The `test names stay readable` invariant in
+  controls stays on that line under 140. `.claude/rules/simplicity.md`, from
+  the AllesSandro template, holds them. The `test names stay readable` invariant in
   `.claude/suite.json` holds the first here; the other two wait for a surface
   that needs them.
 - **The copy rules.** Say what a thing is, once: no glyph or accent-coloured
   labels, no slogan headlines, no line that explains the layout, few fixed
-  header facts. Same section of kollektiv's conventions; the list an agent
-  loads is [`.claude/rules/copy.md`](../.claude/rules/copy.md), scoped to the
+  header facts. The list an agent loads is [`.claude/rules/copy.md`](../.claude/rules/copy.md), scoped to the
   files copy is written in. Review holds it, not a gate.
 
 Those five are conventions, not code. They travel as a Claude Code plugin.
 
-Four workflows travel as vendored copies under `.github/workflows/`, put there by
-kollektiv's `sync-workflows.sh` and never edited here: the aislop score
-(`.aislop/base.yml` is the vendored policy; the config extends it), the
-pull-request label check, CodeQL and Scorecard. Both products run the same four
-files, so a version pin or a rule change lands once and is reviewed where it runs;
-a `uses:` reference to a branch of kollektiv would not be. The release-notes
-generator travels as a vendored file (`.github/scripts/release-notes.py`, with its
-tests and GitHub's fallback layout `.github/release.yml`), because a release job
-runs where kollektiv is nowhere on disk; `.github/changelog.json` is the one
-per-repo input, the paths that never reach what ships.
+The generic repo files come from the
+[AllesSandro](https://github.com/sandrogekeler/AllesSandro) template, which every
+repo in the suite adopts directly: the health-check runner (`.claude/suite-*.py`),
+the shared rules in `.claude/rules/`, the aislop, label, CodeQL, Scorecard and
+template-guard workflows, and the release-notes generator with its tests.
+`.copier-answers.yml` records the template version, and Renovate opens a pull
+request for each new one. `.claude/rules/template-files.md` lists the locked files;
+`.github/changelog.json` is this repo's one input to the release-notes generator.
 
 ---
 

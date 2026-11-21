@@ -37,7 +37,7 @@ pnpm build && pnpm check-bundle  # entry-chunk gzip budget
 go vet ./shell/... ./scripts/gen-appicon ./scripts/coverage-floor
 go test ./shell/...
 go run ./scripts/coverage-floor  # shell/ statement-coverage floor, threshold in the script
-python3 .github/scripts/release-notes_test.py  # release-notes classifier, vendored from kollektiv
+python3 .github/scripts/release-notes_test.py  # release-notes classifier, from the AllesSandro template
 python3 .github/scripts/release-tag_test.py    # the release tag ladder
 python3 .github/scripts/version-precedence_test.py  # semver ordering, and rpm's agreement with it
 npx --yes aislop@0.16.0 ci       # AI-slop gate, policy in .aislop/base.yml, ratchet in .aislop/config.yml
@@ -88,7 +88,7 @@ decision made once in a session is invisible to CI and to the next session.
 - [x] `pnpm typecheck` has zero errors.
 - [x] Formatting is Prettier-enforced, not manual, and the **whole tree** is clean —
       `pnpm format:check` covers docs and config, not just `src/`. Non-default
-      settings are in [`CLAUDE.md`](../CLAUDE.md) § Conventions.
+      settings are in [`AGENTS.md`](../AGENTS.md) § Conventions.
 - [ ] No `any` anywhere — use `unknown` and narrow. Every exception carries a
       comment saying which upstream type is wrong.
       Verify: `grep -rnE ':\s*any\b|<any>|as any' src scripts` — expect no matches.
@@ -115,8 +115,8 @@ decision made once in a session is invisible to CI and to the next session.
       and caches, and deliberately does **not** cover `src/data/generated/`,
       `tokens.source.json`, or `src/styles/tokens.css`.
 - [ ] The docs still describe the real tree. Each fact lives in exactly one file
-      ([`CLAUDE.md`](../CLAUDE.md)); a fact stated twice is a fact that will drift.
-      Verify: read CLAUDE.md's command table against `package.json`'s `scripts`, and
+      ([`AGENTS.md`](../AGENTS.md)); a fact stated twice is a fact that will drift.
+      Verify: read AGENTS.md's command block against `package.json`'s `scripts`, and
       its docs table against `ls docs/`.
 - [ ] No dead code left after a refactor — unused exports, orphaned files.
       Verify: for each file the last refactor touched, `grep -rn "<exported name>" src`;

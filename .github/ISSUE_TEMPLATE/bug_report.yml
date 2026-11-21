@@ -68,7 +68,6 @@ body:
     validations:
       required: true
 
-  # >>> suite:priority. Vendored from kollektiv by scripts/sync-priority.sh. Edit it there.
   - type: dropdown
     id: priority
     attributes:
@@ -80,7 +79,6 @@ body:
         - 'Minor: it would be nice, but it is not in my way'
     validations:
       required: true
-  # <<< suite:priority
 
   - type: textarea
     id: extra
