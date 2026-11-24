@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { HERO_SEQUENCE, HERO_SHAPES } from './hero'
+import { HERO_SLOTS, HERO_SHAPES } from './hero'
 import { exprText } from '../../lib/hero/player'
 import { cellCentre } from '../../lib/hero/voxels'
 import type { HeroArg, HeroCommand, ShapeState } from '../../lib/hero/types'
@@ -16,18 +16,15 @@ const head = (h: HeroCommand) => {
   return part?.kind === 'literal' ? part.text : (part?.value ?? '')
 }
 
-test('the hero plays the order docs/home-page.md fixes', () => {
-  expect(HERO_SEQUENCE.map((slot) => [...new Set(slot.map(head))].join(' | '))).toEqual([
+test('the hero plays the commands docs/home-page.md lists', () => {
+  expect(HERO_SLOTS.map((slot) => [...new Set(slot.map(head))].join(' | '))).toEqual([
     '/give',
     '/effect give',
     '//generate',
     '/execute',
     '//replace | /brush | //set | //smooth',
-    '//generate',
     '/data merge | /data modify',
     '/playsound',
-    '//replace | /brush | //set | //smooth',
-    '//generate',
     '/particle',
   ])
 })
@@ -43,7 +40,7 @@ const arg = (h: HeroCommand, label: string) => {
 }
 
 test('the Palette Editor lines are what its serializers write', () => {
-  const lines = [...new Set(HERO_SEQUENCE.flat())].filter((h) => h.parts[0]?.kind === 'arg')
+  const lines = [...new Set(HERO_SLOTS.flat())].filter((h) => h.parts[0]?.kind === 'arg')
   const mask = (include: string[], exclude: string[], chance: number | '') =>
     serializeMask({ include, exclude, chance, rules: [] })
   const pattern = (...entries: [number, string][]) =>

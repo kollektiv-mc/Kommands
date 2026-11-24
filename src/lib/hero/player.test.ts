@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { cutRows, startHero, takeTurns } from './player'
-import { HERO_SEQUENCE, HERO_SHAPES } from '../../data/home/hero'
-import type { HeroCommand } from './types'
+import { cutRows, heroPlays, shuffleRound, startHero } from './player'
+import { HERO_SLOTS, HERO_SHAPES } from '../../data/home/hero'
+import type { HeroCommand, HeroSlot } from './types'
 
 /** What a command starts with: its own word, or the Palette Editor's Command tile. */
 const head = (h: HeroCommand) => {
@@ -10,7 +10,7 @@ const head = (h: HeroCommand) => {
 }
 
 const command = (first: string): HeroCommand => {
-  const found = HERO_SEQUENCE.flat().find((h) => head(h) === first)
+  const found = HERO_SLOTS.flat().find((h) => head(h) === first)
   if (!found) throw new Error(`no ${first} in the hero`)
   return found
 }
@@ -21,11 +21,14 @@ afterEach(() => {
   document.body.textContent = ''
 })
 
+/** The loop's order is random, so a //generate command is given the first shape only. */
+const FIRST_SHAPE = HERO_SHAPES.slice(0, 1)
+
 /** Reduced motion lays a command out finished, in the same microtask chain, and holds it. */
 async function play(h: HeroCommand) {
   const host = document.createElement('div')
   document.body.append(host)
-  stop = startHero(host, [[h]], HERO_SHAPES, true)
+  stop = startHero(host, [[h]], FIRST_SHAPE, true)
   for (let i = 0; i < 20; i++) await Promise.resolve()
   return host
 }
@@ -69,7 +72,7 @@ test('a command whose control holds only chips drops the control', async () => {
 })
 
 test('every variation of every command lays out finished', async () => {
-  for (const h of HERO_SEQUENCE.flat()) {
+  for (const h of HERO_SLOTS.flat()) {
     const host = await play(h)
     expect(host.querySelector('.wait'), head(h)).toBeNull()
     stop()
@@ -89,23 +92,26 @@ test('the Palette Editor shows its command as a tile, and a pattern as its block
   expect(texts(host, '.hp-add')).toEqual(['+ rule', '+ block'])
 })
 
-test('a slot plays its variations in turn, and a slot met twice shares the count', () => {
-  const next = takeTurns()
-  const palette = HERO_SEQUENCE.find((slot) => slot.some((h) => head(h) === '//replace'))
-  const give = HERO_SEQUENCE.find((slot) => slot.some((h) => head(h) === '/give'))
-  if (!palette || !give) throw new Error('no Palette Editor or /give slot')
-  const heads = [palette, give, palette, palette].map((slot) => {
-    const h = next(slot)
-    return h ? head(h) : ''
-  })
-  expect(heads).toEqual(['//replace', '/give', '/brush', '//set'])
-  expect(next(give)?.parts[1]).toMatchObject({ value: '@a', raw: '[team=blue]' })
+test('a round plays everything once, in a fresh random order', () => {
+  const plays = heroPlays(HERO_SLOTS, HERO_SHAPES)
+  expect(plays.filter((p) => p.v).map((p) => p.v)).toEqual(HERO_SHAPES)
+  const firsts = new Set<unknown>()
+  let last: HeroSlot | undefined
+  for (let r = 0; r < 50; r++) {
+    const round = shuffleRound(plays, last)
+    expect(new Set(round)).toEqual(new Set(plays))
+    // No command twice in a row, within a round or across the wrap from the last.
+    round.forEach((p, i) => expect(p.slot).not.toBe(i ? round[i - 1]?.slot : last))
+    firsts.add(round[0])
+    last = round.at(-1)?.slot
+  }
+  expect(firsts.size).toBeGreaterThan(1)
 })
 
 test('stopping ends the loop without an error', async () => {
   const host = document.createElement('div')
   document.body.append(host)
-  const end = startHero(host, HERO_SEQUENCE, HERO_SHAPES, false)
+  const end = startHero(host, HERO_SLOTS, HERO_SHAPES, false)
   end()
   await new Promise((r) => setTimeout(r, 30))
   expect(host.querySelector('.hero-cmd')).not.toBeNull()
@@ -124,7 +130,7 @@ async function playThrough(h: HeroCommand) {
   Object.defineProperty(Element.prototype, 'animate', { value: animate, configurable: true })
   const host = document.createElement('div')
   document.body.append(host)
-  stop = startHero(host, [[h]], HERO_SHAPES, false)
+  stop = startHero(host, [[h]], FIRST_SHAPE, false)
   for (let i = 0; i < 5000 && !host.hasAttribute('data-out'); i++) await Promise.resolve()
   stop()
   raf.mockRestore()

@@ -525,20 +525,16 @@ const PALETTE: HeroSlot = [
 ]
 
 /**
- * The loop, in play order: `//generate` comes round every third or fourth command.
- * Each slot holds its variations, and plays the next one each time it comes round, so
- * the two Palette Editor slots between them walk its commands twice as fast.
+ * The commands the loop plays, each slot with its variations. The loop deals every
+ * variation once a round, `//generate` once per shape, in a fresh random order.
  */
-export const HERO_SEQUENCE: readonly HeroSlot[] = [
+export const HERO_SLOTS: readonly HeroSlot[] = [
   GIVE,
   EFFECT,
   GENERATE,
   EXECUTE,
   PALETTE,
-  GENERATE,
   DATA,
   PLAYSOUND,
-  PALETTE,
-  GENERATE,
   PARTICLE,
 ]

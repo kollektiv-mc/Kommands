@@ -425,43 +425,61 @@ async function playCommand(host: HTMLElement, h: HeroCommand, v: HeroShape | nul
   await c.wait(500)
 }
 
+/** One play of the loop: a variation, and the shape it builds when it is `//generate`. */
+export interface HeroPlay {
+  slot: HeroSlot
+  h: HeroCommand
+  v: HeroShape | null
+}
+
+/** Every variation once, and `//generate` once per shape. */
+export function heroPlays(slots: readonly HeroSlot[], shapes: readonly HeroShape[]): HeroPlay[] {
+  return slots.flatMap((slot) =>
+    slot.flatMap((h): HeroPlay[] =>
+      h.viz === 'shape' ? shapes.map((v) => ({ slot, h, v })) : [{ slot, h, v: null }],
+    ),
+  )
+}
+
 /**
- * Which variation each slot plays next: the one after the last it played. A slot the
- * loop meets twice is one array, so it keeps one count and never repeats itself.
+ * One round of the loop in a fresh random order: every play once, and never one command
+ * twice in a row, across the wrap from the `after` slot too.
  */
-export function takeTurns(): (slot: HeroSlot) => HeroCommand | undefined {
-  const played = new Map<HeroSlot, number>()
-  return (slot) => {
-    const n = played.get(slot) ?? 0
-    played.set(slot, n + 1)
-    return slot[n % slot.length]
+export function shuffleRound(plays: readonly HeroPlay[], after?: HeroSlot): HeroPlay[] {
+  const round = [...plays]
+  // About one shuffle in forty qualifies; the cap only ends a set where none can.
+  for (let tries = 0; tries < 1000; tries++) {
+    for (let i = round.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const a = round[i]
+      const b = round[j]
+      if (a && b) [round[i], round[j]] = [b, a]
+    }
+    if (round.every((p, i) => p.slot !== (i ? round[i - 1]?.slot : after))) break
   }
+  return round
 }
 
 /** Play the loop into `host` until the returned function is called. */
 export function startHero(
   host: HTMLElement,
-  sequence: readonly HeroSlot[],
+  slots: readonly HeroSlot[],
   shapes: readonly HeroShape[],
   reduced: boolean,
 ): () => void {
   const c = clock(reduced)
-  let shapeIndex = -1
-  const next = takeTurns()
+  const plays = heroPlays(slots, shapes)
   const run = async () => {
+    if (!plays.length) return
     try {
       // Every size the loop measures is the web font's, so it waits for it.
       if ('fonts' in document) await document.fonts.ready
-      for (let i = 0; ; i = (i + 1) % sequence.length) {
-        const slot = sequence[i]
-        const h = slot && next(slot)
-        if (!h) return
-        const v =
-          h.viz === 'shape'
-            ? (shapes[(shapeIndex = (shapeIndex + 1) % shapes.length)] ?? null)
-            : null
-        await playCommand(host, h, v, c)
-        if (c.fast) return
+      for (let last: HeroSlot | undefined; ;) {
+        for (const p of shuffleRound(plays, last)) {
+          await playCommand(host, p.h, p.v, c)
+          if (c.fast) return
+          last = p.slot
+        }
       }
     } catch (e) {
       if (e !== ABORT) throw e

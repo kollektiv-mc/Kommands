@@ -93,5 +93,5 @@ export interface HeroCommand {
   parts: readonly HeroPart[]
 }
 
-/** One stop of the loop: the variations it plays in turn, one each time it comes round. */
+/** One command of the loop and its variations; the loop never plays it twice in a row. */
 export type HeroSlot = readonly HeroCommand[]
