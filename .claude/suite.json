@@ -39,6 +39,10 @@
         "run": "pnpm format:check"
       },
       {
+        "name": "case-only path clash",
+        "run": "git ls-files src | sed -E 's/\\.[jt]sx?$//' | sort -u | sort -f | uniq -di | awk '{print $0 \" clashes with another module path in letter case only\"; bad=1} END {exit bad}'"
+      },
+      {
         "name": "bundle budget",
         "run": "pnpm build && pnpm check-bundle"
       },

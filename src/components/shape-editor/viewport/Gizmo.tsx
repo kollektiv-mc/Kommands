@@ -7,7 +7,7 @@ import { find } from '../../../worldedit/stack/edit'
 import { pivotAxes } from '../../../worldedit/stack/lower'
 import type { Layer } from '../../../worldedit/stack/layers'
 import { stepOf } from './faces'
-import { snapToBlocks, transformOf } from './gizmo'
+import { snapToBlocks, transformOf } from './gizmoTransform'
 
 const DEG = Math.PI / 180
 
