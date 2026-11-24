@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { startHero } from '../../lib/hero/player'
 import { reducedMotion } from '../../lib/useMotion'
-import { HERO_SEQUENCE, HERO_SHAPES } from '../../data/home/hero'
+import { HERO_SLOTS, HERO_SHAPES } from '../../data/home/hero'
 
 /**
  * The hero: a command that types itself, then turns into its own editor.
@@ -15,7 +15,7 @@ export function Hero() {
   useEffect(() => {
     const node = host.current
     if (!node) return
-    return startHero(node, HERO_SEQUENCE, HERO_SHAPES, reducedMotion())
+    return startHero(node, HERO_SLOTS, HERO_SHAPES, reducedMotion())
   }, [])
 
   return <div ref={host} className="hero" aria-hidden="true" />

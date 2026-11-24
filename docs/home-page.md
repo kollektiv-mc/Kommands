@@ -46,11 +46,10 @@ command that types itself in large monospace, then turns into its own editor:
 Motion rule: every change that alters a size pushes its neighbours with animation, on one
 curve (1.1s, `cubic-bezier(.45, 0, .2, 1)`). Nothing snaps.
 
-The loop is a fixed order of slots that shows `//generate` every third or fourth time
-(`/give`, `/effect`, `//generate`, `/execute`, Palette Editor, `//generate`, `/data`,
-`/playsound`, Palette Editor, `//generate`, `/particle`). A slot can hold several
-variations and plays the next one each time it comes round; the two Palette Editor slots
-share one count, so they never repeat each other. Each command uses as many of its
+The loop plays in rounds, each in a fresh random order, reshuffled on every page load. A
+round plays every variation below once and `//generate` once per structure, so
+`//generate` comes round about every fourth time. The same command never plays twice in
+a row, within a round or across the wrap into the next. Each command uses as many of its
 arguments as it can:
 
 | Slot           | Variations                                                                                                                                                                                                                                                                                                                      | Tiles                                                                                                                                                                               |
@@ -71,7 +70,7 @@ The Palette Editor lines are what its own serializers write for WorldEdit 7.3.6,
 dropdowns under its field, are not in the editor today. The hero shows them as the editor
 should have them.
 
-**`//generate`** cycles six structures, built up and cut away by turns: a cherry pagoda
+**`//generate`** plays six structures, built up or cut away: a cherry pagoda
 whose tiers multiply, a colosseum whose arena is cut from an arched drum, the heart, a
 keep with turrets and battlements whose gate is cut, a double helix that winds tighter,
 and a bridge between two towers whose arch is cut. A cursor drags the shape's gizmo in a
