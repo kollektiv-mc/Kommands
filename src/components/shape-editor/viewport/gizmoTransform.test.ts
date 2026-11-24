@@ -1,6 +1,6 @@
 import { Group, Object3D } from 'three'
 import { describe, expect, test } from 'vitest'
-import { snapToBlocks, transformOf } from './gizmo'
+import { snapToBlocks, transformOf } from './gizmoTransform'
 
 describe('the gizmo', () => {
   test('a transform is kept rounded, in degrees', () => {
